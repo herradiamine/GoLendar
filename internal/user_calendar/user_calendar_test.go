@@ -273,6 +273,122 @@ func TestUserCalendarErrorCases(t *testing.T) {
 			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
 		}
 	})
+
+	t.Run("Create User Calendar Link with Missing Required Fields", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"user_id": 1,
+			// calendar_id manquant
+		}
+
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user-calendar", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Create User Calendar Link with Invalid JSON", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/user-calendar", bytes.NewBuffer([]byte("invalid json")))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Update User Calendar Link with Invalid JSON", func(t *testing.T) {
+		req, _ := http.NewRequest("PUT", "/user-calendar/1", bytes.NewBuffer([]byte("invalid json")))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Get User Calendar Link with Invalid ID", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user-calendar/invalid", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Update User Calendar Link with Invalid ID", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"user_id":     1,
+			"calendar_id": 1,
+		}
+
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("PUT", "/user-calendar/invalid", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Delete User Calendar Link with Invalid ID", func(t *testing.T) {
+		req, _ := http.NewRequest("DELETE", "/user-calendar/invalid", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Create User Calendar Link with Negative User ID", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"user_id":     -1,
+			"calendar_id": 1,
+		}
+
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user-calendar", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("Create User Calendar Link with Negative Calendar ID", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"user_id":     1,
+			"calendar_id": -1,
+		}
+
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user-calendar", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
 }
 
 func stringPtr(s string) *string {

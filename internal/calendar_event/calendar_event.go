@@ -56,22 +56,11 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 
 // Add crée un nouvel événement
 func (CalendarEventStruct) Add(c *gin.Context) {
-	var req common.CreateEventRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "Données invalides: " + err.Error(),
-		})
-		return
-	}
-
-	// Récupérer l'utilisateur depuis le contexte (à implémenter avec authentification)
-	// Pour l'instant, on va utiliser un paramètre user_id dans la requête
 	userIDStr := c.Query("user_id")
 	if userIDStr == "" {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "user_id requis dans les paramètres de requête",
+			Error:   "user_id requis",
 		})
 		return
 	}
@@ -81,6 +70,24 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   "user_id invalide",
+		})
+		return
+	}
+
+	var req common.CreateEventRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, common.JSONResponse{
+			Success: false,
+			Error:   "Données invalides: " + err.Error(),
+		})
+		return
+	}
+
+	// Validation des données
+	if req.Duration < 1 {
+		c.JSON(http.StatusBadRequest, common.JSONResponse{
+			Success: false,
+			Error:   "La durée doit être supérieure à 0",
 		})
 		return
 	}
@@ -205,6 +212,15 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   "Données invalides: " + err.Error(),
+		})
+		return
+	}
+
+	// Validation des données
+	if req.Duration != nil && *req.Duration < 1 {
+		c.JSON(http.StatusBadRequest, common.JSONResponse{
+			Success: false,
+			Error:   "La durée doit être supérieure à 0",
 		})
 		return
 	}

@@ -3,11 +3,13 @@ package user
 
 import (
 	"database/sql"
-	"github.com/gin-gonic/gin"
 	"go-averroes/internal/common"
-	"golang.org/x/crypto/bcrypt"
 	"net/http"
+	"regexp"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type UserStruct struct{}
@@ -140,6 +142,30 @@ func (UserStruct) Update(c *gin.Context) {
 			Error:   "Données invalides: " + err.Error(),
 		})
 		return
+	}
+
+	// Validation des données
+	if req.Email != nil {
+		// Validation de l'email
+		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+		if !emailRegex.MatchString(*req.Email) {
+			c.JSON(http.StatusBadRequest, common.JSONResponse{
+				Success: false,
+				Error:   "Format d'email invalide",
+			})
+			return
+		}
+	}
+
+	if req.Password != nil {
+		// Validation du mot de passe
+		if len(*req.Password) < 6 {
+			c.JSON(http.StatusBadRequest, common.JSONResponse{
+				Success: false,
+				Error:   "Le mot de passe doit contenir au moins 6 caractères",
+			})
+			return
+		}
 	}
 
 	// Vérifier si l'utilisateur existe
