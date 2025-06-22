@@ -1,0 +1,167 @@
+package user
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"go-averroes/internal/common"
+	"go-averroes/testutils"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
+)
+
+func setupTestRouter() *gin.Engine {
+	router := testutils.SetupTestRouter()
+
+	// Configuration des routes pour les tests utilisateur
+	router.GET("/user/:id", func(c *gin.Context) { User.Get(c) })
+	router.POST("/user", func(c *gin.Context) { User.Add(c) })
+	router.PUT("/user/:id", func(c *gin.Context) { User.Update(c) })
+	router.DELETE("/user/:id", func(c *gin.Context) { User.Delete(c) })
+
+	return router
+}
+
+func TestUserCRUD(t *testing.T) {
+	router := setupTestRouter()
+	var userID int
+	uniqueEmail := fmt.Sprintf("jean.dupont+%d@test.com", time.Now().UnixNano())
+
+	t.Run("Create User", func(t *testing.T) {
+		payload := common.CreateUserRequest{
+			Lastname:  "Dupont",
+			Firstname: "Jean",
+			Email:     uniqueEmail,
+			Password:  "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusCreated {
+			t.Errorf("Expected status %d, got %d", http.StatusCreated, w.Code)
+		}
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err != nil {
+			t.Errorf("Erreur parsing JSON: %v", err)
+		}
+		if !response.Success {
+			t.Errorf("Expected success true, got false")
+		}
+		// Récupérer l'user_id créé
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if id, ok := data["user_id"]; ok {
+				userID = int(id.(float64))
+			}
+		}
+	})
+
+	t.Run("Get User", func(t *testing.T) {
+		url := "/user/" + itoa(userID)
+		req, _ := http.NewRequest("GET", url, nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err != nil {
+			t.Errorf("Erreur parsing JSON: %v", err)
+		}
+		if !response.Success {
+			t.Errorf("Expected success true, got false")
+		}
+	})
+
+	t.Run("Update User", func(t *testing.T) {
+		payload := common.UpdateUserRequest{
+			Lastname:  stringPtr("Martin"),
+			Firstname: stringPtr("Pierre"),
+		}
+		jsonData, _ := json.Marshal(payload)
+		url := "/user/" + itoa(userID)
+		req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err != nil {
+			t.Errorf("Erreur parsing JSON: %v", err)
+		}
+		if !response.Success {
+			t.Errorf("Expected success true, got false")
+		}
+	})
+
+	t.Run("Delete User", func(t *testing.T) {
+		url := "/user/" + itoa(userID)
+		req, _ := http.NewRequest("DELETE", url, nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err != nil {
+			t.Errorf("Erreur parsing JSON: %v", err)
+		}
+		if !response.Success {
+			t.Errorf("Expected success true, got false")
+		}
+	})
+}
+
+func itoa(i int) string {
+	return fmt.Sprintf("%d", i)
+}
+
+func TestUserErrorCases(t *testing.T) {
+	router := setupTestRouter()
+
+	t.Run("Get Non-existent User", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user/999", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+		}
+	})
+
+	t.Run("Create User with Invalid Email", func(t *testing.T) {
+		payload := common.CreateUserRequest{
+			Lastname:  "Test",
+			Firstname: "User",
+			Email:     "invalid-email",
+			Password:  "password123",
+		}
+
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+}
+
+func stringPtr(s string) *string {
+	return &s
+}
