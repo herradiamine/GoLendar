@@ -39,12 +39,14 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			slog.Error(common.LogUserCalendarGet + " - liaison non trouvée")
 			c.JSON(http.StatusNotFound, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrUserCalendarNotFound,
 			})
 			return
 		}
+		slog.Error(common.LogUserCalendarGet + " - erreur SQL : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
@@ -52,6 +54,7 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogUserCalendarGet + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Data:    userCalendar,
@@ -76,6 +79,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
+		slog.Error(common.LogUserCalendarAdd + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
@@ -88,6 +92,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	var existingLink common.UserCalendar
 	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL", userID, calendarID).Scan(&existingLink.UserCalendarID)
 	if !errors.Is(err, sql.ErrNoRows) {
+		slog.Error(common.LogUserCalendarAdd + " - conflit : liaison déjà existante")
 		c.JSON(http.StatusConflict, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserCalendarConflict,
@@ -101,6 +106,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 		VALUES (?, ?, NOW())
 	`, userID, calendarID)
 	if err != nil {
+		slog.Error(common.LogUserCalendarAdd + " - erreur lors de l'ajout de la liaison : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserCalendarLinkCreation,
@@ -112,6 +118,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 
 	// Valider la transaction
 	if err := tx.Commit(); err != nil {
+		slog.Error(common.LogUserCalendarAdd + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionCommit,
@@ -119,6 +126,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogUserCalendarAdd + " - succès")
 	c.JSON(http.StatusCreated, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessCreateUserCalendar,
@@ -144,6 +152,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
+		slog.Error(common.LogUserCalendarUpdate + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
@@ -156,6 +165,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	var existingLink common.UserCalendar
 	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL", userID, calendarID).Scan(&existingLink.UserCalendarID)
 	if errors.Is(err, sql.ErrNoRows) {
+		slog.Error(common.LogUserCalendarUpdate + " - liaison non trouvée")
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserCalendarNotFound,
@@ -166,6 +176,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	// Ici, on pourrait mettre à jour d'autres champs si besoin (ex : updated_at).
 	_, err = tx.Exec("UPDATE user_calendar SET updated_at = NOW() WHERE user_id = ? AND calendar_id = ?", userID, calendarID)
 	if err != nil {
+		slog.Error(common.LogUserCalendarUpdate + " - erreur lors de la mise à jour de la liaison : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserCalendarUpdate,
@@ -174,6 +185,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	}
 
 	if err := tx.Commit(); err != nil {
+		slog.Error(common.LogUserCalendarUpdate + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionCommit,
@@ -181,6 +193,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogUserCalendarUpdate + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessUpdateUserCalendar,
@@ -205,6 +218,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
+		slog.Error(common.LogUserCalendarDelete + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
@@ -217,6 +231,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	var existingLink common.UserCalendar
 	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL", userID, calendarID).Scan(&existingLink.UserCalendarID)
 	if errors.Is(err, sql.ErrNoRows) {
+		slog.Error(common.LogUserCalendarDelete + " - liaison non trouvée")
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserCalendarNotFound,
@@ -226,6 +241,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 
 	_, err = tx.Exec("UPDATE user_calendar SET deleted_at = NOW() WHERE user_id = ? AND calendar_id = ?", userID, calendarID)
 	if err != nil {
+		slog.Error(common.LogUserCalendarDelete + " - erreur lors de la suppression de la liaison : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserCalendarDelete,
@@ -234,6 +250,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	}
 
 	if err := tx.Commit(); err != nil {
+		slog.Error(common.LogUserCalendarDelete + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionCommit,
@@ -241,6 +258,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogUserCalendarDelete + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessDeleteUserCalendar,

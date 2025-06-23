@@ -21,9 +21,11 @@ func (UserStruct) Get(c *gin.Context) {
 	slog.Info(common.LogUserGet)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
+		slog.Error(common.LogUserGet + " - utilisateur non trouvé dans le contexte")
 		return
 	}
 
+	slog.Info(common.LogUserGet + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Data:    userData,
@@ -35,9 +37,10 @@ func (UserStruct) Add(c *gin.Context) {
 	slog.Info(common.LogUserAdd)
 	var req common.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error(common.LogUserAdd + " - données invalides : " + err.Error())
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "Données invalides: " + err.Error(),
+			Error:   common.ErrInvalidData + ": " + err.Error(),
 		})
 		return
 	}
@@ -46,6 +49,7 @@ func (UserStruct) Add(c *gin.Context) {
 	var existingID int
 	err := common.DB.QueryRow("SELECT user_id FROM user WHERE email = ? AND deleted_at IS NULL", req.Email).Scan(&existingID)
 	if err != sql.ErrNoRows {
+		slog.Error(common.LogUserAdd + " - utilisateur déjà existant")
 		c.JSON(http.StatusConflict, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserAlreadyExists,
@@ -56,6 +60,7 @@ func (UserStruct) Add(c *gin.Context) {
 	// Hasher le mot de passe
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
+		slog.Error(common.LogUserAdd + " - erreur lors du hash du mot de passe : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrPasswordHashing,
@@ -63,23 +68,23 @@ func (UserStruct) Add(c *gin.Context) {
 		return
 	}
 
-	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
+		slog.Error(common.LogUserAdd + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
-	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+	defer tx.Rollback()
 
-	// Insérer l'utilisateur
 	result, err := tx.Exec(`
 		INSERT INTO user (lastname, firstname, email, created_at) 
 		VALUES (?, ?, ?, NOW())
 	`, req.Lastname, req.Firstname, req.Email)
 	if err != nil {
+		slog.Error(common.LogUserAdd + " - erreur lors de la création de l'utilisateur : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserCreation,
@@ -89,12 +94,12 @@ func (UserStruct) Add(c *gin.Context) {
 
 	userID, _ := result.LastInsertId()
 
-	// Insérer le mot de passe
 	_, err = tx.Exec(`
 		INSERT INTO user_password (user_id, password_hash, created_at) 
 		VALUES (?, ?, NOW())
 	`, userID, string(hashedPassword))
 	if err != nil {
+		slog.Error(common.LogUserAdd + " - erreur lors de la création du mot de passe : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrPasswordCreation,
@@ -102,8 +107,8 @@ func (UserStruct) Add(c *gin.Context) {
 		return
 	}
 
-	// Valider la transaction
 	if err := tx.Commit(); err != nil {
+		slog.Error(common.LogUserAdd + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionCommit,
@@ -111,6 +116,7 @@ func (UserStruct) Add(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogUserAdd + " - succès")
 	c.JSON(http.StatusCreated, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessCreateUser,
@@ -123,12 +129,14 @@ func (UserStruct) Update(c *gin.Context) {
 	slog.Info(common.LogUserUpdate)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
+		slog.Error(common.LogUserUpdate + " - utilisateur non trouvé dans le contexte")
 		return
 	}
 	userID := userData.UserID
 
 	var req common.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error(common.LogUserUpdate + " - données invalides : " + err.Error())
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   "Données invalides: " + err.Error(),
@@ -136,11 +144,10 @@ func (UserStruct) Update(c *gin.Context) {
 		return
 	}
 
-	// Validation des données
 	if req.Email != nil {
-		// Validation de l'email
 		emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 		if !emailRegex.MatchString(*req.Email) {
+			slog.Error(common.LogUserUpdate + " - format email invalide")
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrInvalidEmailFormat,
@@ -150,8 +157,8 @@ func (UserStruct) Update(c *gin.Context) {
 	}
 
 	if req.Password != nil {
-		// Validation du mot de passe
 		if len(*req.Password) < 6 {
+			slog.Error(common.LogUserUpdate + " - mot de passe trop court")
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrPasswordTooShort,
@@ -160,18 +167,17 @@ func (UserStruct) Update(c *gin.Context) {
 		}
 	}
 
-	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
+		slog.Error(common.LogUserUpdate + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
-	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+	defer tx.Rollback()
 
-	// Construire la requête de mise à jour
 	query := "UPDATE user SET updated_at = NOW()"
 	var args []interface{}
 
@@ -184,10 +190,10 @@ func (UserStruct) Update(c *gin.Context) {
 		args = append(args, *req.Firstname)
 	}
 	if req.Email != nil {
-		// Vérifier si le nouvel email existe déjà
 		var existingID int
 		err = tx.QueryRow("SELECT user_id FROM user WHERE email = ? AND user_id != ? AND deleted_at IS NULL", *req.Email, userID).Scan(&existingID)
 		if err != sql.ErrNoRows {
+			slog.Error(common.LogUserUpdate + " - email déjà utilisé")
 			c.JSON(http.StatusConflict, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrUserAlreadyExists,
@@ -203,6 +209,7 @@ func (UserStruct) Update(c *gin.Context) {
 
 	_, err = tx.Exec(query, args...)
 	if err != nil {
+		slog.Error(common.LogUserUpdate + " - erreur lors de la mise à jour de l'utilisateur : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserUpdate,
@@ -210,10 +217,10 @@ func (UserStruct) Update(c *gin.Context) {
 		return
 	}
 
-	// Mettre à jour le mot de passe si fourni
 	if req.Password != nil {
 		hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
 		if err != nil {
+			slog.Error(common.LogUserUpdate + " - erreur lors du hash du mot de passe : " + err.Error())
 			c.JSON(http.StatusInternalServerError, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrPasswordHashing,
@@ -227,6 +234,7 @@ func (UserStruct) Update(c *gin.Context) {
 			WHERE user_id = ?
 		`, string(hashedPassword), userID)
 		if err != nil {
+			slog.Error(common.LogUserUpdate + " - erreur lors de la mise à jour du mot de passe : " + err.Error())
 			c.JSON(http.StatusInternalServerError, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrPasswordUpdate,
@@ -235,8 +243,8 @@ func (UserStruct) Update(c *gin.Context) {
 		}
 	}
 
-	// Valider la transaction
 	if err := tx.Commit(); err != nil {
+		slog.Error(common.LogUserUpdate + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionCommit,
@@ -244,6 +252,7 @@ func (UserStruct) Update(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogUserUpdate + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessUserUpdate,
@@ -255,24 +264,25 @@ func (UserStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogUserDelete)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
+		slog.Error(common.LogUserDelete + " - utilisateur non trouvé dans le contexte")
 		return
 	}
 	userID := userData.UserID
 
-	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
+		slog.Error(common.LogUserDelete + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
-	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+	defer tx.Rollback()
 
-	// Soft delete de l'utilisateur
 	_, err = tx.Exec("UPDATE user SET deleted_at = NOW() WHERE user_id = ?", userID)
 	if err != nil {
+		slog.Error(common.LogUserDelete + " - erreur lors de la suppression de l'utilisateur : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserDelete,
@@ -280,9 +290,9 @@ func (UserStruct) Delete(c *gin.Context) {
 		return
 	}
 
-	// Soft delete du mot de passe
 	_, err = tx.Exec("UPDATE user_password SET deleted_at = NOW() WHERE user_id = ?", userID)
 	if err != nil {
+		slog.Error(common.LogUserDelete + " - erreur lors de la suppression du mot de passe : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrPasswordDelete,
@@ -290,8 +300,8 @@ func (UserStruct) Delete(c *gin.Context) {
 		return
 	}
 
-	// Valider la transaction
 	if err := tx.Commit(); err != nil {
+		slog.Error(common.LogUserDelete + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionCommit,
@@ -299,6 +309,7 @@ func (UserStruct) Delete(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogUserDelete + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessUserDelete,

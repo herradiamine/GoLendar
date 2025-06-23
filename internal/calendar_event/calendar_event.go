@@ -27,6 +27,7 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
+		slog.Error(common.LogEventGet + " - event_id invalide")
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidEventID,
@@ -43,12 +44,14 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
+			slog.Error(common.LogEventGet + " - événement non trouvé")
 			c.JSON(http.StatusNotFound, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrEventNotFound,
 			})
 			return
 		}
+		slog.Error(common.LogEventGet + " - erreur SQL : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors de la récupération de l'événement",
@@ -56,6 +59,7 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogEventGet + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Data:    event,
@@ -76,6 +80,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 
 	var req common.CreateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error(common.LogEventAdd + " - données invalides : " + err.Error())
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidData + ": " + err.Error(),
@@ -83,8 +88,8 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		return
 	}
 
-	// Validation des données
 	if req.Duration < 1 {
+		slog.Error(common.LogEventAdd + " - durée invalide")
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidDuration,
@@ -103,6 +108,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
+		slog.Error(common.LogEventAdd + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors du démarrage de la transaction",
@@ -117,6 +123,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		VALUES (?, ?, ?, ?, ?, NOW())
 	`, req.Title, req.Description, req.Start, req.Duration, canceled)
 	if err != nil {
+		slog.Error(common.LogEventAdd + " - erreur lors de la création de l'événement : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrEventCreation,
@@ -132,6 +139,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		VALUES (?, ?, NOW())
 	`, calendarID, eventID)
 	if err != nil {
+		slog.Error(common.LogEventAdd + " - erreur lors de la création de la liaison calendar_event : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrCalendarEventLink,
@@ -141,6 +149,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 
 	// Valider la transaction
 	if err := tx.Commit(); err != nil {
+		slog.Error(common.LogEventAdd + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionCommit,
@@ -148,6 +157,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogEventAdd + " - succès")
 	c.JSON(http.StatusCreated, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessCreateEvent,
@@ -170,6 +180,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
+		slog.Error(common.LogEventUpdate + " - event_id invalide")
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidEventID,
@@ -179,6 +190,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 
 	var req common.UpdateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error(common.LogEventUpdate + " - données invalides : " + err.Error())
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidData + ": " + err.Error(),
@@ -186,8 +198,8 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 		return
 	}
 
-	// Validation des données
 	if req.Duration != nil && *req.Duration < 1 {
+		slog.Error(common.LogEventUpdate + " - durée invalide")
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidDuration,
@@ -195,10 +207,10 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 		return
 	}
 
-	// Vérifier si l'événement existe
 	var existingEvent common.Event
 	err = common.DB.QueryRow("SELECT event_id FROM event WHERE event_id = ? AND deleted_at IS NULL", eventID).Scan(&existingEvent.EventID)
 	if err == sql.ErrNoRows {
+		slog.Error(common.LogEventUpdate + " - événement non trouvé")
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrEventNotFound,
@@ -236,6 +248,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 
 	_, err = common.DB.Exec(query, args...)
 	if err != nil {
+		slog.Error(common.LogEventUpdate + " - erreur lors de la mise à jour de l'événement : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrEventUpdate,
@@ -243,6 +256,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogEventUpdate + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessUpdateEvent,
@@ -261,6 +275,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
+		slog.Error(common.LogEventDelete + " - event_id invalide")
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidEventID,
@@ -268,10 +283,10 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 		return
 	}
 
-	// Vérifier si l'événement existe
 	var existingEvent common.Event
 	err = common.DB.QueryRow("SELECT event_id FROM event WHERE event_id = ? AND deleted_at IS NULL", eventID).Scan(&existingEvent.EventID)
 	if err == sql.ErrNoRows {
+		slog.Error(common.LogEventDelete + " - événement non trouvé")
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrEventNotFound,
@@ -282,6 +297,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
+		slog.Error(common.LogEventDelete + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors du démarrage de la transaction",
@@ -293,6 +309,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	// Soft delete de l'événement
 	_, err = tx.Exec("UPDATE event SET deleted_at = NOW() WHERE event_id = ?", eventID)
 	if err != nil {
+		slog.Error(common.LogEventDelete + " - erreur lors de la suppression de l'événement : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrEventDelete,
@@ -303,6 +320,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	// Soft delete des liaisons calendar_event
 	_, err = tx.Exec("UPDATE calendar_event SET deleted_at = NOW() WHERE event_id = ?", eventID)
 	if err != nil {
+		slog.Error(common.LogEventDelete + " - erreur lors de la suppression de la liaison calendar_event : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrCalendarEventDeleteLink,
@@ -312,6 +330,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 
 	// Valider la transaction
 	if err := tx.Commit(); err != nil {
+		slog.Error(common.LogEventDelete + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionCommit,
@@ -319,6 +338,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 		return
 	}
 
+	slog.Info(common.LogEventDelete + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessDeleteEvent,
