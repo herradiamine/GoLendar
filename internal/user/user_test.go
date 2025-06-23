@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"go-averroes/internal/common"
+	"go-averroes/internal/middleware"
 	"go-averroes/testutils"
 	"net/http"
 	"net/http/httptest"
@@ -19,10 +20,10 @@ func setupTestRouter() *gin.Engine {
 	router := testutils.SetupTestRouter()
 
 	// Configuration des routes pour les tests utilisateur
-	router.GET("/user/:id", func(c *gin.Context) { User.Get(c) })
+	router.GET("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { User.Get(c) })
 	router.POST("/user", func(c *gin.Context) { User.Add(c) })
-	router.PUT("/user/:id", func(c *gin.Context) { User.Update(c) })
-	router.DELETE("/user/:id", func(c *gin.Context) { User.Delete(c) })
+	router.PUT("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { User.Update(c) })
+	router.DELETE("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { User.Delete(c) })
 
 	return router
 }

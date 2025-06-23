@@ -6,7 +6,6 @@ import (
 	"go-averroes/internal/common"
 	"net/http"
 	"regexp"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -18,41 +17,20 @@ var User = UserStruct{}
 
 // Get récupère un utilisateur par son ID
 func (UserStruct) Get(c *gin.Context) {
-	id := c.Param("id")
-	userID, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "ID utilisateur invalide",
-		})
-		return
-	}
-
-	var user common.User
-	err = common.DB.QueryRow(`
-		SELECT user_id, lastname, firstname, email, created_at, updated_at, deleted_at 
-		FROM user 
-		WHERE user_id = ? AND deleted_at IS NULL
-	`, userID).Scan(&user.UserID, &user.Lastname, &user.Firstname, &user.Email, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, common.JSONResponse{
-				Success: false,
-				Error:   "Utilisateur non trouvé",
-			})
-			return
-		}
+	// Récupérer l'utilisateur du contexte (déjà vérifié par le middleware)
+	user, exists := c.Get("user")
+	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la récupération de l'utilisateur",
+			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
 		})
 		return
 	}
 
+	userData := user.(common.User)
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
-		Data:    user,
+		Data:    userData,
 	})
 }
 
@@ -145,15 +123,18 @@ func (UserStruct) Add(c *gin.Context) {
 
 // Update met à jour un utilisateur
 func (UserStruct) Update(c *gin.Context) {
-	id := c.Param("id")
-	userID, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
+	// Récupérer l'utilisateur du contexte (déjà vérifié par le middleware)
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "ID utilisateur invalide",
+			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
 		})
 		return
 	}
+
+	userData := user.(common.User)
+	userID := userData.UserID
 
 	var req common.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -198,17 +179,6 @@ func (UserStruct) Update(c *gin.Context) {
 		return
 	}
 	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
-
-	// Vérifier si l'utilisateur existe
-	var existingUser common.User
-	err = tx.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", userID).Scan(&existingUser.UserID)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, common.JSONResponse{
-			Success: false,
-			Error:   "Utilisateur non trouvé",
-		})
-		return
-	}
 
 	// Construire la requête de mise à jour
 	query := "UPDATE user SET updated_at = NOW()"
@@ -291,15 +261,18 @@ func (UserStruct) Update(c *gin.Context) {
 
 // Delete supprime un utilisateur (soft delete)
 func (UserStruct) Delete(c *gin.Context) {
-	id := c.Param("id")
-	userID, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
+	// Récupérer l'utilisateur du contexte (déjà vérifié par le middleware)
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "ID utilisateur invalide",
+			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
 		})
 		return
 	}
+
+	userData := user.(common.User)
+	userID := userData.UserID
 
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
@@ -311,17 +284,6 @@ func (UserStruct) Delete(c *gin.Context) {
 		return
 	}
 	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
-
-	// Vérifier si l'utilisateur existe
-	var existingUser common.User
-	err = tx.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", userID).Scan(&existingUser.UserID)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, common.JSONResponse{
-			Success: false,
-			Error:   "Utilisateur non trouvé",
-		})
-		return
-	}
 
 	// Soft delete de l'utilisateur
 	_, err = tx.Exec("UPDATE user SET deleted_at = NOW() WHERE user_id = ?", userID)

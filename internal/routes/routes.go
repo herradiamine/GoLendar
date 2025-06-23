@@ -1,18 +1,20 @@
 package routes
 
 import (
-	"github.com/gin-gonic/gin"
 	"go-averroes/internal/calendar"
 	"go-averroes/internal/calendar_event"
+	"go-averroes/internal/middleware"
 	"go-averroes/internal/user"
 	"go-averroes/internal/user_calendar"
+
+	"github.com/gin-gonic/gin"
 )
 
 func RegisterRoutes(router *gin.Engine) {
-	router.GET("/user/:id", func(c *gin.Context) { user.User.Get(c) })
+	router.GET("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { user.User.Get(c) })
 	router.POST("/user", func(c *gin.Context) { user.User.Add(c) })
-	router.PUT("/user/:id", func(c *gin.Context) { user.User.Update(c) })
-	router.DELETE("/user/:id", func(c *gin.Context) { user.User.Delete(c) })
+	router.PUT("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { user.User.Update(c) })
+	router.DELETE("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { user.User.Delete(c) })
 
 	router.GET("/user-calendar/:id", func(c *gin.Context) { user_calendar.UserCalendar.Get(c) })
 	router.POST("/user-calendar", func(c *gin.Context) { user_calendar.UserCalendar.Add(c) })
