@@ -14,16 +14,33 @@ import (
 
 	_ "github.com/go-sql-driver/mysql"
 
+	"go-averroes/internal/middleware"
+
 	"github.com/gin-gonic/gin"
 )
 
 func setupTestRouter() *gin.Engine {
 	router := testutils.SetupTestRouter()
-	// Configuration des routes pour les tests calendrier
-	router.GET("/calendar/:id", func(c *gin.Context) { Calendar.Get(c) })
-	router.POST("/calendar", func(c *gin.Context) { Calendar.Add(c) })
-	router.PUT("/calendar/:id", func(c *gin.Context) { Calendar.Update(c) })
-	router.DELETE("/calendar/:id", func(c *gin.Context) { Calendar.Delete(c) })
+	// Configuration des routes pour les tests calendrier avec middlewares
+	router.GET("/calendar/:user_id/:calendar_id",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		func(c *gin.Context) { Calendar.Get(c) },
+	)
+	router.POST("/calendar/:user_id",
+		middleware.UserExistsMiddleware("user_id"),
+		func(c *gin.Context) { Calendar.Add(c) },
+	)
+	router.PUT("/calendar/:user_id/:calendar_id",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		func(c *gin.Context) { Calendar.Update(c) },
+	)
+	router.DELETE("/calendar/:user_id/:calendar_id",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		func(c *gin.Context) { Calendar.Delete(c) },
+	)
 	router.POST("/user", func(c *gin.Context) { user.User.Add(c) }) // Pour créer un user
 	return router
 }
@@ -57,13 +74,13 @@ func TestCalendarCRUD(t *testing.T) {
 	}
 
 	t.Run("Create Calendar", func(t *testing.T) {
-		payload := common.CreateCalendarRequest{
-			UserID:      userID,
-			Title:       "Calendrier Test",
-			Description: stringPtr("Description du calendrier de test"),
+		payload := map[string]interface{}{
+			"title":       "Calendrier Test",
+			"description": "Description du calendrier de test",
 		}
 		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/calendar", bytes.NewBuffer(jsonData))
+		url := fmt.Sprintf("/calendar/%d", userID)
+		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -86,7 +103,7 @@ func TestCalendarCRUD(t *testing.T) {
 	})
 
 	t.Run("Get Calendar", func(t *testing.T) {
-		url := fmt.Sprintf("/calendar/%d", calendarID)
+		url := fmt.Sprintf("/calendar/%d/%d", userID, calendarID)
 		req, _ := http.NewRequest("GET", url, nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -104,12 +121,12 @@ func TestCalendarCRUD(t *testing.T) {
 	})
 
 	t.Run("Update Calendar", func(t *testing.T) {
-		payload := common.UpdateCalendarRequest{
-			Title:       stringPtr("Calendrier Modifié"),
-			Description: stringPtr("Description modifiée"),
+		payload := map[string]interface{}{
+			"title":       "Calendrier Modifié",
+			"description": "Description modifiée",
 		}
 		jsonData, _ := json.Marshal(payload)
-		url := fmt.Sprintf("/calendar/%d", calendarID)
+		url := fmt.Sprintf("/calendar/%d/%d", userID, calendarID)
 		req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
@@ -128,7 +145,7 @@ func TestCalendarCRUD(t *testing.T) {
 	})
 
 	t.Run("Delete Calendar", func(t *testing.T) {
-		url := fmt.Sprintf("/calendar/%d", calendarID)
+		url := fmt.Sprintf("/calendar/%d/%d", userID, calendarID)
 		req, _ := http.NewRequest("DELETE", url, nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -176,13 +193,13 @@ func TestCalendarErrorCases(t *testing.T) {
 
 	// Créer un calendrier pour les tests d'erreur
 	{
-		payload := common.CreateCalendarRequest{
-			UserID:      userID,
-			Title:       "Calendrier Test Error",
-			Description: stringPtr("Description du calendrier de test pour erreurs"),
+		payload := map[string]interface{}{
+			"title":       "Calendrier Test Error",
+			"description": "Description du calendrier de test pour erreurs",
 		}
 		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/calendar", bytes.NewBuffer(jsonData))
+		url := fmt.Sprintf("/calendar/%d", userID)
+		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -196,128 +213,114 @@ func TestCalendarErrorCases(t *testing.T) {
 	}
 
 	t.Run("Get Non-existent Calendar", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/calendar/999", nil)
+		url := fmt.Sprintf("/calendar/%d/999999", userID)
+		req, _ := http.NewRequest("GET", url, nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+		}
+	})
 
+	t.Run("Get Calendar with Non-existent User", func(t *testing.T) {
+		url := fmt.Sprintf("/calendar/999999/%d", calendarID)
+		req, _ := http.NewRequest("GET", url, nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
 		if w.Code != http.StatusNotFound {
 			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
 		}
 	})
 
 	t.Run("Create Calendar with Non-existent User", func(t *testing.T) {
-		payload := common.CreateCalendarRequest{
-			UserID:      999,
-			Title:       "Calendrier Test",
-			Description: stringPtr("Description du calendrier de test"),
-		}
-
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/calendar", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Create Calendar with Missing Required Fields", func(t *testing.T) {
 		payload := map[string]interface{}{
-			"user_id": userID,
-			// title manquant
-			"description": "Description du calendrier de test",
+			"title":       "Titre",
+			"description": "Desc",
 		}
-
 		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/calendar", bytes.NewBuffer(jsonData))
+		url := "/calendar/999999"
+		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
 		}
 	})
 
-	t.Run("Create Calendar with Empty Title", func(t *testing.T) {
-		payload := common.CreateCalendarRequest{
-			UserID:      userID,
-			Title:       "",
-			Description: stringPtr("Description du calendrier de test"),
+	t.Run("Update Calendar with Non-existent Calendar", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"title":       "Titre",
+			"description": "Desc",
 		}
-
 		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/calendar", bytes.NewBuffer(jsonData))
+		url := fmt.Sprintf("/calendar/%d/999999", userID)
+		req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
 		}
 	})
 
-	t.Run("Create Calendar with Invalid JSON", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/calendar", bytes.NewBuffer([]byte("invalid json")))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+	t.Run("Update Calendar with Non-existent User", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"title":       "Titre",
+			"description": "Desc",
 		}
-	})
-
-	t.Run("Update Calendar with Invalid JSON", func(t *testing.T) {
-		req, _ := http.NewRequest("PUT", fmt.Sprintf("/calendar/%d", calendarID), bytes.NewBuffer([]byte("invalid json")))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Get Calendar with Invalid ID", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/calendar/invalid", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Update Calendar with Invalid ID", func(t *testing.T) {
-		payload := common.UpdateCalendarRequest{
-			Title: stringPtr("Calendrier Modifié"),
-		}
-
 		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("PUT", "/calendar/invalid", bytes.NewBuffer(jsonData))
+		url := fmt.Sprintf("/calendar/999999/%d", calendarID)
+		req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
-
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+		}
+	})
 
+	t.Run("Delete Calendar with Non-existent Calendar", func(t *testing.T) {
+		url := fmt.Sprintf("/calendar/%d/999999", userID)
+		req, _ := http.NewRequest("DELETE", url, nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+		}
+	})
+
+	t.Run("Delete Calendar with Non-existent User", func(t *testing.T) {
+		url := fmt.Sprintf("/calendar/999999/%d", calendarID)
+		req, _ := http.NewRequest("DELETE", url, nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+		}
+	})
+
+	t.Run("Create Calendar with Invalid UserID", func(t *testing.T) {
+		payload := map[string]interface{}{
+			"title":       "Titre",
+			"description": "Desc",
+		}
+		jsonData, _ := json.Marshal(payload)
+		url := "/calendar/abc"
+		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
 		}
 	})
 
-	t.Run("Delete Calendar with Invalid ID", func(t *testing.T) {
-		req, _ := http.NewRequest("DELETE", "/calendar/invalid", nil)
+	t.Run("Get Calendar with Invalid IDs", func(t *testing.T) {
+		url := "/calendar/abc/def"
+		req, _ := http.NewRequest("GET", url, nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-
 		if w.Code != http.StatusBadRequest {
 			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
 		}

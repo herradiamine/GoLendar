@@ -83,7 +83,6 @@ type UpdateUserRequest struct {
 }
 
 type CreateCalendarRequest struct {
-	UserID      int     `json:"user_id" binding:"required"`
 	Title       string  `json:"title" binding:"required"`
 	Description *string `json:"description,omitempty"`
 }

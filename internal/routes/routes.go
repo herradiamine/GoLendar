@@ -11,6 +11,7 @@ import (
 )
 
 func RegisterRoutes(router *gin.Engine) {
+	// CRUD pour la gestion des utilisateurs
 	router.GET(
 		"/user/:user_id",
 		middleware.UserExistsMiddleware("user_id"),
@@ -31,6 +32,7 @@ func RegisterRoutes(router *gin.Engine) {
 		func(c *gin.Context) { user.User.Delete(c) },
 	)
 
+	// CRUD pour la gestion des liaisons entre l'utilisateur et ses calendriers
 	router.GET(
 		"/user-calendar/:user_id/:calendar_id",
 		middleware.UserExistsMiddleware("user_id"),
@@ -56,11 +58,32 @@ func RegisterRoutes(router *gin.Engine) {
 		func(c *gin.Context) { user_calendar.UserCalendar.Delete(c) },
 	)
 
-	router.GET("/calendar/:id", func(c *gin.Context) { calendar.Calendar.Get(c) })
-	router.POST("/calendar", func(c *gin.Context) { calendar.Calendar.Add(c) })
-	router.PUT("/calendar/:id", func(c *gin.Context) { calendar.Calendar.Update(c) })
-	router.DELETE("/calendar/:id", func(c *gin.Context) { calendar.Calendar.Delete(c) })
+	// CRUD pour la gestion des calendriers
+	router.GET(
+		"/calendar/:user_id/:calendar_id",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		func(c *gin.Context) { calendar.Calendar.Get(c) },
+	)
+	router.POST(
+		"/calendar/:user_id",
+		middleware.UserExistsMiddleware("user_id"),
+		func(c *gin.Context) { calendar.Calendar.Add(c) },
+	)
+	router.PUT(
+		"/calendar/:user_id/:calendar_id",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		func(c *gin.Context) { calendar.Calendar.Update(c) },
+	)
+	router.DELETE(
+		"/calendar/:user_id/:calendar_id",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		func(c *gin.Context) { calendar.Calendar.Delete(c) },
+	)
 
+	// CRUD pour la gestion des événements appartenant à leurs calendriers
 	router.GET("/calendar-event/:id", func(c *gin.Context) { calendar_event.CalendarEvent.Get(c) })
 	router.POST("/calendar-event", func(c *gin.Context) { calendar_event.CalendarEvent.Add(c) })
 	router.PUT("/calendar-event/:id", func(c *gin.Context) { calendar_event.CalendarEvent.Update(c) })

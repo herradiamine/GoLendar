@@ -2,10 +2,8 @@
 package calendar
 
 import (
-	"database/sql"
 	"go-averroes/internal/common"
 	"net/http"
-	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -14,64 +12,52 @@ type CalendarStruct struct{}
 
 var Calendar = CalendarStruct{}
 
-// Get récupère un calendrier par son ID
+// Get récupère un calendrier par user_id et calendar_id
 func (CalendarStruct) Get(c *gin.Context) {
-	id := c.Param("id")
-	calendarID, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "ID calendrier invalide",
-		})
-		return
-	}
-
-	var calendar common.Calendar
-	err = common.DB.QueryRow(`
-        SELECT calendar_id, title, description, created_at, updated_at, deleted_at 
-        FROM calendar 
-        WHERE calendar_id = ? AND deleted_at IS NULL
-    `, calendarID).Scan(&calendar.CalendarID, &calendar.Title, &calendar.Description, &calendar.CreatedAt, &calendar.UpdatedAt, &calendar.DeletedAt)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, common.JSONResponse{
-				Success: false,
-				Error:   "Calendrier non trouvé",
-			})
-			return
-		}
+	user, exists := c.Get("user")
+	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la récupération du calendrier",
+			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
 		})
 		return
 	}
+	_ = user.(common.User) // Pour l'instant, on ne l'utilise pas mais il est vérifié
+
+	calendar, exists := c.Get("calendar")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur interne: calendrier non trouvé dans le contexte",
+		})
+		return
+	}
+	calendarData := calendar.(common.Calendar)
 
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
-		Data:    calendar,
+		Data:    calendarData,
 	})
 }
 
-// Add crée un nouveau calendrier
+// Add crée un nouveau calendrier pour un utilisateur
 func (CalendarStruct) Add(c *gin.Context) {
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
+		})
+		return
+	}
+	userData := user.(common.User)
+	userID := userData.UserID
+
 	var req common.CreateCalendarRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   "Données invalides: " + err.Error(),
-		})
-		return
-	}
-
-	// Vérifier si l'utilisateur existe
-	var existingUser common.User
-	err := common.DB.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", req.UserID).Scan(&existingUser.UserID)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "Utilisateur non trouvé",
 		})
 		return
 	}
@@ -85,7 +71,7 @@ func (CalendarStruct) Add(c *gin.Context) {
 		})
 		return
 	}
-	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+	defer tx.Rollback()
 
 	// Insérer le calendrier
 	result, err := tx.Exec(`
@@ -106,7 +92,7 @@ func (CalendarStruct) Add(c *gin.Context) {
 	_, err = tx.Exec(`
         INSERT INTO user_calendar (user_id, calendar_id, created_at) 
         VALUES (?, ?, NOW())
-    `, req.UserID, calendarID)
+    `, userID, calendarID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -115,7 +101,6 @@ func (CalendarStruct) Add(c *gin.Context) {
 		return
 	}
 
-	// Valider la transaction
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -129,39 +114,39 @@ func (CalendarStruct) Add(c *gin.Context) {
 		Message: "Calendrier créé avec succès",
 		Data: gin.H{
 			"calendar_id": calendarID,
-			"user_id":     req.UserID,
+			"user_id":     userID,
 		},
 	})
 }
 
-// Update met à jour un calendrier
+// Update met à jour un calendrier par user_id et calendar_id
 func (CalendarStruct) Update(c *gin.Context) {
-	id := c.Param("id")
-	calendarID, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "ID calendrier invalide",
+			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
 		})
 		return
 	}
+	_ = user.(common.User)
+
+	calendar, exists := c.Get("calendar")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur interne: calendrier non trouvé dans le contexte",
+		})
+		return
+	}
+	calendarData := calendar.(common.Calendar)
+	calendarID := calendarData.CalendarID
 
 	var req common.UpdateCalendarRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   "Données invalides: " + err.Error(),
-		})
-		return
-	}
-
-	// Vérifier si le calendrier existe
-	var existingCalendar common.Calendar
-	err = common.DB.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", calendarID).Scan(&existingCalendar.CalendarID)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, common.JSONResponse{
-			Success: false,
-			Error:   "Calendrier non trouvé",
 		})
 		return
 	}
@@ -182,7 +167,7 @@ func (CalendarStruct) Update(c *gin.Context) {
 	query += " WHERE calendar_id = ?"
 	args = append(args, calendarID)
 
-	_, err = common.DB.Exec(query, args...)
+	_, err := common.DB.Exec(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -197,17 +182,28 @@ func (CalendarStruct) Update(c *gin.Context) {
 	})
 }
 
-// Delete supprime un calendrier (soft delete)
+// Delete supprime un calendrier par user_id et calendar_id
 func (CalendarStruct) Delete(c *gin.Context) {
-	id := c.Param("id")
-	calendarID, err := strconv.Atoi(id)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "ID calendrier invalide",
+			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
 		})
 		return
 	}
+	_ = user.(common.User)
+
+	calendar, exists := c.Get("calendar")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur interne: calendrier non trouvé dans le contexte",
+		})
+		return
+	}
+	calendarData := calendar.(common.Calendar)
+	calendarID := calendarData.CalendarID
 
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
@@ -218,18 +214,7 @@ func (CalendarStruct) Delete(c *gin.Context) {
 		})
 		return
 	}
-	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
-
-	// Vérifier si le calendrier existe
-	var existingCalendar common.Calendar
-	err = tx.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", calendarID).Scan(&existingCalendar.CalendarID)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusNotFound, common.JSONResponse{
-			Success: false,
-			Error:   "Calendrier non trouvé",
-		})
-		return
-	}
+	defer tx.Rollback()
 
 	// Soft delete du calendrier
 	_, err = tx.Exec("UPDATE calendar SET deleted_at = NOW() WHERE calendar_id = ?", calendarID)
@@ -261,7 +246,6 @@ func (CalendarStruct) Delete(c *gin.Context) {
 		return
 	}
 
-	// Valider la transaction
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
