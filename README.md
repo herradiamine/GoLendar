@@ -200,4 +200,36 @@ MIT
 
 **Auteur :** Amine Herradi
 
-Pour toute question ou suggestion, ouvrez une issue ou contactez-moi ! 
+Pour toute question ou suggestion, ouvrez une issue ou contactez-moi !
+
+## Fonctionnalités
+
+### Gestion des utilisateurs
+- ✅ CRUD complet (Create, Read, Update, Delete)
+- ✅ Validation des données (email, mot de passe)
+- ✅ Gestion des erreurs centralisée
+
+### Gestion des calendriers
+- ✅ CRUD complet (Create, Read, Update, Delete)
+- ✅ Association avec les utilisateurs
+- ✅ Gestion des erreurs centralisée
+
+### Gestion des événements
+- ✅ CRUD complet (Create, Read, Update, Delete)
+- ✅ Filtrage par période (jour, semaine, mois)
+- ✅ Routes RESTful explicites
+- ✅ Gestion des erreurs centralisée
+
+### Gestion des relations utilisateur-calendrier
+- ✅ CRUD complet des liaisons
+- ✅ Liste des calendriers d'un utilisateur
+- ✅ Gestion des erreurs centralisée
+
+### Architecture et bonnes pratiques
+- ✅ Structure modulaire et extensible
+- ✅ Tests unitaires et d'intégration complets
+- ✅ Logging structuré avec slog
+- ✅ Gestion centralisée des messages d'erreur
+- ✅ Validation des données avec go-playground/validator
+- ✅ Middleware pour la vérification d'accès
+- ✅ Documentation complète avec exemples 

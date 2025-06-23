@@ -68,4 +68,22 @@ const (
 	ErrContextUserType              = "Erreur de type pour l'utilisateur dans le contexte"
 	ErrContextCalendarType          = "Erreur de type pour le calendrier dans le contexte"
 	ErrLoggerInit                   = "Erreur lors de l'initialisation du logger : %v"
+
+	// Messages d'erreur pour les événements
+	ErrEventRetrieval        = "Erreur lors de la récupération de l'événement"
+	ErrEventsRetrieval       = "Erreur lors de la récupération des événements"
+	ErrEventsReading         = "Erreur lors de la lecture des événements"
+	ErrInvalidDateFormat     = "Format de date invalide : %v"
+	ErrInvalidDayFormat      = "format de date invalide pour le jour, attendu: YYYY-MM-DD"
+	ErrInvalidWeekFormat     = "format de semaine invalide, attendu: YYYY-WNN"
+	ErrInvalidMonthFormat    = "format de mois invalide, attendu: YYYY-MM"
+	ErrInvalidYear           = "Année invalide"
+	ErrInvalidMonth          = "Mois invalide"
+	ErrInvalidDay            = "Jour invalide"
+	ErrInvalidWeekNumber     = "Numéro de semaine invalide"
+	ErrJSONParsing           = "Erreur parsing JSON: %v"
+	ErrTestDBInit            = "Erreur d'initialisation de la base de données: %v"
+	ErrMissingFilterParams   = "Les paramètres filter_type et date sont requis"
+	ErrInvalidFilterType     = "Le type de filtre doit être 'month', 'week' ou 'day'"
+	ErrUnsupportedFilterType = "type de filtre non supporté"
 )

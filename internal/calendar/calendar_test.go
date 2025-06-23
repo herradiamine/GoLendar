@@ -90,7 +90,7 @@ func TestCalendarCRUD(t *testing.T) {
 		var response common.JSONResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		if err != nil {
-			t.Errorf("Erreur parsing JSON: %v", err)
+			t.Errorf(common.ErrJSONParsing, err)
 		}
 		if !response.Success {
 			t.Errorf("Expected success true, got false")
@@ -113,7 +113,7 @@ func TestCalendarCRUD(t *testing.T) {
 		var response common.JSONResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		if err != nil {
-			t.Errorf("Erreur parsing JSON: %v", err)
+			t.Errorf(common.ErrJSONParsing, err)
 		}
 		if !response.Success {
 			t.Errorf("Expected success true, got false")
@@ -137,7 +137,7 @@ func TestCalendarCRUD(t *testing.T) {
 		var response common.JSONResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		if err != nil {
-			t.Errorf("Erreur parsing JSON: %v", err)
+			t.Errorf(common.ErrJSONParsing, err)
 		}
 		if !response.Success {
 			t.Errorf("Expected success true, got false")
@@ -155,7 +155,7 @@ func TestCalendarCRUD(t *testing.T) {
 		var response common.JSONResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		if err != nil {
-			t.Errorf("Erreur parsing JSON: %v", err)
+			t.Errorf(common.ErrJSONParsing, err)
 		}
 		if !response.Success {
 			t.Errorf("Expected success true, got false")

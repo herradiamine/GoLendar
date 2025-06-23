@@ -20,7 +20,7 @@ func SetupTestDB() {
 
 	err := common.InitDB(config)
 	if err != nil {
-		panic(fmt.Sprintf("Erreur d'initialisation de la base de données: %v", err))
+		panic(fmt.Sprintf(common.ErrTestDBInit, err))
 	}
 }
 

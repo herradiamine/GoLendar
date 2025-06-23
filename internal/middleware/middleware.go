@@ -57,7 +57,7 @@ func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
-				Error:   "ID calendrier invalide",
+				Error:   common.ErrInvalidCalendarID,
 			})
 			c.Abort()
 			return

@@ -57,7 +57,7 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 		slog.Error(common.LogEventGet + " - erreur SQL : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la récupération de l'événement",
+			Error:   common.ErrEventRetrieval,
 		})
 		return
 	}
@@ -114,7 +114,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		slog.Error(common.LogEventAdd + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du démarrage de la transaction",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -303,7 +303,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 		slog.Error(common.LogEventDelete + " - erreur lors du démarrage de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du démarrage de la transaction",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -372,7 +372,7 @@ func (CalendarEventStruct) List(c *gin.Context) {
 		slog.Error(common.LogEventList + " - paramètres de filtrage manquants")
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "Les paramètres filter_type et date sont requis",
+			Error:   common.ErrMissingFilterParams,
 		})
 		return
 	}
@@ -382,7 +382,7 @@ func (CalendarEventStruct) List(c *gin.Context) {
 		slog.Error(common.LogEventList + " - type de filtre invalide")
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "Le type de filtre doit être 'month', 'week' ou 'day'",
+			Error:   common.ErrInvalidFilterType,
 		})
 		return
 	}
@@ -393,7 +393,7 @@ func (CalendarEventStruct) List(c *gin.Context) {
 		slog.Error(common.LogEventList + " - format de date invalide : " + err.Error())
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "Format de date invalide : " + err.Error(),
+			Error:   fmt.Sprintf(common.ErrInvalidDateFormat, err.Error()),
 		})
 		return
 	}
@@ -416,7 +416,7 @@ func (CalendarEventStruct) List(c *gin.Context) {
 		slog.Error(common.LogEventList + " - erreur lors de la récupération des événements : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la récupération des événements",
+			Error:   common.ErrEventsRetrieval,
 		})
 		return
 	}
@@ -430,7 +430,7 @@ func (CalendarEventStruct) List(c *gin.Context) {
 			slog.Error(common.LogEventList + " - erreur lors de la lecture des événements : " + err.Error())
 			c.JSON(http.StatusInternalServerError, common.JSONResponse{
 				Success: false,
-				Error:   "Erreur lors de la lecture des événements",
+				Error:   common.ErrEventsReading,
 			})
 			return
 		}
@@ -441,7 +441,7 @@ func (CalendarEventStruct) List(c *gin.Context) {
 		slog.Error(common.LogEventList + " - erreur lors de l'itération des résultats : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la récupération des événements",
+			Error:   common.ErrEventsRetrieval,
 		})
 		return
 	}
@@ -461,7 +461,7 @@ func parseDateFilter(filterType, dateStr string) (time.Time, time.Time, error) {
 		// Format: "2024-01-15"
 		date, err := time.Parse("2006-01-02", dateStr)
 		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("format de date invalide pour le jour, attendu: YYYY-MM-DD")
+			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidDayFormat)
 		}
 		startDate := date
 		endDate := date.Add(24 * time.Hour)
@@ -471,15 +471,15 @@ func parseDateFilter(filterType, dateStr string) (time.Time, time.Time, error) {
 		// Format: "2024-W01" (année-semaine ISO)
 		parts := strings.Split(dateStr, "-W")
 		if len(parts) != 2 {
-			return time.Time{}, time.Time{}, fmt.Errorf("format de semaine invalide, attendu: YYYY-WNN")
+			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidWeekFormat)
 		}
 		year, err := strconv.Atoi(parts[0])
 		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("année invalide")
+			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidYear)
 		}
 		week, err := strconv.Atoi(parts[1])
 		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("numéro de semaine invalide")
+			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidWeekNumber)
 		}
 
 		// Calculer le premier jour de la semaine ISO (lundi de la semaine 1)
@@ -500,14 +500,14 @@ func parseDateFilter(filterType, dateStr string) (time.Time, time.Time, error) {
 		// Format: "2024-01"
 		date, err := time.Parse("2006-01", dateStr)
 		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf("format de mois invalide, attendu: YYYY-MM")
+			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidMonthFormat)
 		}
 		startDate := date
 		endDate := date.AddDate(0, 1, 0)
 		return startDate, endDate, nil
 
 	default:
-		return time.Time{}, time.Time{}, fmt.Errorf("type de filtre non supporté")
+		return time.Time{}, time.Time{}, fmt.Errorf(common.ErrUnsupportedFilterType)
 	}
 }
 
@@ -517,12 +517,12 @@ func (CalendarEventStruct) ListByMonth(c *gin.Context) {
 	monthStr := c.Param("month")
 	year, err := strconv.Atoi(yearStr)
 	if err != nil || year < 1 {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: "Année invalide"})
+		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: common.ErrInvalidYear})
 		return
 	}
 	month, err := strconv.Atoi(monthStr)
 	if err != nil || month < 1 || month > 12 {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: "Mois invalide"})
+		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: common.ErrInvalidMonth})
 		return
 	}
 	startDate := time.Date(year, time.Month(month), 1, 0, 0, 0, 0, time.UTC)
@@ -536,12 +536,12 @@ func (CalendarEventStruct) ListByWeek(c *gin.Context) {
 	weekStr := c.Param("week")
 	year, err := strconv.Atoi(yearStr)
 	if err != nil || year < 1 {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: "Année invalide"})
+		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: common.ErrInvalidYear})
 		return
 	}
 	week, err := strconv.Atoi(weekStr)
 	if err != nil || week < 1 || week > 53 {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: "Numéro de semaine invalide"})
+		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: common.ErrInvalidWeekNumber})
 		return
 	}
 	jan4 := time.Date(year, 1, 4, 0, 0, 0, 0, time.UTC)
@@ -562,17 +562,17 @@ func (CalendarEventStruct) ListByDay(c *gin.Context) {
 	dayStr := c.Param("day")
 	year, err := strconv.Atoi(yearStr)
 	if err != nil || year < 1 {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: "Année invalide"})
+		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: common.ErrInvalidYear})
 		return
 	}
 	month, err := strconv.Atoi(monthStr)
 	if err != nil || month < 1 || month > 12 {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: "Mois invalide"})
+		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: common.ErrInvalidMonth})
 		return
 	}
 	day, err := strconv.Atoi(dayStr)
 	if err != nil || day < 1 || day > 31 {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: "Jour invalide"})
+		c.JSON(http.StatusBadRequest, common.JSONResponse{Success: false, Error: common.ErrInvalidDay})
 		return
 	}
 	startDate := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
@@ -607,7 +607,7 @@ func listEventsWithRange(c *gin.Context, startDate, endDate time.Time) {
 		slog.Error(common.LogEventList + " - erreur lors de la récupération des événements : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la récupération des événements",
+			Error:   common.ErrEventsRetrieval,
 		})
 		return
 	}
@@ -621,7 +621,7 @@ func listEventsWithRange(c *gin.Context, startDate, endDate time.Time) {
 			slog.Error(common.LogEventList + " - erreur lors de la lecture des événements : " + err.Error())
 			c.JSON(http.StatusInternalServerError, common.JSONResponse{
 				Success: false,
-				Error:   "Erreur lors de la lecture des événements",
+				Error:   common.ErrEventsReading,
 			})
 			return
 		}
@@ -632,7 +632,7 @@ func listEventsWithRange(c *gin.Context, startDate, endDate time.Time) {
 		slog.Error(common.LogEventList + " - erreur lors de l'itération des résultats : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la récupération des événements",
+			Error:   common.ErrEventsRetrieval,
 		})
 		return
 	}
