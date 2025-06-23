@@ -63,4 +63,6 @@ const (
 	ErrInvalidCalendarID            = "ID calendrier invalide"
 	ErrCalendarVerification         = "Erreur lors de la vérification du calendrier"
 	ErrCalendarAccessCheck          = "Erreur lors de la vérification de l'accès au calendrier"
+	ErrContextUserType              = "Erreur de type pour l'utilisateur dans le contexte"
+	ErrContextCalendarType          = "Erreur de type pour le calendrier dans le contexte"
 )

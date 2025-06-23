@@ -17,17 +17,11 @@ var User = UserStruct{}
 
 // Get récupère un utilisateur par son ID
 func (UserStruct) Get(c *gin.Context) {
-	// Récupérer l'utilisateur du contexte (déjà vérifié par le middleware)
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrUserNotFound,
-		})
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
 		return
 	}
 
-	userData := user.(common.User)
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Data:    userData,
@@ -123,17 +117,10 @@ func (UserStruct) Add(c *gin.Context) {
 
 // Update met à jour un utilisateur
 func (UserStruct) Update(c *gin.Context) {
-	// Récupérer l'utilisateur du contexte (déjà vérifié par le middleware)
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrUserNotFound,
-		})
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
 		return
 	}
-
-	userData := user.(common.User)
 	userID := userData.UserID
 
 	var req common.UpdateUserRequest
@@ -261,17 +248,10 @@ func (UserStruct) Update(c *gin.Context) {
 
 // Delete supprime un utilisateur (soft delete)
 func (UserStruct) Delete(c *gin.Context) {
-	// Récupérer l'utilisateur du contexte (déjà vérifié par le middleware)
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrUserNotFound,
-		})
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
 		return
 	}
-
-	userData := user.(common.User)
 	userID := userData.UserID
 
 	// Démarrer une transaction

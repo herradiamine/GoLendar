@@ -16,8 +16,12 @@ var CalendarEvent = CalendarEventStruct{}
 
 // Get récupère un événement par son ID
 func (CalendarEventStruct) Get(c *gin.Context) {
-	_ = c.MustGet("user").(common.User)
-	_ = c.MustGet("calendar").(common.Calendar)
+	if _, ok := common.GetUserFromContext(c); !ok {
+		return
+	}
+	if _, ok := common.GetCalendarFromContext(c); !ok {
+		return
+	}
 	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
@@ -58,9 +62,14 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 
 // Add crée un nouvel événement
 func (CalendarEventStruct) Add(c *gin.Context) {
-	_ = c.MustGet("user").(common.User)
-	calendar := c.MustGet("calendar").(common.Calendar)
-	calendarID := calendar.CalendarID
+	if _, ok := common.GetUserFromContext(c); !ok {
+		return
+	}
+	calendarData, ok := common.GetCalendarFromContext(c)
+	if !ok {
+		return
+	}
+	calendarID := calendarData.CalendarID
 
 	var req common.CreateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -148,8 +157,12 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 
 // Update met à jour un événement
 func (CalendarEventStruct) Update(c *gin.Context) {
-	_ = c.MustGet("user").(common.User)
-	_ = c.MustGet("calendar").(common.Calendar)
+	if _, ok := common.GetUserFromContext(c); !ok {
+		return
+	}
+	if _, ok := common.GetCalendarFromContext(c); !ok {
+		return
+	}
 	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
@@ -234,8 +247,12 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 
 // Delete supprime un événement (soft delete)
 func (CalendarEventStruct) Delete(c *gin.Context) {
-	_ = c.MustGet("user").(common.User)
-	_ = c.MustGet("calendar").(common.Calendar)
+	if _, ok := common.GetUserFromContext(c); !ok {
+		return
+	}
+	if _, ok := common.GetCalendarFromContext(c); !ok {
+		return
+	}
 	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {

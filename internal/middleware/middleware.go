@@ -110,27 +110,15 @@ func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
 
 func UserCanAccessCalendarMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		user, exists := c.Get("user")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, common.JSONResponse{
-				Success: false,
-				Error:   common.ErrInternalUserNotInContext,
-			})
-			c.Abort()
+		userData, ok := common.GetUserFromContext(c)
+		if !ok {
 			return
 		}
-		userData := user.(common.User)
 
-		calendar, exists := c.Get("calendar")
-		if !exists {
-			c.JSON(http.StatusInternalServerError, common.JSONResponse{
-				Success: false,
-				Error:   common.ErrInternalCalendarNotInContext,
-			})
-			c.Abort()
+		calendarData, ok := common.GetCalendarFromContext(c)
+		if !ok {
 			return
 		}
-		calendarData := calendar.(common.Calendar)
 
 		// Vérifier que l'utilisateur a accès au calendrier
 		var accessCheck int

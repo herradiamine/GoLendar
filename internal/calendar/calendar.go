@@ -14,25 +14,14 @@ var Calendar = CalendarStruct{}
 
 // Get récupère un calendrier par user_id et calendar_id
 func (CalendarStruct) Get(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrInternalUserNotInContext,
-		})
+	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
-	_ = user.(common.User) // Pour l'instant, on ne l'utilise pas mais il est vérifié
 
-	calendar, exists := c.Get("calendar")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrInternalCalendarNotInContext,
-		})
+	calendarData, ok := common.GetCalendarFromContext(c)
+	if !ok {
 		return
 	}
-	calendarData := calendar.(common.Calendar)
 
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
@@ -42,15 +31,10 @@ func (CalendarStruct) Get(c *gin.Context) {
 
 // Add crée un nouveau calendrier pour un utilisateur
 func (CalendarStruct) Add(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrInternalUserNotInContext,
-		})
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
 		return
 	}
-	userData := user.(common.User)
 	userID := userData.UserID
 
 	var req common.CreateCalendarRequest
@@ -121,25 +105,14 @@ func (CalendarStruct) Add(c *gin.Context) {
 
 // Update met à jour un calendrier par user_id et calendar_id
 func (CalendarStruct) Update(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrInternalUserNotInContext,
-		})
+	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
-	_ = user.(common.User)
 
-	calendar, exists := c.Get("calendar")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrInternalCalendarNotInContext,
-		})
+	calendarData, ok := common.GetCalendarFromContext(c)
+	if !ok {
 		return
 	}
-	calendarData := calendar.(common.Calendar)
 	calendarID := calendarData.CalendarID
 
 	var req common.UpdateCalendarRequest
@@ -184,25 +157,14 @@ func (CalendarStruct) Update(c *gin.Context) {
 
 // Delete supprime un calendrier par user_id et calendar_id
 func (CalendarStruct) Delete(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrInternalUserNotInContext,
-		})
+	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
-	_ = user.(common.User)
 
-	calendar, exists := c.Get("calendar")
-	if !exists {
-		c.JSON(http.StatusInternalServerError, common.JSONResponse{
-			Success: false,
-			Error:   common.ErrInternalCalendarNotInContext,
-		})
+	calendarData, ok := common.GetCalendarFromContext(c)
+	if !ok {
 		return
 	}
-	calendarData := calendar.(common.Calendar)
 	calendarID := calendarData.CalendarID
 
 	// Démarrer une transaction
