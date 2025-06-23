@@ -113,7 +113,7 @@ func TestUserCalendarCRUD(t *testing.T) {
 	{
 		payload := common.CreateCalendarRequest{
 			Title:       "Calendrier Test UserCalendar",
-			Description: stringPtr("Description du calendrier de test pour user_calendar"),
+			Description: common.StringPtr("Description du calendrier de test pour user_calendar"),
 		}
 		jsonData, _ := json.Marshal(payload)
 		req, _ := http.NewRequest("POST", fmt.Sprintf("/calendar/%d", userID), bytes.NewBuffer(jsonData))
@@ -237,7 +237,7 @@ func TestUserCalendarErrorCases(t *testing.T) {
 	{
 		payload := common.CreateCalendarRequest{
 			Title:       "Calendrier Test Error",
-			Description: stringPtr("Description du calendrier de test pour erreurs"),
+			Description: common.StringPtr("Description du calendrier de test pour erreurs"),
 		}
 		jsonData, _ := json.Marshal(payload)
 		req, _ := http.NewRequest("POST", fmt.Sprintf("/calendar/%d", testUserID), bytes.NewBuffer(jsonData))
@@ -302,8 +302,4 @@ func TestUserCalendarErrorCases(t *testing.T) {
 			t.Errorf("Expected status %d, got %d", http.StatusConflict, w2.Code)
 		}
 	})
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

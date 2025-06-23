@@ -108,3 +108,8 @@ type UpdateEventRequest struct {
 	Duration    *int       `json:"duration,omitempty,min=1"`
 	Canceled    *bool      `json:"canceled,omitempty"`
 }
+
+// Helpers pour les pointeurs de base
+func StringPtr(s string) *string { return &s }
+func IntPtr(i int) *int          { return &i }
+func BoolPtr(b bool) *bool       { return &b }

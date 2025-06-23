@@ -84,8 +84,8 @@ func TestUserCRUD(t *testing.T) {
 
 	t.Run("Update User", func(t *testing.T) {
 		payload := common.UpdateUserRequest{
-			Lastname:  stringPtr("Martin"),
-			Firstname: stringPtr("Pierre"),
+			Lastname:  common.StringPtr("Martin"),
+			Firstname: common.StringPtr("Pierre"),
 		}
 		jsonData, _ := json.Marshal(payload)
 		url := "/user/" + itoa(userID)
@@ -328,8 +328,4 @@ func TestUserErrorCases(t *testing.T) {
 			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
 		}
 	})
-}
-
-func stringPtr(s string) *string {
-	return &s
 }

@@ -94,7 +94,7 @@ func TestEventCRUD(t *testing.T) {
 	{
 		payload := common.CreateCalendarRequest{
 			Title:       "Calendrier Test Event",
-			Description: stringPtr("Description du calendrier de test pour événements"),
+			Description: common.StringPtr("Description du calendrier de test pour événements"),
 		}
 		jsonData, _ := json.Marshal(payload)
 		url := fmt.Sprintf("/calendar/%d", userID)
@@ -114,7 +114,7 @@ func TestEventCRUD(t *testing.T) {
 	t.Run("Create Event", func(t *testing.T) {
 		payload := common.CreateEventRequest{
 			Title:       "Événement Test",
-			Description: stringPtr("Description de l'événement de test"),
+			Description: common.StringPtr("Description de l'événement de test"),
 			Start:       parseTime("2024-01-15T10:00:00Z"),
 			Duration:    60,
 			CalendarID:  calendarID,
@@ -167,7 +167,7 @@ func TestEventCRUD(t *testing.T) {
 
 	t.Run("Update Event", func(t *testing.T) {
 		payload := common.UpdateEventRequest{
-			Title:    stringPtr("Événement Modifié"),
+			Title:    common.StringPtr("Événement Modifié"),
 			Duration: intPtr(90),
 		}
 
@@ -398,7 +398,7 @@ func TestEventErrorCases(t *testing.T) {
 
 	t.Run("Update Event with Invalid ID", func(t *testing.T) {
 		payload := common.UpdateEventRequest{
-			Title: stringPtr("Événement Modifié"),
+			Title: common.StringPtr("Événement Modifié"),
 		}
 
 		jsonData, _ := json.Marshal(payload)
@@ -494,10 +494,6 @@ func TestEventErrorCases(t *testing.T) {
 			t.Errorf("Expected status %d, got %d", http.StatusForbidden, w.Code)
 		}
 	})
-}
-
-func stringPtr(s string) *string {
-	return &s
 }
 
 func intPtr(i int) *int {
