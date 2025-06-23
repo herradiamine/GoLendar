@@ -52,7 +52,7 @@ GoLendar/
      ```
    - Importer le schéma SQL :
      ```bash
-     mysql -u root -p calendar < resources/schema.sql
+     mysql -u root -p password < resources/schema.sql
      ```
 3. **Installer les dépendances Go**
    ```bash
