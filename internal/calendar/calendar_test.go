@@ -47,11 +47,11 @@ func setupTestRouter() *gin.Engine {
 
 func TestCalendarCRUD(t *testing.T) {
 	router := setupTestRouter()
-	var userID int
 	var calendarID int
 	uniqueEmail := fmt.Sprintf("calendar.user+%d@test.com", time.Now().UnixNano())
 
 	// Créer un utilisateur pour les tests
+	var userID int
 	{
 		payload := common.CreateUserRequest{
 			Lastname:  "Test",
@@ -165,11 +165,11 @@ func TestCalendarCRUD(t *testing.T) {
 
 func TestCalendarErrorCases(t *testing.T) {
 	router := setupTestRouter()
-	var userID int
 	var calendarID int
 	uniqueEmail := fmt.Sprintf("error.calendar.user+%d@test.com", time.Now().UnixNano())
 
 	// Créer un utilisateur pour les tests d'erreur
+	var userID int
 	{
 		payload := common.CreateUserRequest{
 			Lastname:  "Test",

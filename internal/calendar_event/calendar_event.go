@@ -16,7 +16,9 @@ var CalendarEvent = CalendarEventStruct{}
 
 // Get récupère un événement par son ID
 func (CalendarEventStruct) Get(c *gin.Context) {
-	id := c.Param("id")
+	_ = c.MustGet("user").(common.User)
+	_ = c.MustGet("calendar").(common.Calendar)
+	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
@@ -56,23 +58,10 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 
 // Add crée un nouvel événement
 func (CalendarEventStruct) Add(c *gin.Context) {
-	userIDStr := c.Query("user_id")
-	if userIDStr == "" {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "user_id requis",
-		})
-		return
-	}
-
-	userID, err := strconv.Atoi(userIDStr)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "user_id invalide",
-		})
-		return
-	}
+	user := c.MustGet("user").(common.User)
+	userID := user.UserID
+	calendar := c.MustGet("calendar").(common.Calendar)
+	calendarID := calendar.CalendarID
 
 	var req common.CreateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -92,37 +81,15 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		return
 	}
 
-	// Vérifier si l'utilisateur existe
-	var existingUser common.User
-	err = common.DB.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", userID).Scan(&existingUser.UserID)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "Utilisateur non trouvé",
-		})
-		return
-	}
-
-	// Vérifier si le calendrier existe
-	var existingCalendar common.Calendar
-	err = common.DB.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", req.CalendarID).Scan(&existingCalendar.CalendarID)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "Calendrier non trouvé",
-		})
-		return
-	}
-
 	// Vérifier que l'utilisateur a accès au calendrier (propriétaire ou lié via user_calendar)
 	var accessCheck int
-	err = common.DB.QueryRow(`
+	err := common.DB.QueryRow(`
 		SELECT 1 FROM (
 			SELECT user_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL
 			UNION
 			SELECT user_id FROM user_calendar WHERE calendar_id = ? AND deleted_at IS NULL
 		) AS access WHERE user_id = ?
-	`, req.CalendarID, req.CalendarID, userID).Scan(&accessCheck)
+	`, calendarID, calendarID, userID).Scan(&accessCheck)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusForbidden, common.JSONResponse{
 			Success: false,
@@ -167,7 +134,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 	_, err = tx.Exec(`
 		INSERT INTO calendar_event (calendar_id, event_id, created_at) 
 		VALUES (?, ?, NOW())
-	`, req.CalendarID, eventID)
+	`, calendarID, eventID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -190,14 +157,16 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		Message: "Événement créé avec succès",
 		Data: gin.H{
 			"event_id":    eventID,
-			"calendar_id": req.CalendarID,
+			"calendar_id": calendarID,
 		},
 	})
 }
 
 // Update met à jour un événement
 func (CalendarEventStruct) Update(c *gin.Context) {
-	id := c.Param("id")
+	_ = c.MustGet("user").(common.User)
+	_ = c.MustGet("calendar").(common.Calendar)
+	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
@@ -281,7 +250,9 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 
 // Delete supprime un événement (soft delete)
 func (CalendarEventStruct) Delete(c *gin.Context) {
-	id := c.Param("id")
+	_ = c.MustGet("user").(common.User)
+	_ = c.MustGet("calendar").(common.Calendar)
+	id := c.Param("event_id")
 	eventID, err := strconv.Atoi(id)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
