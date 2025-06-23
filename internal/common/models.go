@@ -105,7 +105,7 @@ type UpdateEventRequest struct {
 	Title       *string    `json:"title,omitempty"`
 	Description *string    `json:"description,omitempty"`
 	Start       *time.Time `json:"start,omitempty"`
-	Duration    *int       `json:"duration,omitempty,min=1"`
+	Duration    *int       `json:"duration,omitempty" binding:"min=1"`
 	Canceled    *bool      `json:"canceled,omitempty"`
 }
 
