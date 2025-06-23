@@ -1,0 +1,6 @@
+{"time":"2025-06-23T06:56:58.647661758+02:00","level":"INFO","msg":"[main][main]: Démarrage de l'application"}
+{"time":"2025-06-23T06:57:15.75301293+02:00","level":"INFO","msg":"[http][middleware]: Requête reçue","method":"GET","path":"/user/1","status":404,"ip":"::1","latency":1446507}
+{"time":"2025-06-23T06:57:48.53671979+02:00","level":"INFO","msg":"[user][Add]: Création d'un utilisateur"}
+{"time":"2025-06-23T06:57:48.538439222+02:00","level":"INFO","msg":"[http][middleware]: Requête reçue","method":"POST","path":"/user","status":409,"ip":"::1","latency":1722700}
+{"time":"2025-06-23T06:58:00.054988017+02:00","level":"INFO","msg":"[user][Get]: Récupération d'un utilisateur"}
+{"time":"2025-06-23T06:58:00.055104816+02:00","level":"INFO","msg":"[http][middleware]: Requête reçue","method":"GET","path":"/user/93","status":200,"ip":"::1","latency":1539049}

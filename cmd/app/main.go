@@ -12,6 +12,10 @@ import (
 )
 
 func main() {
+	if err := common.InitLogger(slog.LevelInfo); err != nil {
+		log.Fatalf(common.ErrLoggerInit, err)
+	}
+
 	slog.Info(common.LogAppStart)
 	cfg := common.LoadDBConfig()
 	if err := common.InitDB(cfg); err != nil {

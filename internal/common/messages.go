@@ -65,4 +65,5 @@ const (
 	ErrCalendarAccessCheck          = "Erreur lors de la vérification de l'accès au calendrier"
 	ErrContextUserType              = "Erreur de type pour l'utilisateur dans le contexte"
 	ErrContextCalendarType          = "Erreur de type pour le calendrier dans le contexte"
+	ErrLoggerInit                   = "Erreur lors de l'initialisation du logger : %v"
 )
