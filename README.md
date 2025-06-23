@@ -1,5 +1,5 @@
 <div align="center" vertical-align="center">
-  <img src="assets/GoLendar-Logo.png" alt="GoLendar Logo" width="120"/>
+  <img src="assets/GoLendar-Logo.png" alt="GoLendar Logo" width="240"/>
 </div>
 
 GoLendar est une API RESTful modulaire écrite en Go pour la gestion de calendriers, d'événements, d'utilisateurs et de leurs relations. Le projet met l'accent sur la propreté, la sécurité, la maintenabilité et la traçabilité du code.
