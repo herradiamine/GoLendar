@@ -99,6 +99,24 @@ GoLendar/
 - `PUT /user-calendar/:user_id/:calendar_id` - Met à jour une liaison utilisateur-calendrier
 - `DELETE /user-calendar/:user_id/:calendar_id` - Supprime une liaison utilisateur-calendrier
 
+### Endpoints Calendar Events
+
+- `GET /calendar-event/:user_id/:calendar_id/:event_id` - Récupère un événement spécifique
+- `POST /calendar-event/:user_id/:calendar_id` - Crée un nouvel événement
+- `PUT /calendar-event/:user_id/:calendar_id/:event_id` - Met à jour un événement
+- `DELETE /calendar-event/:user_id/:calendar_id/:event_id` - Supprime un événement
+
+#### Récupération des événements avec filtres temporels
+
+- `GET /calendar-event/:user_id/:calendar_id/month/:year/:month` - Liste tous les événements d'un mois
+- `GET /calendar-event/:user_id/:calendar_id/week/:year/:week` - Liste tous les événements d'une semaine ISO
+- `GET /calendar-event/:user_id/:calendar_id/day/:year/:month/:day` - Liste tous les événements d'un jour
+
+**Exemples d'utilisation :**
+- Tous les événements de janvier 2024 : `/calendar-event/1/1/month/2024/1`
+- Tous les événements de la semaine 3 de 2024 : `/calendar-event/1/1/week/2024/3`
+- Tous les événements du 15 janvier 2024 : `/calendar-event/1/1/day/2024/1/15`
+
 ### Exemple de réponse pour la liste des calendriers
 
 ```json
@@ -123,6 +141,39 @@ GoLendar/
       "title": "Calendrier Professionnel",
       "description": "Calendrier pour les réunions et événements professionnels",
       "created_at": "2024-01-02T14:30:00Z",
+      "updated_at": null,
+      "deleted_at": null
+    }
+  ]
+}
+```
+
+### Exemple de réponse pour la liste des événements
+
+```json
+{
+  "success": true,
+  "message": "Liste des événements récupérée avec succès",
+  "data": [
+    {
+      "event_id": 1,
+      "title": "Réunion équipe",
+      "description": "Réunion hebdomadaire de l'équipe de développement",
+      "start": "2024-01-15T10:00:00Z",
+      "duration": 60,
+      "canceled": false,
+      "created_at": "2024-01-10T09:00:00Z",
+      "updated_at": null,
+      "deleted_at": null
+    },
+    {
+      "event_id": 2,
+      "title": "Déjeuner client",
+      "description": "Déjeuner avec le client pour discuter du projet",
+      "start": "2024-01-15T12:30:00Z",
+      "duration": 90,
+      "canceled": false,
+      "created_at": "2024-01-12T14:00:00Z",
       "updated_at": null,
       "deleted_at": null
     }
