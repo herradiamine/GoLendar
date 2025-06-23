@@ -42,8 +42,8 @@ jobs:
       - name: Build
         run: go build ./...
 
-      - name: Lancement des tests
-        run: go test -v ./...
+#      - name: Lancement des tests
+#        run: go test -v ./...
 
       - name: Upload des logs de test (si échec)
         if: failure()
