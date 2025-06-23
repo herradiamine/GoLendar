@@ -94,14 +94,6 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 		return
 	}
 
-	if req.CalendarID <= 0 {
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
-			Success: false,
-			Error:   "calendar_id doit être positif",
-		})
-		return
-	}
-
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
