@@ -302,8 +302,19 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 		return
 	}
 
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors du démarrage de la transaction",
+		})
+		return
+	}
+	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+
 	// Soft delete de l'événement
-	_, err = common.DB.Exec("UPDATE event SET deleted_at = NOW() WHERE event_id = ?", eventID)
+	_, err = tx.Exec("UPDATE event SET deleted_at = NOW() WHERE event_id = ?", eventID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -313,11 +324,20 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	}
 
 	// Soft delete des liaisons calendar_event
-	_, err = common.DB.Exec("UPDATE calendar_event SET deleted_at = NOW() WHERE event_id = ?", eventID)
+	_, err = tx.Exec("UPDATE calendar_event SET deleted_at = NOW() WHERE event_id = ?", eventID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors de la suppression des liaisons calendrier-événement",
+		})
+		return
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de la validation de la transaction",
 		})
 		return
 	}

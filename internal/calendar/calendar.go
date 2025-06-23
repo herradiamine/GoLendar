@@ -3,10 +3,11 @@ package calendar
 
 import (
 	"database/sql"
-	"github.com/gin-gonic/gin"
 	"go-averroes/internal/common"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type CalendarStruct struct{}
@@ -208,9 +209,20 @@ func (CalendarStruct) Delete(c *gin.Context) {
 		return
 	}
 
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors du démarrage de la transaction",
+		})
+		return
+	}
+	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+
 	// Vérifier si le calendrier existe
 	var existingCalendar common.Calendar
-	err = common.DB.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", calendarID).Scan(&existingCalendar.CalendarID)
+	err = tx.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", calendarID).Scan(&existingCalendar.CalendarID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
@@ -220,7 +232,7 @@ func (CalendarStruct) Delete(c *gin.Context) {
 	}
 
 	// Soft delete du calendrier
-	_, err = common.DB.Exec("UPDATE calendar SET deleted_at = NOW() WHERE calendar_id = ?", calendarID)
+	_, err = tx.Exec("UPDATE calendar SET deleted_at = NOW() WHERE calendar_id = ?", calendarID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -230,7 +242,7 @@ func (CalendarStruct) Delete(c *gin.Context) {
 	}
 
 	// Soft delete des liaisons user_calendar
-	_, err = common.DB.Exec("UPDATE user_calendar SET deleted_at = NOW() WHERE calendar_id = ?", calendarID)
+	_, err = tx.Exec("UPDATE user_calendar SET deleted_at = NOW() WHERE calendar_id = ?", calendarID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -240,11 +252,20 @@ func (CalendarStruct) Delete(c *gin.Context) {
 	}
 
 	// Soft delete des liaisons calendar_event
-	_, err = common.DB.Exec("UPDATE calendar_event SET deleted_at = NOW() WHERE calendar_id = ?", calendarID)
+	_, err = tx.Exec("UPDATE calendar_event SET deleted_at = NOW() WHERE calendar_id = ?", calendarID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors de la suppression des liaisons calendrier-événement",
+		})
+		return
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de la validation de la transaction",
 		})
 		return
 	}

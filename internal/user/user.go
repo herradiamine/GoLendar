@@ -88,8 +88,19 @@ func (UserStruct) Add(c *gin.Context) {
 		return
 	}
 
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors du démarrage de la transaction",
+		})
+		return
+	}
+	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+
 	// Insérer l'utilisateur
-	result, err := common.DB.Exec(`
+	result, err := tx.Exec(`
 		INSERT INTO user (lastname, firstname, email, created_at) 
 		VALUES (?, ?, ?, NOW())
 	`, req.Lastname, req.Firstname, req.Email)
@@ -104,7 +115,7 @@ func (UserStruct) Add(c *gin.Context) {
 	userID, _ := result.LastInsertId()
 
 	// Insérer le mot de passe
-	_, err = common.DB.Exec(`
+	_, err = tx.Exec(`
 		INSERT INTO user_password (user_id, password_hash, created_at) 
 		VALUES (?, ?, NOW())
 	`, userID, string(hashedPassword))
@@ -112,6 +123,15 @@ func (UserStruct) Add(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors de la création du mot de passe",
+		})
+		return
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de la validation de la transaction",
 		})
 		return
 	}
@@ -168,9 +188,20 @@ func (UserStruct) Update(c *gin.Context) {
 		}
 	}
 
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors du démarrage de la transaction",
+		})
+		return
+	}
+	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+
 	// Vérifier si l'utilisateur existe
 	var existingUser common.User
-	err = common.DB.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", userID).Scan(&existingUser.UserID)
+	err = tx.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", userID).Scan(&existingUser.UserID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
@@ -194,7 +225,7 @@ func (UserStruct) Update(c *gin.Context) {
 	if req.Email != nil {
 		// Vérifier si le nouvel email existe déjà
 		var existingID int
-		err = common.DB.QueryRow("SELECT user_id FROM user WHERE email = ? AND user_id != ? AND deleted_at IS NULL", *req.Email, userID).Scan(&existingID)
+		err = tx.QueryRow("SELECT user_id FROM user WHERE email = ? AND user_id != ? AND deleted_at IS NULL", *req.Email, userID).Scan(&existingID)
 		if err != sql.ErrNoRows {
 			c.JSON(http.StatusConflict, common.JSONResponse{
 				Success: false,
@@ -209,7 +240,7 @@ func (UserStruct) Update(c *gin.Context) {
 	query += " WHERE user_id = ?"
 	args = append(args, userID)
 
-	_, err = common.DB.Exec(query, args...)
+	_, err = tx.Exec(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -229,7 +260,7 @@ func (UserStruct) Update(c *gin.Context) {
 			return
 		}
 
-		_, err = common.DB.Exec(`
+		_, err = tx.Exec(`
 			UPDATE user_password 
 			SET password_hash = ?, updated_at = NOW() 
 			WHERE user_id = ?
@@ -241,6 +272,15 @@ func (UserStruct) Update(c *gin.Context) {
 			})
 			return
 		}
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de la validation de la transaction",
+		})
+		return
 	}
 
 	c.JSON(http.StatusOK, common.JSONResponse{
@@ -261,9 +301,20 @@ func (UserStruct) Delete(c *gin.Context) {
 		return
 	}
 
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors du démarrage de la transaction",
+		})
+		return
+	}
+	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+
 	// Vérifier si l'utilisateur existe
 	var existingUser common.User
-	err = common.DB.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", userID).Scan(&existingUser.UserID)
+	err = tx.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", userID).Scan(&existingUser.UserID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
@@ -273,7 +324,7 @@ func (UserStruct) Delete(c *gin.Context) {
 	}
 
 	// Soft delete de l'utilisateur
-	_, err = common.DB.Exec("UPDATE user SET deleted_at = NOW() WHERE user_id = ?", userID)
+	_, err = tx.Exec("UPDATE user SET deleted_at = NOW() WHERE user_id = ?", userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -283,11 +334,20 @@ func (UserStruct) Delete(c *gin.Context) {
 	}
 
 	// Soft delete du mot de passe
-	_, err = common.DB.Exec("UPDATE user_password SET deleted_at = NOW() WHERE user_id = ?", userID)
+	_, err = tx.Exec("UPDATE user_password SET deleted_at = NOW() WHERE user_id = ?", userID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors de la suppression du mot de passe",
+		})
+		return
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de la validation de la transaction",
 		})
 		return
 	}

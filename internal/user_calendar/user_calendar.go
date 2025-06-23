@@ -3,10 +3,11 @@ package user_calendar
 
 import (
 	"database/sql"
-	"github.com/gin-gonic/gin"
 	"go-averroes/internal/common"
 	"net/http"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
 )
 
 type UserCalendarStruct struct{}
@@ -67,9 +68,20 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 		return
 	}
 
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors du démarrage de la transaction",
+		})
+		return
+	}
+	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+
 	// Vérifier si l'utilisateur existe
 	var existingUser common.User
-	err := common.DB.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", req.UserID).Scan(&existingUser.UserID)
+	err = tx.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", req.UserID).Scan(&existingUser.UserID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
@@ -80,7 +92,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 
 	// Vérifier si le calendrier existe
 	var existingCalendar common.Calendar
-	err = common.DB.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", req.CalendarID).Scan(&existingCalendar.CalendarID)
+	err = tx.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", req.CalendarID).Scan(&existingCalendar.CalendarID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
@@ -91,7 +103,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 
 	// Vérifier si la liaison existe déjà
 	var existingLink common.UserCalendar
-	err = common.DB.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL", req.UserID, req.CalendarID).Scan(&existingLink.UserCalendarID)
+	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL", req.UserID, req.CalendarID).Scan(&existingLink.UserCalendarID)
 	if err != sql.ErrNoRows {
 		c.JSON(http.StatusConflict, common.JSONResponse{
 			Success: false,
@@ -101,7 +113,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	}
 
 	// Insérer la liaison
-	result, err := common.DB.Exec(`
+	result, err := tx.Exec(`
 		INSERT INTO user_calendar (user_id, calendar_id, created_at) 
 		VALUES (?, ?, NOW())
 	`, req.UserID, req.CalendarID)
@@ -114,6 +126,15 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	}
 
 	userCalendarID, _ := result.LastInsertId()
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de la validation de la transaction",
+		})
+		return
+	}
 
 	c.JSON(http.StatusCreated, common.JSONResponse{
 		Success: true,
@@ -146,9 +167,20 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 		return
 	}
 
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors du démarrage de la transaction",
+		})
+		return
+	}
+	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+
 	// Vérifier si la liaison existe
 	var existingLink common.UserCalendar
-	err = common.DB.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_calendar_id = ? AND deleted_at IS NULL", userCalendarID).Scan(&existingLink.UserCalendarID)
+	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_calendar_id = ? AND deleted_at IS NULL", userCalendarID).Scan(&existingLink.UserCalendarID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
@@ -164,7 +196,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	if req.UserID != nil {
 		// Vérifier si le nouvel utilisateur existe
 		var existingUser common.User
-		err = common.DB.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", *req.UserID).Scan(&existingUser.UserID)
+		err = tx.QueryRow("SELECT user_id FROM user WHERE user_id = ? AND deleted_at IS NULL", *req.UserID).Scan(&existingUser.UserID)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
@@ -178,7 +210,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	if req.CalendarID != nil {
 		// Vérifier si le nouveau calendrier existe
 		var existingCalendar common.Calendar
-		err = common.DB.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", *req.CalendarID).Scan(&existingCalendar.CalendarID)
+		err = tx.QueryRow("SELECT calendar_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL", *req.CalendarID).Scan(&existingCalendar.CalendarID)
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
@@ -193,11 +225,20 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	query += " WHERE user_calendar_id = ?"
 	args = append(args, userCalendarID)
 
-	_, err = common.DB.Exec(query, args...)
+	_, err = tx.Exec(query, args...)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors de la mise à jour de la liaison",
+		})
+		return
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de la validation de la transaction",
 		})
 		return
 	}
@@ -220,9 +261,20 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 		return
 	}
 
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors du démarrage de la transaction",
+		})
+		return
+	}
+	defer tx.Rollback() // Rollback par défaut, commit seulement si tout va bien
+
 	// Vérifier si la liaison existe
 	var existingLink common.UserCalendar
-	err = common.DB.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_calendar_id = ? AND deleted_at IS NULL", userCalendarID).Scan(&existingLink.UserCalendarID)
+	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_calendar_id = ? AND deleted_at IS NULL", userCalendarID).Scan(&existingLink.UserCalendarID)
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
@@ -232,11 +284,20 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	}
 
 	// Soft delete de la liaison
-	_, err = common.DB.Exec("UPDATE user_calendar SET deleted_at = NOW() WHERE user_calendar_id = ?", userCalendarID)
+	_, err = tx.Exec("UPDATE user_calendar SET deleted_at = NOW() WHERE user_calendar_id = ?", userCalendarID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   "Erreur lors de la suppression de la liaison",
+		})
+		return
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de la validation de la transaction",
 		})
 		return
 	}
