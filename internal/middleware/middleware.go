@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"database/sql"
 	"go-averroes/internal/common"
 	"net/http"
 	"strconv"
@@ -38,19 +37,7 @@ func UserExistsMiddleware(paramName string) gin.HandlerFunc {
 			&user.DeletedAt,
 		)
 
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, common.JSONResponse{
-				Success: false,
-				Error:   common.ErrUserNotFound,
-			})
-			c.Abort()
-			return
-		} else if err != nil {
-			c.JSON(http.StatusInternalServerError, common.JSONResponse{
-				Success: false,
-				Error:   common.ErrUserVerification,
-			})
-			c.Abort()
+		if common.HandleDBError(c, err, http.StatusNotFound, common.ErrUserNotFound, common.ErrUserVerification) {
 			return
 		}
 
@@ -86,19 +73,7 @@ func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
 			&calendar.DeletedAt,
 		)
 
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusNotFound, common.JSONResponse{
-				Success: false,
-				Error:   "Calendrier non trouvé",
-			})
-			c.Abort()
-			return
-		} else if err != nil {
-			c.JSON(http.StatusInternalServerError, common.JSONResponse{
-				Success: false,
-				Error:   "Erreur lors de la vérification du calendrier",
-			})
-			c.Abort()
+		if common.HandleDBError(c, err, http.StatusNotFound, common.ErrCalendarNotFound, common.ErrCalendarVerification) {
 			return
 		}
 
@@ -127,19 +102,7 @@ func UserCanAccessCalendarMiddleware() gin.HandlerFunc {
 			WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL
 		`, userData.UserID, calendarData.CalendarID).Scan(&accessCheck)
 
-		if err == sql.ErrNoRows {
-			c.JSON(http.StatusForbidden, common.JSONResponse{
-				Success: false,
-				Error:   common.ErrNoAccessToCalendar,
-			})
-			c.Abort()
-			return
-		} else if err != nil {
-			c.JSON(http.StatusInternalServerError, common.JSONResponse{
-				Success: false,
-				Error:   common.ErrCalendarAccessCheck,
-			})
-			c.Abort()
+		if common.HandleDBError(c, err, http.StatusForbidden, common.ErrNoAccessToCalendar, common.ErrCalendarAccessCheck) {
 			return
 		}
 
