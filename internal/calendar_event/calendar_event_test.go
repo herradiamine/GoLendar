@@ -124,8 +124,6 @@ func TestEventCRUD(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		fmt.Printf("Expected status %d, got %d\n", http.StatusCreated, w.Code)
-		fmt.Printf("Body: %s\n", w.Body.String())
 		if w.Code != http.StatusCreated {
 		}
 
