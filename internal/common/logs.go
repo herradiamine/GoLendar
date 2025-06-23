@@ -31,6 +31,7 @@ const (
 	LogEventAdd    = "[calendar_event][Add]: Création d'un événement"
 	LogEventUpdate = "[calendar_event][Update]: Mise à jour d'un événement"
 	LogEventDelete = "[calendar_event][Delete]: Suppression d'un événement"
+	LogEventList   = "[calendar_event][List]: Récupération de la liste des événements d'un calendrier"
 )
 
 // Logs pour le package user_calendar
@@ -39,4 +40,5 @@ const (
 	LogUserCalendarAdd    = "[user_calendar][Add]: Création d'une liaison utilisateur-calendrier"
 	LogUserCalendarUpdate = "[user_calendar][Update]: Mise à jour d'une liaison utilisateur-calendrier"
 	LogUserCalendarDelete = "[user_calendar][Delete]: Suppression d'une liaison utilisateur-calendrier"
+	LogUserCalendarList   = "[user_calendar][List]: Récupération de la liste des calendriers d'un utilisateur"
 )

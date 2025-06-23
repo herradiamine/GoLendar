@@ -39,6 +39,11 @@ func RegisterRoutes(router *gin.Engine) {
 		middleware.CalendarExistsMiddleware("calendar_id"),
 		func(c *gin.Context) { user_calendar.UserCalendar.Get(c) },
 	)
+	router.GET(
+		"/user-calendar/:user_id",
+		middleware.UserExistsMiddleware("user_id"),
+		func(c *gin.Context) { user_calendar.UserCalendar.List(c) },
+	)
 	router.POST(
 		"/user-calendar/:user_id/:calendar_id",
 		middleware.UserExistsMiddleware("user_id"),
@@ -89,6 +94,24 @@ func RegisterRoutes(router *gin.Engine) {
 		middleware.CalendarExistsMiddleware("calendar_id"),
 		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { calendar_event.CalendarEvent.Get(c) },
+	)
+	router.GET("/calendar-event/:user_id/:calendar_id/month/:year/:month",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
+		func(c *gin.Context) { calendar_event.CalendarEvent.ListByMonth(c) },
+	)
+	router.GET("/calendar-event/:user_id/:calendar_id/week/:year/:week",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
+		func(c *gin.Context) { calendar_event.CalendarEvent.ListByWeek(c) },
+	)
+	router.GET("/calendar-event/:user_id/:calendar_id/day/:year/:month/:day",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
+		func(c *gin.Context) { calendar_event.CalendarEvent.ListByDay(c) },
 	)
 	router.POST("/calendar-event/:user_id/:calendar_id",
 		middleware.UserExistsMiddleware("user_id"),

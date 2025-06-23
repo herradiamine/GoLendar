@@ -28,6 +28,34 @@ func setupTestRouter() *gin.Engine {
 		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { CalendarEvent.Get(c) },
 	)
+	router.GET(
+		"/calendar-event/:user_id/:calendar_id/month/:year/:month",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
+		func(c *gin.Context) { CalendarEvent.ListByMonth(c) },
+	)
+	router.GET(
+		"/calendar-event/:user_id/:calendar_id/week/:year/:week",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
+		func(c *gin.Context) { CalendarEvent.ListByWeek(c) },
+	)
+	router.GET(
+		"/calendar-event/:user_id/:calendar_id/day/:year/:month/:day",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
+		func(c *gin.Context) { CalendarEvent.ListByDay(c) },
+	)
+	router.GET(
+		"/calendar-event/:user_id/:calendar_id",
+		middleware.UserExistsMiddleware("user_id"),
+		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
+		func(c *gin.Context) { CalendarEvent.List(c) },
+	)
 	router.POST(
 		"/calendar-event/:user_id/:calendar_id",
 		middleware.UserExistsMiddleware("user_id"),
@@ -208,6 +236,195 @@ func TestEventCRUD(t *testing.T) {
 		}
 		if !response.Success {
 			t.Errorf("Expected success true, got false")
+		}
+	})
+}
+
+func TestEventList(t *testing.T) {
+	router := setupTestRouter()
+	var userID int
+	var calendarID int
+	uniqueEmail := fmt.Sprintf("event.list+%d@test.com", time.Now().UnixNano())
+
+	// Créer un utilisateur pour les tests
+	{
+		payload := common.CreateUserRequest{
+			Lastname:  "Test",
+			Firstname: "EventList",
+			Email:     uniqueEmail,
+			Password:  "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if id, ok := data["user_id"]; ok {
+				userID = int(id.(float64))
+			}
+		}
+	}
+
+	// Créer un calendrier pour les tests
+	{
+		payload := common.CreateCalendarRequest{
+			Title:       "Calendrier Test EventList",
+			Description: common.StringPtr("Description du calendrier de test pour liste d'événements"),
+		}
+		jsonData, _ := json.Marshal(payload)
+		url := fmt.Sprintf("/calendar/%d", userID)
+		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if id, ok := data["calendar_id"]; ok {
+				calendarID = int(id.(float64))
+			}
+		}
+	}
+
+	// Créer plusieurs événements pour tester les filtres
+	eventDates := []time.Time{
+		parseTime("2024-01-15T10:00:00Z"), // Jour spécifique
+		parseTime("2024-01-16T14:00:00Z"), // Même semaine
+		parseTime("2024-01-20T09:00:00Z"), // Même mois
+		parseTime("2024-02-01T16:00:00Z"), // Mois différent
+	}
+
+	for i, startTime := range eventDates {
+		payload := common.CreateEventRequest{
+			Title:       fmt.Sprintf("Événement Test %d", i+1),
+			Description: common.StringPtr(fmt.Sprintf("Description de l'événement %d", i+1)),
+			Start:       startTime,
+			Duration:    60,
+			CalendarID:  calendarID,
+			Canceled:    boolPtr(false),
+		}
+
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", fmt.Sprintf("/calendar-event/%d/%d", userID, calendarID), bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	t.Run("List Events by Day", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/calendar-event/%d/%d/day/2024/1/15", userID, calendarID), nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err != nil {
+			t.Errorf("Erreur parsing JSON: %v", err)
+		}
+		if !response.Success {
+			t.Errorf("Expected success true, got false")
+		}
+
+		// Vérifier que nous avons bien 1 événement pour ce jour
+		events, ok := response.Data.([]interface{})
+		if !ok {
+			t.Errorf("Expected data to be an array")
+		}
+		if len(events) != 1 {
+			t.Errorf("Expected 1 event for the day, got %d", len(events))
+		}
+	})
+
+	t.Run("List Events by Week", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/calendar-event/%d/%d/week/2024/3", userID, calendarID), nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err != nil {
+			t.Errorf("Erreur parsing JSON: %v", err)
+		}
+		if !response.Success {
+			t.Errorf("Expected success true, got false")
+		}
+
+		// Vérifier que nous avons bien au moins 1 événement pour cette semaine
+		events, ok := response.Data.([]interface{})
+		if !ok {
+			t.Errorf("Expected data to be an array")
+		}
+		if len(events) < 1 {
+			t.Errorf("Expected at least 1 event for the week, got %d", len(events))
+		}
+	})
+
+	t.Run("List Events by Month", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/calendar-event/%d/%d/month/2024/1", userID, calendarID), nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err != nil {
+			t.Errorf("Erreur parsing JSON: %v", err)
+		}
+		if !response.Success {
+			t.Errorf("Expected success true, got false")
+		}
+
+		// Vérifier que nous avons bien 3 événements pour ce mois
+		events, ok := response.Data.([]interface{})
+		if !ok {
+			t.Errorf("Expected data to be an array")
+		}
+		if len(events) != 3 {
+			t.Errorf("Expected 3 events for the month, got %d", len(events))
+		}
+	})
+
+	t.Run("List Events - Missing Parameters", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/calendar-event/%d/%d", userID, calendarID), nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("List Events - Invalid Filter Type", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/calendar-event/%d/%d?filter_type=invalid&date=2024-01-15", userID, calendarID), nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
+		}
+	})
+
+	t.Run("List Events - Invalid Date Format", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/calendar-event/%d/%d?filter_type=day&date=invalid-date", userID, calendarID), nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
 		}
 	})
 }

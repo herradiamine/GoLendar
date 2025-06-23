@@ -67,6 +67,18 @@ type CalendarEvent struct {
 	DeletedAt       *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
 }
 
+// UserCalendarWithDetails représente un calendrier avec ses détails pour un utilisateur
+type UserCalendarWithDetails struct {
+	UserCalendarID int        `json:"user_calendar_id" db:"user_calendar_id"`
+	UserID         int        `json:"user_id" db:"user_id"`
+	CalendarID     int        `json:"calendar_id" db:"calendar_id"`
+	Title          string     `json:"title" db:"title"`
+	Description    *string    `json:"description,omitempty" db:"description"`
+	CreatedAt      time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt      *time.Time `json:"updated_at,omitempty" db:"updated_at"`
+	DeletedAt      *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
+}
+
 // Structures pour les requêtes
 type CreateUserRequest struct {
 	Lastname  string `json:"lastname" binding:"required"`
@@ -107,6 +119,12 @@ type UpdateEventRequest struct {
 	Start       *time.Time `json:"start,omitempty"`
 	Duration    *int       `json:"duration,omitempty" binding:"min=1"`
 	Canceled    *bool      `json:"canceled,omitempty"`
+}
+
+// Structures pour les requêtes de filtrage des événements
+type ListEventsRequest struct {
+	FilterType string `json:"filter_type" binding:"required,oneof=month week day"`
+	Date       string `json:"date" binding:"required"` // Format: "2024-01-15" pour jour, "2024-01" pour mois, "2024-W01" pour semaine
 }
 
 // StringPtr retourne un pointeur vers la chaîne passée en argument.

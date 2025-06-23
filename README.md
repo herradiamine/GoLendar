@@ -2,7 +2,7 @@
   <img src="assets/GoLendar-Logo.png" alt="GoLendar Logo" width="240"/>
 </div>
 
-GoLendar est une API RESTful modulaire écrite en Go pour la gestion de calendriers, d'événements, d'utilisateurs et de leurs relations. Le projet met l'accent sur la propreté, la sécurité, la maintenabilité et la traçabilité du code.
+GoLendar API est une API RESTful modulaire écrite en Go pour la gestion de calendriers, d'événements, d'utilisateurs et de leurs relations. Le projet met l'accent sur la propreté, la sécurité, la maintenabilité et la traçabilité du code.
 
 ## 🚀 Fonctionnalités principales
 
@@ -90,6 +90,45 @@ GoLendar/
 - Endpoints principaux :
   - `/user`, `/calendar`, `/calendar-event`, `/user-calendar`
   - Tous les endpoints utilisent des IDs en path et des statuts HTTP explicites
+
+### Endpoints User Calendar
+
+- `GET /user-calendar/:user_id` - Liste tous les calendriers d'un utilisateur avec leurs détails
+- `GET /user-calendar/:user_id/:calendar_id` - Récupère une liaison spécifique utilisateur-calendrier
+- `POST /user-calendar/:user_id/:calendar_id` - Crée une nouvelle liaison utilisateur-calendrier
+- `PUT /user-calendar/:user_id/:calendar_id` - Met à jour une liaison utilisateur-calendrier
+- `DELETE /user-calendar/:user_id/:calendar_id` - Supprime une liaison utilisateur-calendrier
+
+### Exemple de réponse pour la liste des calendriers
+
+```json
+{
+  "success": true,
+  "message": "Liste des calendriers récupérée avec succès",
+  "data": [
+    {
+      "user_calendar_id": 1,
+      "user_id": 1,
+      "calendar_id": 1,
+      "title": "Calendrier Personnel",
+      "description": "Mon calendrier personnel pour les événements privés",
+      "created_at": "2024-01-01T10:00:00Z",
+      "updated_at": null,
+      "deleted_at": null
+    },
+    {
+      "user_calendar_id": 2,
+      "user_id": 1,
+      "calendar_id": 2,
+      "title": "Calendrier Professionnel",
+      "description": "Calendrier pour les réunions et événements professionnels",
+      "created_at": "2024-01-02T14:30:00Z",
+      "updated_at": null,
+      "deleted_at": null
+    }
+  ]
+}
+```
 
 ## 📝 Helpers utiles
 

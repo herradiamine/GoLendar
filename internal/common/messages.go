@@ -11,9 +11,11 @@ const (
 	MsgSuccessCreateEvent        = "Événement créé avec succès"
 	MsgSuccessUpdateEvent        = "Événement mis à jour avec succès"
 	MsgSuccessDeleteEvent        = "Événement supprimé avec succès"
+	MsgSuccessListEvents         = "Liste des événements récupérée avec succès"
 	MsgSuccessCreateUserCalendar = "Liaison utilisateur-calendrier créée avec succès"
 	MsgSuccessUpdateUserCalendar = "Liaison utilisateur-calendrier mise à jour avec succès"
 	MsgSuccessDeleteUserCalendar = "Liaison utilisateur-calendrier supprimée avec succès"
+	MsgSuccessListUserCalendars  = "Liste des calendriers récupérée avec succès"
 	MsgSuccessUserUpdate         = "Utilisateur mis à jour avec succès"
 	MsgSuccessUserDelete         = "Utilisateur supprimé avec succès"
 )

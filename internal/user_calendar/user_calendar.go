@@ -4,6 +4,7 @@ package user_calendar
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"go-averroes/internal/common"
 	"log/slog"
 	"net/http"
@@ -262,5 +263,74 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessDeleteUserCalendar,
+	})
+}
+
+// List récupère tous les calendriers d'un utilisateur avec leurs détails
+func (UserCalendarStruct) List(c *gin.Context) {
+	slog.Info(common.LogUserCalendarList)
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
+		return
+	}
+	userID := userData.UserID
+
+	// Requête pour récupérer tous les calendriers de l'utilisateur avec leurs détails
+	rows, err := common.DB.Query(`
+		SELECT uc.user_calendar_id, uc.user_id, uc.calendar_id, 
+		       c.title, c.description, uc.created_at, uc.updated_at, uc.deleted_at
+		FROM user_calendar uc
+		INNER JOIN calendar c ON uc.calendar_id = c.calendar_id
+		WHERE uc.user_id = ? AND uc.deleted_at IS NULL AND c.deleted_at IS NULL
+		ORDER BY uc.created_at DESC
+	`, userID)
+	if err != nil {
+		slog.Error(common.LogUserCalendarList + " - erreur SQL : " + err.Error())
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrTransactionStart,
+		})
+		return
+	}
+	defer rows.Close()
+
+	var calendars []common.UserCalendarWithDetails
+	for rows.Next() {
+		var calendar common.UserCalendarWithDetails
+		err := rows.Scan(
+			&calendar.UserCalendarID,
+			&calendar.UserID,
+			&calendar.CalendarID,
+			&calendar.Title,
+			&calendar.Description,
+			&calendar.CreatedAt,
+			&calendar.UpdatedAt,
+			&calendar.DeletedAt,
+		)
+		if err != nil {
+			slog.Error(common.LogUserCalendarList + " - erreur lors du scan des données : " + err.Error())
+			c.JSON(http.StatusInternalServerError, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrTransactionStart,
+			})
+			return
+		}
+		calendars = append(calendars, calendar)
+	}
+
+	if err = rows.Err(); err != nil {
+		slog.Error(common.LogUserCalendarList + " - erreur lors de l'itération des résultats : " + err.Error())
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrTransactionStart,
+		})
+		return
+	}
+
+	slog.Info(common.LogUserCalendarList + " - succès, " + fmt.Sprintf("%d", len(calendars)) + " calendriers trouvés")
+	c.JSON(http.StatusOK, common.JSONResponse{
+		Success: true,
+		Message: common.MsgSuccessListUserCalendars,
+		Data:    calendars,
 	})
 }

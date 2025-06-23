@@ -403,12 +403,94 @@
 						}
 					},
 					"response": []
+				},
+				{
+					"name": "List Events By Month",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/month/:year/:month",
+							"host": ["{{base_url}}"],
+							"path": ["calendar-event", ":user_id", ":calendar_id", "month", ":year", ":month"],
+							"variable": [
+								{"key": "user_id", "value": "1"},
+								{"key": "calendar_id", "value": "1"},
+								{"key": "year", "value": "2024"},
+								{"key": "month", "value": "1"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Events By Week",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/week/:year/:week",
+							"host": ["{{base_url}}"],
+							"path": ["calendar-event", ":user_id", ":calendar_id", "week", ":year", ":week"],
+							"variable": [
+								{"key": "user_id", "value": "1"},
+								{"key": "calendar_id", "value": "1"},
+								{"key": "year", "value": "2024"},
+								{"key": "week", "value": "3"}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "List Events By Day",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/day/:year/:month/:day",
+							"host": ["{{base_url}}"],
+							"path": ["calendar-event", ":user_id", ":calendar_id", "day", ":year", ":month", ":day"],
+							"variable": [
+								{"key": "user_id", "value": "1"},
+								{"key": "calendar_id", "value": "1"},
+								{"key": "year", "value": "2024"},
+								{"key": "month", "value": "1"},
+								{"key": "day", "value": "15"}
+							]
+						}
+					},
+					"response": []
 				}
 			]
 		},
 		{
 			"name": "User Calendar Links",
 			"item": [
+				{
+					"name": "List User Calendars",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/user-calendar/:user_id",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"user-calendar",
+								":user_id"
+							],
+							"variable": [
+								{
+									"key": "user_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
 				{
 					"name": "Get User Calendar Link",
 					"request": {

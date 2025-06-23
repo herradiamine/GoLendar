@@ -27,6 +27,11 @@ func setupTestRouter() *gin.Engine {
 		middleware.CalendarExistsMiddleware("calendar_id"),
 		func(c *gin.Context) { UserCalendar.Get(c) },
 	)
+	router.GET(
+		"/user-calendar/:user_id",
+		middleware.UserExistsMiddleware("user_id"),
+		func(c *gin.Context) { UserCalendar.List(c) },
+	)
 	router.POST(
 		"/user-calendar/:user_id/:calendar_id",
 		middleware.UserExistsMiddleware("user_id"),
@@ -203,6 +208,113 @@ func TestUserCalendarCRUD(t *testing.T) {
 		}
 		if !response.Success {
 			t.Errorf("Expected success true, got false")
+		}
+	})
+}
+
+func TestUserCalendarList(t *testing.T) {
+	router := setupTestRouter()
+	var userID int
+	uniqueEmail := fmt.Sprintf("usercalendar.list+%d@test.com", time.Now().UnixNano())
+
+	// Créer un utilisateur pour les tests
+	{
+		payload := common.CreateUserRequest{
+			Lastname:  "Test",
+			Firstname: "UserCalendarList",
+			Email:     uniqueEmail,
+			Password:  "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if id, ok := data["user_id"]; ok {
+				userID = int(id.(float64))
+			}
+		}
+	}
+
+	// Créer un premier calendrier
+	{
+		payload := common.CreateCalendarRequest{
+			Title:       "Calendrier Test 1",
+			Description: common.StringPtr("Description du premier calendrier"),
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", fmt.Sprintf("/calendar/%d", userID), bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+	}
+
+	// Créer un deuxième calendrier
+	{
+		payload := common.CreateCalendarRequest{
+			Title:       "Calendrier Test 2",
+			Description: common.StringPtr("Description du deuxième calendrier"),
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", fmt.Sprintf("/calendar/%d", userID), bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+	}
+
+	t.Run("List User Calendars", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/user-calendar/%d", userID), nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
+		}
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		if err != nil {
+			t.Errorf("Erreur parsing JSON: %v", err)
+		}
+		if !response.Success {
+			t.Errorf("Expected success true, got false")
+		}
+
+		// Vérifier que la réponse contient une liste de calendriers
+		if response.Data == nil {
+			t.Errorf("Expected data to not be nil")
+		}
+
+		// Vérifier que nous avons bien 2 calendriers
+		calendars, ok := response.Data.([]interface{})
+		if !ok {
+			t.Errorf("Expected data to be an array")
+		}
+		if len(calendars) != 2 {
+			t.Errorf("Expected 2 calendars, got %d", len(calendars))
+		}
+	})
+
+	t.Run("List User Calendars - User Not Found", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user-calendar/99999", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusNotFound {
+			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
+		}
+	})
+
+	t.Run("List User Calendars - Invalid User ID", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user-calendar/abc", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		if w.Code != http.StatusBadRequest {
+			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
 		}
 	})
 }
