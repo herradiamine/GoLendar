@@ -87,21 +87,25 @@ func RegisterRoutes(router *gin.Engine) {
 	router.GET("/calendar-event/:user_id/:calendar_id/:event_id",
 		middleware.UserExistsMiddleware("user_id"),
 		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { calendar_event.CalendarEvent.Get(c) },
 	)
 	router.POST("/calendar-event/:user_id/:calendar_id",
 		middleware.UserExistsMiddleware("user_id"),
 		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { calendar_event.CalendarEvent.Add(c) },
 	)
 	router.PUT("/calendar-event/:user_id/:calendar_id/:event_id",
 		middleware.UserExistsMiddleware("user_id"),
 		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { calendar_event.CalendarEvent.Update(c) },
 	)
 	router.DELETE("/calendar-event/:user_id/:calendar_id/:event_id",
 		middleware.UserExistsMiddleware("user_id"),
 		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { calendar_event.CalendarEvent.Delete(c) },
 	)
 }

@@ -60,4 +60,7 @@ const (
 	ErrUserCalendarDelete           = "Erreur lors de la suppression de la liaison utilisateur-calendrier"
 	ErrUserVerification             = "Erreur lors de la vérification de l'utilisateur"
 	ErrDatabaseConnection           = "Erreur de connexion à la base de données : %v"
+	ErrInvalidCalendarID            = "ID calendrier invalide"
+	ErrCalendarVerification         = "Erreur lors de la vérification du calendrier"
+	ErrCalendarAccessCheck          = "Erreur lors de la vérification de l'accès au calendrier"
 )

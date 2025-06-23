@@ -58,8 +58,7 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 
 // Add crée un nouvel événement
 func (CalendarEventStruct) Add(c *gin.Context) {
-	user := c.MustGet("user").(common.User)
-	userID := user.UserID
+	_ = c.MustGet("user").(common.User)
 	calendar := c.MustGet("calendar").(common.Calendar)
 	calendarID := calendar.CalendarID
 
@@ -81,22 +80,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 		return
 	}
 
-	// Vérifier que l'utilisateur a accès au calendrier (propriétaire ou lié via user_calendar)
-	var accessCheck int
-	err := common.DB.QueryRow(`
-		SELECT 1 FROM (
-			SELECT user_id FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL
-			UNION
-			SELECT user_id FROM user_calendar WHERE calendar_id = ? AND deleted_at IS NULL
-		) AS access WHERE user_id = ?
-	`, calendarID, calendarID, userID).Scan(&accessCheck)
-	if err == sql.ErrNoRows {
-		c.JSON(http.StatusForbidden, common.JSONResponse{
-			Success: false,
-			Error:   "Vous n'avez pas accès à ce calendrier",
-		})
-		return
-	}
+	// La vérification d'accès est maintenant gérée par le middleware UserCanAccessCalendarMiddleware
 
 	// Valeur par défaut pour canceled si non fournie
 	canceled := false

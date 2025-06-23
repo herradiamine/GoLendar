@@ -107,3 +107,54 @@ func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func UserCanAccessCalendarMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		user, exists := c.Get("user")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrInternalUserNotInContext,
+			})
+			c.Abort()
+			return
+		}
+		userData := user.(common.User)
+
+		calendar, exists := c.Get("calendar")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrInternalCalendarNotInContext,
+			})
+			c.Abort()
+			return
+		}
+		calendarData := calendar.(common.Calendar)
+
+		// Vérifier que l'utilisateur a accès au calendrier
+		var accessCheck int
+		err := common.DB.QueryRow(`
+			SELECT 1 FROM user_calendar 
+			WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL
+		`, userData.UserID, calendarData.CalendarID).Scan(&accessCheck)
+
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusForbidden, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrNoAccessToCalendar,
+			})
+			c.Abort()
+			return
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrCalendarAccessCheck,
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
+}

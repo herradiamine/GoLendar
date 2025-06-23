@@ -25,24 +25,28 @@ func setupTestRouter() *gin.Engine {
 		"/calendar-event/:user_id/:calendar_id/:event_id",
 		middleware.UserExistsMiddleware("user_id"),
 		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { CalendarEvent.Get(c) },
 	)
 	router.POST(
 		"/calendar-event/:user_id/:calendar_id",
 		middleware.UserExistsMiddleware("user_id"),
 		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { CalendarEvent.Add(c) },
 	)
 	router.PUT(
 		"/calendar-event/:user_id/:calendar_id/:event_id",
 		middleware.UserExistsMiddleware("user_id"),
 		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { CalendarEvent.Update(c) },
 	)
 	router.DELETE(
 		"/calendar-event/:user_id/:calendar_id/:event_id",
 		middleware.UserExistsMiddleware("user_id"),
 		middleware.CalendarExistsMiddleware("calendar_id"),
+		middleware.UserCanAccessCalendarMiddleware(),
 		func(c *gin.Context) { CalendarEvent.Delete(c) },
 	)
 	router.POST(
@@ -416,6 +420,78 @@ func TestEventErrorCases(t *testing.T) {
 
 		if w.Code != http.StatusBadRequest && w.Code != http.StatusNotFound {
 			t.Errorf("Expected status 400 or 404, got %d", w.Code)
+		}
+	})
+
+	t.Run("Create Event with No Access to Calendar", func(t *testing.T) {
+		// Créer un utilisateur principal pour le test
+		var mainUserID int
+		{
+			userPayload := common.CreateUserRequest{
+				Lastname:  "Main",
+				Firstname: "User",
+				Email:     fmt.Sprintf("main.user.forbidden-%d@test.com", time.Now().UnixNano()),
+				Password:  "password123",
+			}
+			jsonData, _ := json.Marshal(userPayload)
+			req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			var resp common.JSONResponse
+			json.Unmarshal(w.Body.Bytes(), &resp)
+			data := resp.Data.(map[string]interface{})
+			mainUserID = int(data["user_id"].(float64))
+		}
+
+		// Créer un autre utilisateur et son calendrier
+		var otherCalendarID int
+		{
+			otherUserPayload := common.CreateUserRequest{
+				Lastname:  "Other",
+				Firstname: "User",
+				Email:     fmt.Sprintf("other.user.forbidden-%d@test.com", time.Now().UnixNano()),
+				Password:  "password123",
+			}
+			jsonData, _ := json.Marshal(otherUserPayload)
+			req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+			req.Header.Set("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			var resp common.JSONResponse
+			json.Unmarshal(w.Body.Bytes(), &resp)
+			data := resp.Data.(map[string]interface{})
+			otherUserID := int(data["user_id"].(float64))
+
+			calendarPayload := common.CreateCalendarRequest{Title: "Other's Calendar"}
+			jsonCalData, _ := json.Marshal(calendarPayload)
+			reqCal, _ := http.NewRequest("POST", fmt.Sprintf("/calendar/%d", otherUserID), bytes.NewBuffer(jsonCalData))
+			reqCal.Header.Set("Content-Type", "application/json")
+			wCal := httptest.NewRecorder()
+			router.ServeHTTP(wCal, reqCal)
+			var calResp common.JSONResponse
+			json.Unmarshal(wCal.Body.Bytes(), &calResp)
+			calData := calResp.Data.(map[string]interface{})
+			otherCalendarID = int(calData["calendar_id"].(float64))
+		}
+
+		// Tenter de créer un événement dans le calendrier de l'autre utilisateur
+		eventPayload := common.CreateEventRequest{
+			Title:    "Unauthorized Event",
+			Start:    time.Now(),
+			Duration: 60,
+		}
+		jsonData, _ := json.Marshal(eventPayload)
+
+		url := fmt.Sprintf("/calendar-event/%d/%d", mainUserID, otherCalendarID)
+		req, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code != http.StatusForbidden {
+			t.Errorf("Expected status %d, got %d", http.StatusForbidden, w.Code)
 		}
 	})
 }
