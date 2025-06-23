@@ -44,7 +44,7 @@ const (
 	ErrPasswordUpdate               = "Erreur lors de la mise à jour du mot de passe"
 	ErrUserDelete                   = "Erreur lors de la suppression de l'utilisateur"
 	ErrPasswordDelete               = "Erreur lors de la suppression du mot de passe"
-	ErrInvalidEventID               = "ID événement invalide"
+	ErrInvalidEventID               = "EventID invalide"
 	ErrInvalidDuration              = "La durée doit être supérieure à 0"
 	ErrEventCreation                = "Erreur lors de la création de l'événement"
 	ErrCalendarEventLink            = "Erreur lors de la liaison calendrier-événement"
@@ -59,4 +59,5 @@ const (
 	ErrUserCalendarUpdate           = "Erreur lors de la mise à jour de la liaison utilisateur-calendrier"
 	ErrUserCalendarDelete           = "Erreur lors de la suppression de la liaison utilisateur-calendrier"
 	ErrUserVerification             = "Erreur lors de la vérification de l'utilisateur"
+	ErrDatabaseConnection           = "Erreur de connexion à la base de données : %v"
 )

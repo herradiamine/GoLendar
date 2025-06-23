@@ -1,17 +1,18 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
 	"go-averroes/internal/common"
 	"go-averroes/internal/routes"
 	"log"
+
+	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
 )
 
 func main() {
 	cfg := common.LoadDBConfig()
 	if err := common.InitDB(cfg); err != nil {
-		log.Fatalf("Erreur de connexion à la base de données : %v", err)
+		log.Fatalf(common.ErrDatabaseConnection, err)
 	}
 
 	router := gin.Default()
