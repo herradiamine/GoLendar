@@ -109,7 +109,11 @@ type UpdateEventRequest struct {
 	Canceled    *bool      `json:"canceled,omitempty"`
 }
 
-// Helpers pour les pointeurs de base
+// StringPtr retourne un pointeur vers la chaîne passée en argument.
 func StringPtr(s string) *string { return &s }
-func IntPtr(i int) *int          { return &i }
-func BoolPtr(b bool) *bool       { return &b }
+
+// IntPtr retourne un pointeur vers l'entier passé en argument.
+func IntPtr(i int) *int { return &i }
+
+// BoolPtr retourne un pointeur vers le booléen passé en argument.
+func BoolPtr(b bool) *bool { return &b }

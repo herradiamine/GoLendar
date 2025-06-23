@@ -2,12 +2,13 @@ package testutils
 
 import (
 	"fmt"
+	"go-averroes/internal/common"
+
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
-	"go-averroes/internal/common"
 )
 
-// SetupTestDB configure la base de données de test
+// SetupTestDB configure la base de données de test pour les tests unitaires et d'intégration.
 func SetupTestDB() {
 	config := common.DBConfig{
 		User:     "root",
@@ -23,7 +24,7 @@ func SetupTestDB() {
 	}
 }
 
-// SetupTestRouter configure un router de test basique
+// SetupTestRouter configure un router Gin pour les tests.
 func SetupTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	SetupTestDB()

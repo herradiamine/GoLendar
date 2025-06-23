@@ -7,7 +7,7 @@ import (
 
 var DB *sql.DB
 
-// InitDB initialise la connexion à la base de données MySQL à partir d'une DBConfig
+// InitDB initialise la connexion à la base de données MySQL à partir d'une DBConfig et vérifie la connexion.
 func InitDB(cfg DBConfig) error {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true&charset=utf8mb4&loc=Local", cfg.User, cfg.Password, cfg.Host, cfg.Port, cfg.Name)
 	var err error

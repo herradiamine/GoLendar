@@ -12,7 +12,7 @@ type DBConfig struct {
 	Name     string
 }
 
-// LoadDBConfig charge la configuration depuis les variables d'environnement ou des valeurs par défaut
+// LoadDBConfig charge la configuration de la base de données depuis les variables d'environnement ou des valeurs par défaut
 func LoadDBConfig() DBConfig {
 	return DBConfig{
 		User:     getEnv("DB_USER", "root"),
@@ -23,6 +23,7 @@ func LoadDBConfig() DBConfig {
 	}
 }
 
+// getEnv retourne la valeur d'une variable d'environnement ou une valeur par défaut si elle n'est pas définie.
 func getEnv(key, defaultVal string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
