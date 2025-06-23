@@ -3,6 +3,7 @@ package user_calendar
 
 import (
 	"database/sql"
+	"errors"
 	"go-averroes/internal/common"
 	"net/http"
 
@@ -13,7 +14,7 @@ type UserCalendarStruct struct{}
 
 var UserCalendar = UserCalendarStruct{}
 
-// Get récupère une liaison user-calendar par user_id et calendar_id
+// Get récupère une liaison user calendar par user_id et calendar_id
 func (UserCalendarStruct) Get(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -45,7 +46,7 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 	`, userID, calendarID).Scan(&userCalendar.UserCalendarID, &userCalendar.UserID, &userCalendar.CalendarID, &userCalendar.CreatedAt, &userCalendar.UpdatedAt, &userCalendar.DeletedAt)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			c.JSON(http.StatusNotFound, common.JSONResponse{
 				Success: false,
 				Error:   "Liaison utilisateur-calendrier non trouvée",
@@ -65,7 +66,7 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 	})
 }
 
-// Add crée une nouvelle liaison user-calendar
+// Add crée une nouvelle liaison user calendar
 func (UserCalendarStruct) Add(c *gin.Context) {
 	// Récupérer l'utilisateur du contexte (déjà vérifié par le middleware)
 	user, exists := c.Get("user")
@@ -105,7 +106,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	// Vérifier si la liaison existe déjà
 	var existingLink common.UserCalendar
 	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL", userID, calendarID).Scan(&existingLink.UserCalendarID)
-	if err != sql.ErrNoRows {
+	if !errors.Is(err, sql.ErrNoRows) {
 		c.JSON(http.StatusConflict, common.JSONResponse{
 			Success: false,
 			Error:   "Cette liaison utilisateur-calendrier existe déjà",
@@ -144,7 +145,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	})
 }
 
-// Update met à jour une liaison user-calendar par user_id et calendar_id
+// Update met à jour une liaison user calendar par user_id et calendar_id
 func (UserCalendarStruct) Update(c *gin.Context) {
 	user, exists := c.Get("user")
 	if !exists {
@@ -182,7 +183,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	// Vérifier si la liaison existe
 	var existingLink common.UserCalendar
 	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL", userID, calendarID).Scan(&existingLink.UserCalendarID)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
 			Error:   "Liaison utilisateur-calendrier non trouvée",
@@ -190,7 +191,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 		return
 	}
 
-	// Ici, on pourrait mettre à jour d'autres champs si besoin (ex: updated_at)
+	// Ici, on pourrait mettre à jour d'autres champs si besoin (ex : updated_at).
 	_, err = tx.Exec("UPDATE user_calendar SET updated_at = NOW() WHERE user_id = ? AND calendar_id = ?", userID, calendarID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
@@ -252,7 +253,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	// Vérifier si la liaison existe
 	var existingLink common.UserCalendar
 	err = tx.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL", userID, calendarID).Scan(&existingLink.UserCalendarID)
-	if err == sql.ErrNoRows {
+	if errors.Is(err, sql.ErrNoRows) {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
 			Error:   "Liaison utilisateur-calendrier non trouvée",
