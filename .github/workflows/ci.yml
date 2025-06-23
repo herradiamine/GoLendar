@@ -1,0 +1,54 @@
+name: CI GoLendar
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24.3'
+
+      - name: Cache des modules Go
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Installation des dépendances
+        run: go mod download
+
+      - name: Lint (go vet)
+        run: go vet ./...
+
+      - name: Lint avancé (staticcheck)
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Lancement des tests
+        run: go test -v ./...
+
+      - name: Upload des logs de test (si échec)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-test
+          path: logs/app.log
+          if-no-files-found: ignore 
