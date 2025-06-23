@@ -23,7 +23,7 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "ID événement invalide",
+			Error:   common.ErrInvalidEventID,
 		})
 		return
 	}
@@ -39,7 +39,7 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, common.JSONResponse{
 				Success: false,
-				Error:   "Événement non trouvé",
+				Error:   common.ErrEventNotFound,
 			})
 			return
 		}
@@ -67,7 +67,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "Données invalides: " + err.Error(),
+			Error:   common.ErrInvalidData + ": " + err.Error(),
 		})
 		return
 	}
@@ -76,7 +76,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 	if req.Duration < 1 {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "La durée doit être supérieure à 0",
+			Error:   common.ErrInvalidDuration,
 		})
 		return
 	}
@@ -123,7 +123,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la création de l'événement",
+			Error:   common.ErrEventCreation,
 		})
 		return
 	}
@@ -138,7 +138,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la liaison calendrier-événement",
+			Error:   common.ErrCalendarEventLink,
 		})
 		return
 	}
@@ -147,14 +147,14 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la validation de la transaction",
+			Error:   common.ErrTransactionCommit,
 		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, common.JSONResponse{
 		Success: true,
-		Message: "Événement créé avec succès",
+		Message: common.MsgSuccessCreateEvent,
 		Data: gin.H{
 			"event_id":    eventID,
 			"calendar_id": calendarID,
@@ -171,7 +171,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "ID événement invalide",
+			Error:   common.ErrInvalidEventID,
 		})
 		return
 	}
@@ -180,7 +180,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "Données invalides: " + err.Error(),
+			Error:   common.ErrInvalidData + ": " + err.Error(),
 		})
 		return
 	}
@@ -189,7 +189,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 	if req.Duration != nil && *req.Duration < 1 {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "La durée doit être supérieure à 0",
+			Error:   common.ErrInvalidDuration,
 		})
 		return
 	}
@@ -200,7 +200,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
-			Error:   "Événement non trouvé",
+			Error:   common.ErrEventNotFound,
 		})
 		return
 	}
@@ -237,14 +237,14 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la mise à jour de l'événement",
+			Error:   common.ErrEventUpdate,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
-		Message: "Événement mis à jour avec succès",
+		Message: common.MsgSuccessUpdateEvent,
 	})
 }
 
@@ -257,7 +257,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "ID événement invalide",
+			Error:   common.ErrInvalidEventID,
 		})
 		return
 	}
@@ -268,7 +268,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	if err == sql.ErrNoRows {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
-			Error:   "Événement non trouvé",
+			Error:   common.ErrEventNotFound,
 		})
 		return
 	}
@@ -289,7 +289,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la suppression de l'événement",
+			Error:   common.ErrEventDelete,
 		})
 		return
 	}
@@ -299,7 +299,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la suppression des liaisons calendrier-événement",
+			Error:   common.ErrCalendarEventDeleteLink,
 		})
 		return
 	}
@@ -308,13 +308,13 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la validation de la transaction",
+			Error:   common.ErrTransactionCommit,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
-		Message: "Événement supprimé avec succès",
+		Message: common.MsgSuccessDeleteEvent,
 	})
 }

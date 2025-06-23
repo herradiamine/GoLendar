@@ -18,7 +18,7 @@ func UserExistsMiddleware(paramName string) gin.HandlerFunc {
 		if err != nil {
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
-				Error:   "ID utilisateur invalide",
+				Error:   common.ErrInvalidUserID,
 			})
 			c.Abort()
 			return
@@ -41,14 +41,14 @@ func UserExistsMiddleware(paramName string) gin.HandlerFunc {
 		if err == sql.ErrNoRows {
 			c.JSON(http.StatusNotFound, common.JSONResponse{
 				Success: false,
-				Error:   "Utilisateur non trouvé",
+				Error:   common.ErrUserNotFound,
 			})
 			c.Abort()
 			return
 		} else if err != nil {
 			c.JSON(http.StatusInternalServerError, common.JSONResponse{
 				Success: false,
-				Error:   "Erreur lors de la vérification de l'utilisateur",
+				Error:   common.ErrUserVerification,
 			})
 			c.Abort()
 			return

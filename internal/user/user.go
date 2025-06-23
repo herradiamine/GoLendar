@@ -22,7 +22,7 @@ func (UserStruct) Get(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
+			Error:   common.ErrUserNotFound,
 		})
 		return
 	}
@@ -51,7 +51,7 @@ func (UserStruct) Add(c *gin.Context) {
 	if err != sql.ErrNoRows {
 		c.JSON(http.StatusConflict, common.JSONResponse{
 			Success: false,
-			Error:   "Un utilisateur avec cet email existe déjà",
+			Error:   common.ErrUserAlreadyExists,
 		})
 		return
 	}
@@ -61,7 +61,7 @@ func (UserStruct) Add(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du hashage du mot de passe",
+			Error:   common.ErrPasswordHashing,
 		})
 		return
 	}
@@ -71,7 +71,7 @@ func (UserStruct) Add(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du démarrage de la transaction",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -85,7 +85,7 @@ func (UserStruct) Add(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la création de l'utilisateur",
+			Error:   common.ErrUserCreation,
 		})
 		return
 	}
@@ -100,7 +100,7 @@ func (UserStruct) Add(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la création du mot de passe",
+			Error:   common.ErrPasswordCreation,
 		})
 		return
 	}
@@ -109,14 +109,14 @@ func (UserStruct) Add(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la validation de la transaction",
+			Error:   common.ErrTransactionCommit,
 		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, common.JSONResponse{
 		Success: true,
-		Message: "Utilisateur créé avec succès",
+		Message: common.MsgSuccessCreateUser,
 		Data:    gin.H{"user_id": userID},
 	})
 }
@@ -128,7 +128,7 @@ func (UserStruct) Update(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
+			Error:   common.ErrUserNotFound,
 		})
 		return
 	}
@@ -152,7 +152,7 @@ func (UserStruct) Update(c *gin.Context) {
 		if !emailRegex.MatchString(*req.Email) {
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
-				Error:   "Format d'email invalide",
+				Error:   common.ErrInvalidEmailFormat,
 			})
 			return
 		}
@@ -163,7 +163,7 @@ func (UserStruct) Update(c *gin.Context) {
 		if len(*req.Password) < 6 {
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
-				Error:   "Le mot de passe doit contenir au moins 6 caractères",
+				Error:   common.ErrPasswordTooShort,
 			})
 			return
 		}
@@ -174,7 +174,7 @@ func (UserStruct) Update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du démarrage de la transaction",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -199,7 +199,7 @@ func (UserStruct) Update(c *gin.Context) {
 		if err != sql.ErrNoRows {
 			c.JSON(http.StatusConflict, common.JSONResponse{
 				Success: false,
-				Error:   "Un utilisateur avec cet email existe déjà",
+				Error:   common.ErrUserAlreadyExists,
 			})
 			return
 		}
@@ -214,7 +214,7 @@ func (UserStruct) Update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la mise à jour de l'utilisateur",
+			Error:   common.ErrUserUpdate,
 		})
 		return
 	}
@@ -225,7 +225,7 @@ func (UserStruct) Update(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, common.JSONResponse{
 				Success: false,
-				Error:   "Erreur lors du hashage du mot de passe",
+				Error:   common.ErrPasswordHashing,
 			})
 			return
 		}
@@ -238,7 +238,7 @@ func (UserStruct) Update(c *gin.Context) {
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, common.JSONResponse{
 				Success: false,
-				Error:   "Erreur lors de la mise à jour du mot de passe",
+				Error:   common.ErrPasswordUpdate,
 			})
 			return
 		}
@@ -248,14 +248,14 @@ func (UserStruct) Update(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la validation de la transaction",
+			Error:   common.ErrTransactionCommit,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
-		Message: "Utilisateur mis à jour avec succès",
+		Message: common.MsgSuccessUserUpdate,
 	})
 }
 
@@ -266,7 +266,7 @@ func (UserStruct) Delete(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
+			Error:   common.ErrUserNotFound,
 		})
 		return
 	}
@@ -279,7 +279,7 @@ func (UserStruct) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du démarrage de la transaction",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -290,7 +290,7 @@ func (UserStruct) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la suppression de l'utilisateur",
+			Error:   common.ErrUserDelete,
 		})
 		return
 	}
@@ -300,7 +300,7 @@ func (UserStruct) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la suppression du mot de passe",
+			Error:   common.ErrPasswordDelete,
 		})
 		return
 	}
@@ -309,13 +309,13 @@ func (UserStruct) Delete(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la validation de la transaction",
+			Error:   common.ErrTransactionCommit,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
-		Message: "Utilisateur supprimé avec succès",
+		Message: common.MsgSuccessUserDelete,
 	})
 }

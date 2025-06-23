@@ -20,7 +20,7 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
+			Error:   common.ErrInternalUserNotInContext,
 		})
 		return
 	}
@@ -31,7 +31,7 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: calendrier non trouvé dans le contexte",
+			Error:   common.ErrInternalCalendarNotInContext,
 		})
 		return
 	}
@@ -49,13 +49,13 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 		if errors.Is(err, sql.ErrNoRows) {
 			c.JSON(http.StatusNotFound, common.JSONResponse{
 				Success: false,
-				Error:   "Liaison utilisateur-calendrier non trouvée",
+				Error:   common.ErrUserCalendarNotFound,
 			})
 			return
 		}
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la récupération de la liaison",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -73,7 +73,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
+			Error:   common.ErrInternalUserNotInContext,
 		})
 		return
 	}
@@ -85,7 +85,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: calendrier non trouvé dans le contexte",
+			Error:   common.ErrInternalCalendarNotInContext,
 		})
 		return
 	}
@@ -97,7 +97,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du démarrage de la transaction",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -109,7 +109,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	if !errors.Is(err, sql.ErrNoRows) {
 		c.JSON(http.StatusConflict, common.JSONResponse{
 			Success: false,
-			Error:   "Cette liaison utilisateur-calendrier existe déjà",
+			Error:   common.ErrUserCalendarConflict,
 		})
 		return
 	}
@@ -122,7 +122,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la création de la liaison",
+			Error:   common.ErrUserCalendarLinkCreation,
 		})
 		return
 	}
@@ -133,14 +133,14 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la validation de la transaction",
+			Error:   common.ErrTransactionCommit,
 		})
 		return
 	}
 
 	c.JSON(http.StatusCreated, common.JSONResponse{
 		Success: true,
-		Message: "Liaison utilisateur-calendrier créée avec succès",
+		Message: common.MsgSuccessCreateUserCalendar,
 		Data:    gin.H{"user_calendar_id": userCalendarID},
 	})
 }
@@ -151,7 +151,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
+			Error:   common.ErrInternalUserNotInContext,
 		})
 		return
 	}
@@ -162,7 +162,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: calendrier non trouvé dans le contexte",
+			Error:   common.ErrInternalCalendarNotInContext,
 		})
 		return
 	}
@@ -174,7 +174,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du démarrage de la transaction",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -186,7 +186,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	if errors.Is(err, sql.ErrNoRows) {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
-			Error:   "Liaison utilisateur-calendrier non trouvée",
+			Error:   common.ErrUserCalendarNotFound,
 		})
 		return
 	}
@@ -196,7 +196,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la mise à jour de la liaison",
+			Error:   common.ErrUserCalendarUpdate,
 		})
 		return
 	}
@@ -204,14 +204,14 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la validation de la transaction",
+			Error:   common.ErrTransactionCommit,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
-		Message: "Liaison utilisateur-calendrier mise à jour avec succès",
+		Message: common.MsgSuccessUpdateUserCalendar,
 	})
 }
 
@@ -221,7 +221,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: utilisateur non trouvé dans le contexte",
+			Error:   common.ErrInternalUserNotInContext,
 		})
 		return
 	}
@@ -232,7 +232,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	if !exists {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur interne: calendrier non trouvé dans le contexte",
+			Error:   common.ErrInternalCalendarNotInContext,
 		})
 		return
 	}
@@ -244,7 +244,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors du démarrage de la transaction",
+			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
@@ -256,7 +256,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	if errors.Is(err, sql.ErrNoRows) {
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
-			Error:   "Liaison utilisateur-calendrier non trouvée",
+			Error:   common.ErrUserCalendarNotFound,
 		})
 		return
 	}
@@ -265,7 +265,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la suppression de la liaison",
+			Error:   common.ErrUserCalendarDelete,
 		})
 		return
 	}
@@ -273,13 +273,13 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	if err := tx.Commit(); err != nil {
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
-			Error:   "Erreur lors de la validation de la transaction",
+			Error:   common.ErrTransactionCommit,
 		})
 		return
 	}
 
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
-		Message: "Liaison utilisateur-calendrier supprimée avec succès",
+		Message: common.MsgSuccessDeleteUserCalendar,
 	})
 }
