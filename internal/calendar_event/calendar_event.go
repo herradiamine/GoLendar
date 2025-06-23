@@ -354,9 +354,6 @@ func (CalendarEventStruct) List(c *gin.Context) {
 	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
-	if _, ok := common.GetCalendarFromContext(c); !ok {
-		return
-	}
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
 		return
