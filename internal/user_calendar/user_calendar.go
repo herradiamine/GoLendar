@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"go-averroes/internal/common"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -16,6 +17,7 @@ var UserCalendar = UserCalendarStruct{}
 
 // Get récupère une liaison user calendar par user_id et calendar_id
 func (UserCalendarStruct) Get(c *gin.Context) {
+	slog.Info(common.LogUserCalendarGet)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		return
@@ -58,14 +60,13 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 
 // Add crée une nouvelle liaison user calendar
 func (UserCalendarStruct) Add(c *gin.Context) {
-	// Récupérer l'utilisateur du contexte (déjà vérifié par le middleware)
+	slog.Info(common.LogUserCalendarAdd)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		return
 	}
 	userID := userData.UserID
 
-	// Récupérer le calendrier du contexte (déjà vérifié par le middleware)
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
 		return
@@ -127,6 +128,7 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 
 // Update met à jour une liaison user calendar par user_id et calendar_id
 func (UserCalendarStruct) Update(c *gin.Context) {
+	slog.Info(common.LogUserCalendarUpdate)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		return
@@ -187,6 +189,7 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 
 // Delete supprime une liaison user-calendar par user_id et calendar_id
 func (UserCalendarStruct) Delete(c *gin.Context) {
+	slog.Info(common.LogUserCalendarDelete)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		return

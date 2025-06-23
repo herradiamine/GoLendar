@@ -18,7 +18,7 @@ func LoadDBConfig() DBConfig {
 		User:     getEnv("DB_USER", "root"),
 		Password: getEnv("DB_PASSWORD", "password"),
 		Host:     getEnv("DB_HOST", "localhost"),
-		Port:     3306, // Peut être rendu dynamique si besoin
+		Port:     3306,
 		Name:     getEnv("DB_NAME", "calendar"),
 	}
 }

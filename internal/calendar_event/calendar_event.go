@@ -4,6 +4,7 @@ package calendar_event
 import (
 	"database/sql"
 	"go-averroes/internal/common"
+	"log/slog"
 	"net/http"
 	"strconv"
 
@@ -16,6 +17,7 @@ var CalendarEvent = CalendarEventStruct{}
 
 // Get récupère un événement par son ID
 func (CalendarEventStruct) Get(c *gin.Context) {
+	slog.Info(common.LogEventGet)
 	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
@@ -62,6 +64,7 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 
 // Add crée un nouvel événement
 func (CalendarEventStruct) Add(c *gin.Context) {
+	slog.Info(common.LogEventAdd)
 	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
@@ -157,6 +160,7 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 
 // Update met à jour un événement
 func (CalendarEventStruct) Update(c *gin.Context) {
+	slog.Info(common.LogEventUpdate)
 	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
@@ -247,6 +251,7 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 
 // Delete supprime un événement (soft delete)
 func (CalendarEventStruct) Delete(c *gin.Context) {
+	slog.Info(common.LogEventDelete)
 	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}

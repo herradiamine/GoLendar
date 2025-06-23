@@ -4,6 +4,7 @@ package user
 import (
 	"database/sql"
 	"go-averroes/internal/common"
+	"log/slog"
 	"net/http"
 	"regexp"
 
@@ -17,6 +18,7 @@ var User = UserStruct{}
 
 // Get récupère un utilisateur par son ID
 func (UserStruct) Get(c *gin.Context) {
+	slog.Info(common.LogUserGet)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		return
@@ -30,6 +32,7 @@ func (UserStruct) Get(c *gin.Context) {
 
 // Add crée un nouvel utilisateur
 func (UserStruct) Add(c *gin.Context) {
+	slog.Info(common.LogUserAdd)
 	var req common.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
@@ -117,6 +120,7 @@ func (UserStruct) Add(c *gin.Context) {
 
 // Update met à jour un utilisateur
 func (UserStruct) Update(c *gin.Context) {
+	slog.Info(common.LogUserUpdate)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		return
@@ -248,6 +252,7 @@ func (UserStruct) Update(c *gin.Context) {
 
 // Delete supprime un utilisateur (soft delete)
 func (UserStruct) Delete(c *gin.Context) {
+	slog.Info(common.LogUserDelete)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		return

@@ -5,6 +5,8 @@ import (
 	"go-averroes/internal/common"
 	"net/http"
 
+	"log/slog"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,6 +16,7 @@ var Calendar = CalendarStruct{}
 
 // Get récupère un calendrier par user_id et calendar_id
 func (CalendarStruct) Get(c *gin.Context) {
+	slog.Info(common.LogCalendarGet)
 	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
@@ -31,6 +34,7 @@ func (CalendarStruct) Get(c *gin.Context) {
 
 // Add crée un nouveau calendrier pour un utilisateur
 func (CalendarStruct) Add(c *gin.Context) {
+	slog.Info(common.LogCalendarAdd)
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		return
@@ -105,6 +109,7 @@ func (CalendarStruct) Add(c *gin.Context) {
 
 // Update met à jour un calendrier par user_id et calendar_id
 func (CalendarStruct) Update(c *gin.Context) {
+	slog.Info(common.LogCalendarUpdate)
 	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
@@ -157,6 +162,7 @@ func (CalendarStruct) Update(c *gin.Context) {
 
 // Delete supprime un calendrier par user_id et calendar_id
 func (CalendarStruct) Delete(c *gin.Context) {
+	slog.Info(common.LogCalendarDelete)
 	if _, ok := common.GetUserFromContext(c); !ok {
 		return
 	}
