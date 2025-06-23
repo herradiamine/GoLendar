@@ -50,7 +50,8 @@ func setupTestRouter() *gin.Engine {
 		func(c *gin.Context) { user.User.Add(c) },
 	) // Pour créer un user
 	router.POST(
-		"/calendar",
+		"/calendar/:user_id",
+		middleware.UserExistsMiddleware("user_id"),
 		func(c *gin.Context) { calendar.Calendar.Add(c) },
 	) // Pour créer un calendar
 	return router
@@ -111,12 +112,11 @@ func TestUserCalendarCRUD(t *testing.T) {
 	// Créer un calendrier pour les tests
 	{
 		payload := common.CreateCalendarRequest{
-			UserID:      userID,
 			Title:       "Calendrier Test UserCalendar",
 			Description: stringPtr("Description du calendrier de test pour user_calendar"),
 		}
 		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/calendar", bytes.NewBuffer(jsonData))
+		req, _ := http.NewRequest("POST", fmt.Sprintf("/calendar/%d", userID), bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -236,12 +236,11 @@ func TestUserCalendarErrorCases(t *testing.T) {
 	}
 	{
 		payload := common.CreateCalendarRequest{
-			UserID:      testUserID,
 			Title:       "Calendrier Test Error",
 			Description: stringPtr("Description du calendrier de test pour erreurs"),
 		}
 		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/calendar", bytes.NewBuffer(jsonData))
+		req, _ := http.NewRequest("POST", fmt.Sprintf("/calendar/%d", testUserID), bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
