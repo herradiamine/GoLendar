@@ -59,3 +59,51 @@ func UserExistsMiddleware(paramName string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		calendarIDStr := c.Param(paramName)
+		calendarID, err := strconv.Atoi(calendarIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, common.JSONResponse{
+				Success: false,
+				Error:   "ID calendrier invalide",
+			})
+			c.Abort()
+			return
+		}
+
+		var calendar common.Calendar
+		err = common.DB.QueryRow(
+			"SELECT calendar_id, title, description, created_at, updated_at, deleted_at FROM calendar WHERE calendar_id = ? AND deleted_at IS NULL",
+			calendarID,
+		).Scan(
+			&calendar.CalendarID,
+			&calendar.Title,
+			&calendar.Description,
+			&calendar.CreatedAt,
+			&calendar.UpdatedAt,
+			&calendar.DeletedAt,
+		)
+
+		if err == sql.ErrNoRows {
+			c.JSON(http.StatusNotFound, common.JSONResponse{
+				Success: false,
+				Error:   "Calendrier non trouvé",
+			})
+			c.Abort()
+			return
+		} else if err != nil {
+			c.JSON(http.StatusInternalServerError, common.JSONResponse{
+				Success: false,
+				Error:   "Erreur lors de la vérification du calendrier",
+			})
+			c.Abort()
+			return
+		}
+
+		// Le calendrier existe, on l'ajoute au contexte et on continue
+		c.Set("calendar", calendar)
+		c.Next()
+	}
+}

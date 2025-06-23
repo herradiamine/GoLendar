@@ -20,10 +20,10 @@ func setupTestRouter() *gin.Engine {
 	router := testutils.SetupTestRouter()
 
 	// Configuration des routes pour les tests utilisateur
-	router.GET("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { User.Get(c) })
+	router.GET("/user/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Get(c) })
 	router.POST("/user", func(c *gin.Context) { User.Add(c) })
-	router.PUT("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { User.Update(c) })
-	router.DELETE("/user/:id", middleware.UserExistsMiddleware("id"), func(c *gin.Context) { User.Delete(c) })
+	router.PUT("/user/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Update(c) })
+	router.DELETE("/user/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Delete(c) })
 
 	return router
 }
