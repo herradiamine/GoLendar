@@ -17,7 +17,7 @@ func LoadDBConfig() DBConfig {
 	return DBConfig{
 		User:     getEnv("DB_USER", "root"),
 		Password: getEnv("DB_PASSWORD", "password"),
-		Host:     getEnv("DB_HOST", "localhost"),
+		Host:     getEnv("DB_HOST", "golendar_db"),
 		Port:     3306,
 		Name:     getEnv("DB_NAME", "calendar"),
 	}

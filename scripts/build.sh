@@ -76,6 +76,23 @@ docker-compose up -d
 print_status "Attente du démarrage des services..."
 sleep 10
 
+# Attendre que MySQL soit complètement prêt
+print_status "Attente que MySQL soit prêt..."
+until docker-compose exec -T golendar_db mysqladmin ping -h localhost --silent; do
+    print_status "MySQL démarre encore..."
+    sleep 5
+done
+print_status "✅ MySQL est prêt !"
+
+# Importer le schéma SQL
+print_status "Import du schéma SQL..."
+docker-compose exec -T golendar_db mysql -u root -ppassword calendar < resources/schema.sql
+if [ $? -eq 0 ]; then
+    print_status "✅ Schéma SQL importé avec succès !"
+else
+    print_warning "⚠️  Erreur lors de l'import du schéma SQL (peut-être déjà présent)"
+fi
+
 # Vérifier le statut des conteneurs
 print_status "Statut des conteneurs :"
 docker-compose ps
