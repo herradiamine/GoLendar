@@ -21,16 +21,6 @@ jobs:
       - name: Définir GOPATH
         run: echo "GOPATH=$(go env GOPATH)" >> $GITHUB_ENV
 
-      - name: Cache des modules Go
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/go-build
-            ${{ env.GOPATH }}/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Installation des dépendances
         run: go mod download
 
