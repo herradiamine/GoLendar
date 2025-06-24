@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   golendar_db:
     image: mysql:8.0
