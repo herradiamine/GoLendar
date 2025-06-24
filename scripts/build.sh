@@ -48,9 +48,8 @@ fi
 
 # Nettoyer les anciens conteneurs et images (optionnel)
 if [ "$1" = "--clean" ]; then
-    print_warning "Nettoyage des anciens conteneurs et images..."
-    $DC down --remove-orphans
-    docker system prune -f
+    print_warning "Nettoyage des anciens conteneurs, volumes et réseaux du projet GoLendar..."
+    $DC down --volumes --remove-orphans
 fi
 
 # Build de l'image
