@@ -66,7 +66,7 @@ docker images ${FULL_IMAGE_NAME}
 
 # Arrêter les conteneurs existants
 print_status "Arrêt des conteneurs existants..."
-docker-compose down
+docker-compose down --remove-orphans
 
 # Démarrer l'application
 print_status "Démarrage de l'application avec Docker Compose..."

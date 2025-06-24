@@ -19,9 +19,9 @@ services:
       timeout: 20s
       retries: 10
 
-  golendar_app:
+  golendar_back:
     build: .
-    container_name: golendar_app
+    container_name: golendar_back
     restart: always
     ports:
       - "8080:8080"
