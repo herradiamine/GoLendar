@@ -39,27 +39,84 @@ GoLendar/
 └── logs/                     # Logs applicatifs (ignorés par git)
 ```
 
-## ⚙️ Installation & Lancement
+## 🚀 Démarrage Rapide
 
-1. **Cloner le repo**
+### Avec Docker (Recommandé)
+
+1. **Cloner le repository**
    ```bash
-   git clone <repo-url>
+   git clone <repository-url>
    cd GoLendar
    ```
-2. **Configurer la base de données**
-   - Modifier les variables d'environnement si besoin (voir `internal/common/config.go`)
-   - Lancer la stack de dev :
-     ```bash
-     docker-compose up -d
-     ```
-   - Importer le schéma SQL :
-     ```bash
-     mysql -u root -p password < resources/schema.sql
-     ```
-3. **Installer les dépendances Go**
+
+2. **Build et démarrer avec Docker Compose**
    ```bash
+   # Build de l'image
+   ./scripts/build.sh
+   
+   # Ou directement avec docker-compose
+   docker-compose up --build -d
+   ```
+
+3. **Vérifier que l'application fonctionne**
+   ```bash
+   # Vérifier le statut des conteneurs
+   docker-compose ps
+   
+   # Voir les logs
+   docker-compose logs -f golendar
+   
+   # Tester l'endpoint de santé
+   curl http://localhost:8080/health
+   ```
+
+4. **Arrêter l'application**
+   ```bash
+   docker-compose down
+   ```
+
+### Commandes Docker utiles
+
+```bash
+# Build de l'image
+docker build -t golendar .
+
+# Démarrer les services
+docker-compose up -d
+
+# Voir les logs en temps réel
+docker-compose logs -f golendar
+
+# Arrêter les services
+docker-compose down
+
+# Nettoyer les conteneurs et images
+docker-compose down --remove-orphans
+docker system prune -f
+```
+
+### Développement Local
+
+1. **Prérequis**
+   - Go 1.24+
+   - MySQL 8.0+
+   - Git
+
+2. **Installation**
+   ```bash
+   git clone <repository-url>
+   cd GoLendar
    go mod download
    ```
+
+3. **Configuration de la base de données**
+   ```bash
+   # Démarrer MySQL avec Docker
+   docker-compose up mysql -d
+   
+   # Ou configurer votre propre instance MySQL
+   ```
+
 4. **Lancer l'application**
    ```bash
    go run cmd/app/main.go
@@ -232,4 +289,6 @@ Pour toute question ou suggestion, ouvrez une issue ou contactez-moi !
 - ✅ Gestion centralisée des messages d'erreur
 - ✅ Validation des données avec go-playground/validator
 - ✅ Middleware pour la vérification d'accès
-- ✅ Documentation complète avec exemples 
+- ✅ Documentation complète avec exemples
+- ✅ Containerisation Docker avec build multi-stage
+- ✅ Health checks et monitoring 

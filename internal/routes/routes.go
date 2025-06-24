@@ -6,11 +6,20 @@ import (
 	"go-averroes/internal/middleware"
 	"go-averroes/internal/user"
 	"go-averroes/internal/user_calendar"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 )
 
 func RegisterRoutes(router *gin.Engine) {
+	// Health check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":  "healthy",
+			"service": "GoLendar API",
+		})
+	})
+
 	// CRUD pour la gestion des utilisateurs
 	router.GET(
 		"/user/:user_id",
