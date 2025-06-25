@@ -78,7 +78,7 @@ func TestRoleCRUD(t *testing.T) {
 				}
 				if roleIDFromDB > 0 {
 					// Attribuer le rôle admin à l'utilisateur
-					_, err = common.DB.Exec("INSERT INTO user_roles (user_id, role_id, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW()", userID, roleIDFromDB)
+					_, _ = common.DB.Exec("INSERT INTO user_roles (user_id, role_id, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW()", userID, roleIDFromDB)
 				}
 			}
 		}
@@ -237,7 +237,7 @@ func TestRoleAssignment(t *testing.T) {
 				}
 				if roleIDFromDB > 0 {
 					// Attribuer le rôle admin à l'utilisateur admin
-					_, err = common.DB.Exec("INSERT INTO user_roles (user_id, role_id, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW()", adminUserID, roleIDFromDB)
+					_, _ = common.DB.Exec("INSERT INTO user_roles (user_id, role_id, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW()", adminUserID, roleIDFromDB)
 				}
 			}
 		}
@@ -403,7 +403,7 @@ func TestRoleErrorCases(t *testing.T) {
 				}
 				if roleIDFromDB > 0 {
 					// Attribuer le rôle admin à l'utilisateur admin
-					_, err = common.DB.Exec("INSERT INTO user_roles (user_id, role_id, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW()", adminUserID, roleIDFromDB)
+					_, _ = common.DB.Exec("INSERT INTO user_roles (user_id, role_id, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW()", adminUserID, roleIDFromDB)
 				}
 			}
 		}

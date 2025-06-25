@@ -305,7 +305,3 @@ func TestUserErrorCases(t *testing.T) {
 		require.Equal(t, common.ErrInsufficientPermissions, response.Error)
 	})
 }
-
-func itoa(i int) string {
-	return fmt.Sprintf("%d", i)
-}
