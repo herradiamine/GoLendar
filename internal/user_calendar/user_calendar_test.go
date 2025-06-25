@@ -444,3 +444,91 @@ func TestUserCalendarErrorCases(t *testing.T) {
 		require.Equal(t, common.ErrUserCalendarConflict, response.Error)
 	})
 }
+
+func TestUserCalendar_List_NoUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/user-calendar", func(c *gin.Context) {
+		UserCalendar.List(c)
+	})
+	req, _ := http.NewRequest("GET", "/user-calendar", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code == 200 {
+		t.Error("List devrait bloquer sans utilisateur dans le contexte")
+	}
+}
+
+func TestUserCalendar_List_DBError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("auth_user", common.User{UserID: 1})
+		if common.DB != nil {
+			_ = common.DB.Close()
+		}
+	})
+	r.GET("/user-calendar", func(c *gin.Context) {
+		UserCalendar.List(c)
+	})
+	req, _ := http.NewRequest("GET", "/user-calendar", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError && w.Code != http.StatusBadRequest {
+		t.Errorf("List avec DB fermée: code HTTP = %d, want 500 ou 400", w.Code)
+	}
+}
+
+func TestAdd_NoUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.POST("/user-calendar", func(c *gin.Context) {
+		UserCalendar.Add(c)
+	})
+	req, _ := http.NewRequest("POST", "/user-calendar", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code == 200 {
+		t.Error("Add devrait bloquer sans utilisateur dans le contexte")
+	}
+}
+
+func TestAdd_DBError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("auth_user", common.User{UserID: 1})
+		if common.DB != nil {
+			_ = common.DB.Close()
+		}
+	})
+	r.POST("/user-calendar", func(c *gin.Context) {
+		UserCalendar.Add(c)
+	})
+	req, _ := http.NewRequest("POST", "/user-calendar", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError && w.Code != http.StatusBadRequest {
+		t.Errorf("Add avec DB fermée: code HTTP = %d, want 500 ou 400", w.Code)
+	}
+}
+
+func TestList_DBError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("auth_user", common.User{UserID: 1})
+		if common.DB != nil {
+			_ = common.DB.Close()
+		}
+	})
+	r.GET("/user-calendar", func(c *gin.Context) {
+		UserCalendar.List(c)
+	})
+	req, _ := http.NewRequest("GET", "/user-calendar", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError && w.Code != http.StatusBadRequest {
+		t.Errorf("List avec DB fermée: code HTTP = %d, want 500 ou 400", w.Code)
+	}
+}

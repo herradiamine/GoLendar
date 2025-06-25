@@ -305,3 +305,119 @@ func TestUserErrorCases(t *testing.T) {
 		require.Equal(t, common.ErrInsufficientPermissions, response.Error)
 	})
 }
+
+func TestGetAuthMe_NoUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/auth/me", func(c *gin.Context) {
+		User.GetAuthMe(c)
+	})
+	req, _ := http.NewRequest("GET", "/auth/me", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code == 200 {
+		t.Error("GetAuthMe devrait bloquer sans utilisateur dans le contexte")
+	}
+}
+
+func TestDelete_NoUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.DELETE("/user/me", func(c *gin.Context) {
+		User.Delete(c)
+	})
+	req, _ := http.NewRequest("DELETE", "/user/me", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code == 200 {
+		t.Error("Delete devrait bloquer sans utilisateur dans le contexte")
+	}
+}
+
+func TestGetAuthMe_DBError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("auth_user", common.User{UserID: 1})
+		if common.DB != nil {
+			_ = common.DB.Close()
+		}
+	})
+	r.GET("/auth/me", func(c *gin.Context) {
+		User.GetAuthMe(c)
+	})
+	req, _ := http.NewRequest("GET", "/auth/me", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("GetAuthMe avec DB fermée: code HTTP = %d, want 500", w.Code)
+	}
+}
+
+func TestUpdate_NoUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.PUT("/user/me", func(c *gin.Context) {
+		User.Update(c)
+	})
+	req, _ := http.NewRequest("PUT", "/user/me", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code == 200 {
+		t.Error("Update devrait bloquer sans utilisateur dans le contexte")
+	}
+}
+
+func TestGetUserWithRoles_NoUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.GET("/user/with-roles", func(c *gin.Context) {
+		User.GetUserWithRoles(c)
+	})
+	req, _ := http.NewRequest("GET", "/user/with-roles", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code == 200 {
+		t.Error("GetUserWithRoles devrait bloquer sans utilisateur dans le contexte")
+	}
+}
+
+func TestGetUserWithRoles_DBError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("auth_user", common.User{UserID: 1})
+		if common.DB != nil {
+			_ = common.DB.Close()
+		}
+	})
+	r.GET("/user/with-roles", func(c *gin.Context) {
+		User.GetUserWithRoles(c)
+	})
+	req, _ := http.NewRequest("GET", "/user/with-roles", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("GetUserWithRoles avec DB fermée: code HTTP = %d, want 500", w.Code)
+	}
+}
+
+func TestDelete_DBError(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("auth_user", common.User{UserID: 1})
+		if common.DB != nil {
+			_ = common.DB.Close()
+		}
+	})
+	r.DELETE("/user/me", func(c *gin.Context) {
+		User.Delete(c)
+	})
+	req, _ := http.NewRequest("DELETE", "/user/me", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("Delete avec DB fermée: code HTTP = %d, want 500", w.Code)
+	}
+}

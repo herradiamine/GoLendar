@@ -463,3 +463,82 @@ func TestExistsMiddlewares(t *testing.T) {
 		require.Equal(t, "ID utilisateur invalide", response.Error)
 	})
 }
+
+func TestExtractTokenFromHeader(t *testing.T) {
+	token := "Bearer abcdef123456"
+	if res := extractTokenFromHeader(token); res != "abcdef123456" {
+		t.Errorf("extractTokenFromHeader(%q) = %q, want %q", token, res, "abcdef123456")
+	}
+	if res := extractTokenFromHeader(""); res != "" {
+		t.Errorf("extractTokenFromHeader(\"\") = %q, want empty string", res)
+	}
+	if res := extractTokenFromHeader("Bearer"); res != "" {
+		t.Errorf("extractTokenFromHeader('Bearer') = %q, want empty string", res)
+	}
+}
+
+func TestLoggingMiddleware(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(LoggingMiddleware())
+	r.GET("/ping", func(c *gin.Context) {
+		c.String(200, "pong")
+	})
+	req, _ := http.NewRequest("GET", "/ping", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Errorf("LoggingMiddleware: code HTTP = %d, want 200", w.Code)
+	}
+}
+
+func TestOptionalAuthMiddleware_NoToken(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(OptionalAuthMiddleware())
+	r.GET("/public", func(c *gin.Context) {
+		c.String(200, "ok")
+	})
+	req, _ := http.NewRequest("GET", "/public", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != 200 {
+		t.Errorf("OptionalAuthMiddleware sans token: code HTTP = %d, want 200", w.Code)
+	}
+}
+
+func TestUserCanAccessCalendarMiddleware_NoUserOrCalendar(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(UserCanAccessCalendarMiddleware())
+	r.GET("/calendar", func(c *gin.Context) {
+		c.String(200, "ok")
+	})
+	// Pas d'utilisateur ni de calendrier dans le contexte
+	req, _ := http.NewRequest("GET", "/calendar", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	// On attend une absence de réponse 200
+	if w.Code == 200 {
+		t.Error("UserCanAccessCalendarMiddleware devrait bloquer sans user/calendar dans le contexte")
+	}
+}
+
+func TestRolesMiddleware_NoRole(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		// Simule un utilisateur dans le contexte
+		c.Set("auth_user", common.User{UserID: 1})
+	})
+	r.Use(RolesMiddleware("admin", "moderator"))
+	r.GET("/protected", func(c *gin.Context) {
+		c.String(200, "ok")
+	})
+	req, _ := http.NewRequest("GET", "/protected", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code == 200 {
+		t.Error("RolesMiddleware devrait bloquer l'accès si l'utilisateur n'a aucun des rôles requis")
+	}
+}

@@ -396,3 +396,51 @@ func TestSessionSecurity(t *testing.T) {
 		require.False(t, response.Success)
 	})
 }
+
+func TestDeleteSession_NoUser(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.DELETE("/auth/sessions/:session_id", func(c *gin.Context) {
+		Session.DeleteSession(c)
+	})
+	req, _ := http.NewRequest("DELETE", "/auth/sessions/1", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusUnauthorized && w.Code != http.StatusInternalServerError {
+		t.Errorf("DeleteSession sans user: code HTTP = %d, want 401 ou 500", w.Code)
+	}
+}
+
+func TestDeleteSession_MissingSessionID(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("auth_user", common.User{UserID: 1})
+	})
+	r.DELETE("/auth/sessions/", func(c *gin.Context) {
+		Session.DeleteSession(c)
+	})
+	req, _ := http.NewRequest("DELETE", "/auth/sessions/", nil)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("DeleteSession sans session_id: code HTTP = %d, want 400", w.Code)
+	}
+}
+
+func TestValidateSession_TokenInconnu(t *testing.T) {
+	_, err := Session.ValidateSession("token-inconnu")
+	if err == nil {
+		t.Error("ValidateSession devrait retourner une erreur pour un token inconnu")
+	}
+}
+
+func TestValidateSession_DBError(t *testing.T) {
+	if common.DB != nil {
+		_ = common.DB.Close()
+	}
+	_, err := Session.ValidateSession("token-test")
+	if err == nil {
+		t.Error("ValidateSession devrait retourner une erreur si la DB est fermée")
+	}
+}
