@@ -4,6 +4,9 @@
 
 # GoLendar
 
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=herradiamine_GoLendar&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=herradiamine_GoLendar)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=herradiamine_GoLendar&metric=coverage)](https://sonarcloud.io/summary/new_code?id=herradiamine_GoLendar)
+
 GoLendar API est une API RESTful modulaire écrite en Go pour la gestion de calendriers, d'événements, d'utilisateurs et de leurs relations. Le projet met l'accent sur la propreté, la sécurité, la maintenabilité et la traçabilité du code.
 
 ---
