@@ -22,13 +22,16 @@ var Session = SessionStruct{}
 
 // Login authentifie un utilisateur et crée une session
 func (SessionStruct) Login(c *gin.Context) {
-	slog.Info("Tentative de connexion")
-	var req common.LoginRequest
+	slog.Info(common.LogLoginAttempt)
+	var req struct {
+		Email    string `json:"email" binding:"required,email"`
+		Password string `json:"password" binding:"required"`
+	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("Données de connexion invalides: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogInvalidLoginData, err.Error()))
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData + ": " + err.Error(),
+			Error:   common.ErrInvalidData,
 		})
 		return
 	}
@@ -64,7 +67,7 @@ func (SessionStruct) Login(c *gin.Context) {
 	// Vérifier le mot de passe
 	err = bcrypt.CompareHashAndPassword([]byte(passwordHash), []byte(req.Password))
 	if err != nil {
-		slog.Error("Mot de passe incorrect")
+		slog.Error(common.LogInvalidPassword)
 		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidCredentials,
@@ -141,17 +144,17 @@ func (SessionStruct) Login(c *gin.Context) {
 	})
 }
 
-// Logout déconnecte un utilisateur
+// Logout déconnecte un utilisateur en supprimant sa session
 func (SessionStruct) Logout(c *gin.Context) {
-	slog.Info("Tentative de déconnexion")
+	slog.Info(common.LogLogoutAttempt)
 
 	// Récupérer le token depuis le header Authorization
 	authHeader := c.GetHeader("Authorization")
 	if authHeader == "" {
-		slog.Error("Header Authorization manquant")
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
+		slog.Error(common.LogMissingAuthHeader)
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrSessionInvalid,
+			Error:   common.ErrUserNotAuthenticated,
 		})
 		return
 	}
@@ -159,8 +162,8 @@ func (SessionStruct) Logout(c *gin.Context) {
 	// Extraire le token (format: "Bearer <token>")
 	token := extractTokenFromHeader(authHeader)
 	if token == "" {
-		slog.Error("Token invalide dans le header Authorization")
-		c.JSON(http.StatusBadRequest, common.JSONResponse{
+		slog.Error(common.LogInvalidToken)
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrSessionInvalid,
 		})
@@ -191,16 +194,16 @@ func (SessionStruct) Logout(c *gin.Context) {
 
 // RefreshToken rafraîchit un token de session
 func (SessionStruct) RefreshToken(c *gin.Context) {
-	slog.Info("Tentative de rafraîchissement de token")
+	slog.Info(common.LogRefreshTokenAttempt)
 
 	var req struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("Données invalides: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData + ": " + err.Error(),
+			Error:   common.ErrInvalidData,
 		})
 		return
 	}
@@ -226,7 +229,7 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 	)
 
 	if err == sql.ErrNoRows {
-		slog.Error("Refresh token invalide")
+		slog.Error(common.LogInvalidRefreshToken)
 		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrSessionInvalid,
@@ -236,7 +239,7 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 
 	// Vérifier si le refresh token n'est pas expiré
 	if time.Now().After(session.ExpiresAt) {
-		slog.Error("Refresh token expiré")
+		slog.Error(common.LogRefreshTokenExpired)
 		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrSessionExpired,
@@ -247,7 +250,7 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 	// Générer un nouveau session token
 	newSessionToken, err := generateToken()
 	if err != nil {
-		slog.Error("Erreur lors de la génération du nouveau token: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogTokenGenerationError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTokenGeneration,
@@ -263,7 +266,7 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 		WHERE user_session_id = ?
 	`, newSessionToken, newExpiresAt, session.UserSessionID)
 	if err != nil {
-		slog.Error("Erreur lors de la mise à jour de la session: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogSessionUpdateError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrSessionUpdate,
@@ -284,11 +287,11 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 
 // GetUserSessions récupère toutes les sessions d'un utilisateur
 func (SessionStruct) GetUserSessions(c *gin.Context) {
-	slog.Info("Récupération des sessions d'un utilisateur")
+	slog.Info(common.LogGetUserSessions)
 
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
-		slog.Error("Utilisateur non trouvé dans le contexte")
+		slog.Error(common.LogUserNotFoundInContext)
 		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserNotAuthenticated,
@@ -303,7 +306,7 @@ func (SessionStruct) GetUserSessions(c *gin.Context) {
 		ORDER BY created_at DESC
 	`, userData.UserID)
 	if err != nil {
-		slog.Error("Erreur lors de la récupération des sessions: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogSessionsRetrievalError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrSessionNotFound,
@@ -317,7 +320,7 @@ func (SessionStruct) GetUserSessions(c *gin.Context) {
 		var session common.UserSession
 		err := rows.Scan(&session.UserSessionID, &session.UserID, &session.SessionToken, &session.RefreshToken, &session.ExpiresAt, &session.DeviceInfo, &session.IPAddress, &session.IsActive, &session.CreatedAt, &session.UpdatedAt, &session.DeletedAt)
 		if err != nil {
-			slog.Error("Erreur lors de la lecture de la session: " + err.Error())
+			slog.Error(fmt.Sprintf(common.LogSessionReadingError, err.Error()))
 			continue
 		}
 		// Masquer les tokens pour la sécurité
@@ -335,11 +338,11 @@ func (SessionStruct) GetUserSessions(c *gin.Context) {
 
 // DeleteSession supprime une session spécifique
 func (SessionStruct) DeleteSession(c *gin.Context) {
-	slog.Info("Suppression d'une session")
+	slog.Info(common.LogDeleteSession)
 
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
-		slog.Error("Utilisateur non trouvé dans le contexte")
+		slog.Error(common.LogUserNotFoundInContext)
 		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserNotAuthenticated,
@@ -349,7 +352,7 @@ func (SessionStruct) DeleteSession(c *gin.Context) {
 
 	sessionID := c.Param("session_id")
 	if sessionID == "" {
-		slog.Error("ID de session manquant")
+		slog.Error(common.LogMissingSessionID)
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidData,
@@ -361,7 +364,7 @@ func (SessionStruct) DeleteSession(c *gin.Context) {
 	var existingSessionID int
 	err := common.DB.QueryRow("SELECT user_session_id FROM user_session WHERE user_session_id = ? AND user_id = ? AND deleted_at IS NULL", sessionID, userData.UserID).Scan(&existingSessionID)
 	if err == sql.ErrNoRows {
-		slog.Error("Session non trouvée ou n'appartient pas à l'utilisateur")
+		slog.Error(common.LogSessionNotFoundOrNotOwned)
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrSessionNotFound,
@@ -372,7 +375,7 @@ func (SessionStruct) DeleteSession(c *gin.Context) {
 	// Supprimer la session
 	_, err = common.DB.Exec("UPDATE user_session SET deleted_at = NOW() WHERE user_session_id = ?", sessionID)
 	if err != nil {
-		slog.Error("Erreur lors de la suppression de la session: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogSessionDeletionError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrSessionDeletion,
@@ -380,7 +383,7 @@ func (SessionStruct) DeleteSession(c *gin.Context) {
 		return
 	}
 
-	slog.Info("Session supprimée avec succès")
+	slog.Info(common.LogSessionDeletedSuccess)
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessDeleteSession,

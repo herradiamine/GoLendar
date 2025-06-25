@@ -107,15 +107,15 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	`, userID, calendarID)
 	if err != nil {
 		// Vérifier si c'est une erreur de doublon MySQL
-		if strings.Contains(err.Error(), "Error 1062") || strings.Contains(err.Error(), "Duplicate entry") {
-			slog.Error(common.LogUserCalendarAdd + " - conflit : liaison déjà existante")
+		if strings.Contains(err.Error(), "Duplicate entry") {
+			slog.Error(common.LogUserCalendarAdd + " - " + common.LogUserCalendarConflict)
 			c.JSON(http.StatusConflict, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrUserCalendarConflict,
 			})
 			return
 		}
-		slog.Error(common.LogUserCalendarAdd + " - erreur lors de l'ajout de la liaison : " + err.Error())
+		slog.Error(common.LogUserCalendarAdd + " - " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserCalendarLinkCreation,
@@ -417,7 +417,7 @@ func checkUserAccess(c *gin.Context) (int, bool) {
 		return 0, false
 	}
 	if authUserID != userIDFromURL {
-		slog.Error("[user_calendar][Access] accès non autorisé à la liaison d'un autre utilisateur")
+		slog.Error("[user_calendar][Access] " + common.LogUserCalendarUnauthorizedAccess)
 		c.JSON(http.StatusForbidden, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrNoAccessToCalendar,

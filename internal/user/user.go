@@ -40,7 +40,7 @@ func (UserStruct) Add(c *gin.Context) {
 		slog.Error(common.LogUserAdd + " - données invalides : " + err.Error())
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData + ": " + err.Error(),
+			Error:   common.ErrInvalidData,
 		})
 		return
 	}
@@ -139,7 +139,7 @@ func (UserStruct) Update(c *gin.Context) {
 		slog.Error(common.LogUserUpdate + " - données invalides : " + err.Error())
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   "Données invalides: " + err.Error(),
+			Error:   common.ErrInvalidData,
 		})
 		return
 	}
@@ -321,7 +321,7 @@ func (UserStruct) GetUserWithRoles(c *gin.Context) {
 	slog.Info("Récupération d'un utilisateur avec ses rôles")
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
-		slog.Error("Utilisateur non trouvé dans le contexte")
+		slog.Error(common.LogUserNotFoundInContext)
 		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrUserNotAuthenticated,

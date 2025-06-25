@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"go-averroes/internal/common"
 	"go-averroes/internal/session"
 	"net/http"
@@ -178,7 +179,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Récupérer le token depuis le header Authorization
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			slog.Error("Header Authorization manquant")
+			slog.Error(common.LogMissingAuthHeader)
 			c.JSON(http.StatusUnauthorized, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrUserNotAuthenticated,
@@ -190,7 +191,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Extraire le token (format: "Bearer <token>")
 		token := extractTokenFromHeader(authHeader)
 		if token == "" {
-			slog.Error("Token invalide dans le header Authorization")
+			slog.Error(common.LogInvalidToken)
 			c.JSON(http.StatusUnauthorized, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrSessionInvalid,
@@ -202,7 +203,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		// Valider la session
 		user, err := session.Session.ValidateSession(token)
 		if err != nil {
-			slog.Error("Session invalide: " + err.Error())
+			slog.Error(common.LogInvalidSession + ": " + err.Error())
 			c.JSON(http.StatusUnauthorized, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrSessionInvalid,
@@ -222,7 +223,7 @@ func RoleMiddleware(requiredRole string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userData, ok := common.GetUserFromContext(c)
 		if !ok {
-			slog.Error("Utilisateur non trouvé dans le contexte")
+			slog.Error(common.LogUserNotFoundInContext)
 			c.JSON(http.StatusUnauthorized, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrUserNotAuthenticated,
@@ -241,7 +242,7 @@ func RoleMiddleware(requiredRole string) gin.HandlerFunc {
 		`, userData.UserID, requiredRole).Scan(&roleID)
 
 		if err != nil {
-			slog.Error("Utilisateur n'a pas le rôle requis: " + requiredRole)
+			slog.Error(fmt.Sprintf(common.LogUserMissingRole, requiredRole))
 			c.JSON(http.StatusForbidden, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrInsufficientPermissions,
@@ -259,7 +260,7 @@ func RolesMiddleware(requiredRoles ...string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userData, ok := common.GetUserFromContext(c)
 		if !ok {
-			slog.Error("Utilisateur non trouvé dans le contexte")
+			slog.Error(common.LogUserNotFoundInContext)
 			c.JSON(http.StatusUnauthorized, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrUserNotAuthenticated,
@@ -331,7 +332,7 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 		user, err := session.Session.ValidateSession(token)
 		if err != nil {
 			// Session invalide, on continue sans authentification
-			slog.Warn("Session invalide dans OptionalAuthMiddleware: " + err.Error())
+			slog.Warn(common.LogSessionInvalidOptional + ": " + err.Error())
 			c.Next()
 			return
 		}

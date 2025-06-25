@@ -3,6 +3,7 @@ package role
 
 import (
 	"database/sql"
+	"fmt"
 	"go-averroes/internal/common"
 	"log/slog"
 	"net/http"
@@ -102,10 +103,10 @@ func (RoleStruct) Add(c *gin.Context) {
 	slog.Info("Création d'un nouveau rôle")
 	var req common.CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("Données invalides: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData + ": " + err.Error(),
+			Error:   common.ErrInvalidData,
 		})
 		return
 	}
@@ -160,10 +161,10 @@ func (RoleStruct) Update(c *gin.Context) {
 
 	var req common.UpdateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("Données invalides: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData + ": " + err.Error(),
+			Error:   common.ErrInvalidData,
 		})
 		return
 	}
@@ -279,10 +280,10 @@ func (RoleStruct) AssignRole(c *gin.Context) {
 	slog.Info("Attribution d'un rôle à un utilisateur")
 	var req common.AssignRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("Données invalides: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData + ": " + err.Error(),
+			Error:   common.ErrInvalidData,
 		})
 		return
 	}
@@ -349,10 +350,10 @@ func (RoleStruct) RevokeRole(c *gin.Context) {
 	slog.Info("Révocation d'un rôle d'un utilisateur")
 	var req common.AssignRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error("Données invalides: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData + ": " + err.Error(),
+			Error:   common.ErrInvalidData,
 		})
 		return
 	}
