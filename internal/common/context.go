@@ -6,16 +6,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GetUserFromContext récupère l'utilisateur du contexte Gin.
-// En cas d'échec, il envoie une réponse d'erreur et retourne false.
+// GetUserFromContext récupère l'utilisateur authentifié du contexte Gin (clé 'auth_user'), ou à défaut 'user' (pour compatibilité).
 func GetUserFromContext(c *gin.Context) (User, bool) {
-	user, exists := c.Get("user")
+	user, exists := c.Get("auth_user")
 	if !exists {
-		c.JSON(http.StatusInternalServerError, JSONResponse{
-			Success: false,
-			Error:   ErrInternalUserNotInContext,
-		})
-		return User{}, false
+		// Pour compatibilité descendante, on tente 'user'
+		user, exists = c.Get("user")
+		if !exists {
+			c.JSON(http.StatusInternalServerError, JSONResponse{
+				Success: false,
+				Error:   ErrInternalUserNotInContext,
+			})
+			return User{}, false
+		}
 	}
 	userData, ok := user.(User)
 	if !ok {

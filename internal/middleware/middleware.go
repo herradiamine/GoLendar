@@ -88,6 +88,42 @@ func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
 	}
 }
 
+func RoleExistsMiddleware(paramName string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		roleIDStr := c.Param(paramName)
+		roleID, err := strconv.Atoi(roleIDStr)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrInvalidData,
+			})
+			c.Abort()
+			return
+		}
+
+		var role common.Role
+		err = common.DB.QueryRow(
+			"SELECT role_id, name, description, created_at, updated_at, deleted_at FROM roles WHERE role_id = ? AND deleted_at IS NULL",
+			roleID,
+		).Scan(
+			&role.RoleID,
+			&role.Name,
+			&role.Description,
+			&role.CreatedAt,
+			&role.UpdatedAt,
+			&role.DeletedAt,
+		)
+
+		if common.HandleDBError(c, err, http.StatusNotFound, common.ErrRoleNotFound, common.ErrRoleNotFound) {
+			return
+		}
+
+		// Le rôle existe, on l'ajoute au contexte et on continue
+		c.Set("role", role)
+		c.Next()
+	}
+}
+
 func UserCanAccessCalendarMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userData, ok := common.GetUserFromContext(c)
@@ -176,7 +212,7 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Ajouter l'utilisateur au contexte
-		c.Set("user", *user)
+		c.Set("auth_user", *user)
 		c.Next()
 	}
 }
@@ -301,7 +337,7 @@ func OptionalAuthMiddleware() gin.HandlerFunc {
 		}
 
 		// Ajouter l'utilisateur au contexte
-		c.Set("user", *user)
+		c.Set("auth_user", *user)
 		c.Next()
 	}
 }

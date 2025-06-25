@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"go-averroes/internal/common"
 	"go-averroes/internal/middleware"
+	"go-averroes/internal/session"
 	"go-averroes/testutils"
 	"net/http"
 	"net/http/httptest"
@@ -14,23 +15,38 @@ import (
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/stretchr/testify/require"
 )
 
 func setupTestRouter() *gin.Engine {
 	router := testutils.SetupTestRouter()
 
-	// Configuration des routes pour les tests utilisateur
-	router.GET("/user/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Get(c) })
+	// Configuration des routes pour les tests utilisateur avec la nouvelle architecture
+	// Routes publiques
 	router.POST("/user", func(c *gin.Context) { User.Add(c) })
-	router.PUT("/user/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Update(c) })
-	router.DELETE("/user/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Delete(c) })
+	router.POST("/auth/login", func(c *gin.Context) { session.Session.Login(c) })
+	router.POST("/auth/refresh", func(c *gin.Context) { session.Session.RefreshToken(c) })
+
+	// Routes protégées par authentification
+	router.GET("/user/me", middleware.AuthMiddleware(), func(c *gin.Context) { User.Get(c) })
+	router.PUT("/user/me", middleware.AuthMiddleware(), func(c *gin.Context) { User.Update(c) })
+	router.DELETE("/user/me", middleware.AuthMiddleware(), func(c *gin.Context) { User.Delete(c) })
+	router.POST("/auth/logout", middleware.AuthMiddleware(), func(c *gin.Context) { session.Session.Logout(c) })
+	router.GET("/auth/me", middleware.AuthMiddleware(), func(c *gin.Context) { User.GetUserWithRoles(c) })
+	router.GET("/auth/sessions", middleware.AuthMiddleware(), func(c *gin.Context) { session.Session.GetUserSessions(c) })
+
+	// Routes admin
+	router.GET("/user/:user_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Get(c) })
+	router.PUT("/user/:user_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Update(c) })
+	router.DELETE("/user/:user_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Delete(c) })
+	router.GET("/user/:user_id/with-roles", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.GetUserWithRoles(c) })
 
 	return router
 }
 
 func TestUserCRUD(t *testing.T) {
 	router := setupTestRouter()
-	var userID int
+	var userToken string
 	uniqueEmail := fmt.Sprintf("jean.dupont+%d@test.com", time.Now().UnixNano())
 
 	t.Run("Create User", func(t *testing.T) {
@@ -45,93 +61,119 @@ func TestUserCRUD(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		if w.Code != http.StatusCreated {
-			t.Errorf("Expected status %d, got %d", http.StatusCreated, w.Code)
-		}
+
+		require.Equal(t, http.StatusCreated, w.Code)
 		var response common.JSONResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
-		if err != nil {
-			t.Errorf(common.ErrJSONParsing, err)
-		}
-		if !response.Success {
-			t.Errorf("Expected success true, got false")
-		}
-		// Récupérer l'user_id créé
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if id, ok := data["user_id"]; ok {
-				userID = int(id.(float64))
-			}
-		}
+		require.NoError(t, err)
+		require.True(t, response.Success)
+		require.Equal(t, common.MsgSuccessCreateUser, response.Message)
 	})
 
-	t.Run("Get User", func(t *testing.T) {
-		url := "/user/" + itoa(userID)
-		req, _ := http.NewRequest("GET", url, nil)
+	t.Run("Login User", func(t *testing.T) {
+		payload := common.LoginRequest{
+			Email:    uniqueEmail,
+			Password: "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
-		}
+
+		require.Equal(t, http.StatusOK, w.Code)
 		var response common.JSONResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
-		if err != nil {
-			t.Errorf(common.ErrJSONParsing, err)
+		require.NoError(t, err)
+		require.True(t, response.Success)
+		require.Equal(t, common.MsgSuccessLogin, response.Message)
+
+		// Récupérer le token
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if token, ok := data["session_token"]; ok {
+				userToken = token.(string)
+			}
 		}
-		if !response.Success {
-			t.Errorf("Expected success true, got false")
-		}
+		require.NotEmpty(t, userToken)
 	})
 
-	t.Run("Update User", func(t *testing.T) {
+	t.Run("Get User Me", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user/me", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.True(t, response.Success)
+	})
+
+	t.Run("Get Auth Me", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/auth/me", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.True(t, response.Success)
+	})
+
+	t.Run("Get User Sessions", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/auth/sessions", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.True(t, response.Success)
+	})
+
+	t.Run("Update User Me", func(t *testing.T) {
 		payload := common.UpdateUserRequest{
 			Lastname:  common.StringPtr("Martin"),
 			Firstname: common.StringPtr("Pierre"),
 		}
 		jsonData, _ := json.Marshal(payload)
-		url := "/user/" + itoa(userID)
-		req, _ := http.NewRequest("PUT", url, bytes.NewBuffer(jsonData))
+		req, _ := http.NewRequest("PUT", "/user/me", bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+userToken)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
-		}
+
+		require.Equal(t, http.StatusOK, w.Code)
 		var response common.JSONResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
-		if err != nil {
-			t.Errorf(common.ErrJSONParsing, err)
-		}
-		if !response.Success {
-			t.Errorf("Expected success true, got false")
-		}
+		require.NoError(t, err)
+		require.True(t, response.Success)
+		require.Equal(t, common.MsgSuccessUpdateUser, response.Message)
 	})
 
-	t.Run("Delete User", func(t *testing.T) {
-		url := "/user/" + itoa(userID)
-		req, _ := http.NewRequest("DELETE", url, nil)
+	t.Run("Logout User", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/auth/logout", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status %d, got %d", http.StatusOK, w.Code)
-		}
+
+		require.Equal(t, http.StatusOK, w.Code)
 		var response common.JSONResponse
 		err := json.Unmarshal(w.Body.Bytes(), &response)
-		if err != nil {
-			t.Errorf(common.ErrJSONParsing, err)
-		}
-		if !response.Success {
-			t.Errorf("Expected success true, got false")
-		}
+		require.NoError(t, err)
+		require.True(t, response.Success)
+		require.Equal(t, common.MsgSuccessLogout, response.Message)
 	})
-}
-
-func itoa(i int) string {
-	return fmt.Sprintf("%d", i)
 }
 
 func TestUserErrorCases(t *testing.T) {
 	router := setupTestRouter()
-	var userID int
+	var userToken string
 	uniqueEmail := fmt.Sprintf("error.user+%d@test.com", time.Now().UnixNano())
 
 	// Créer un utilisateur pour les tests d'erreur
@@ -147,23 +189,39 @@ func TestUserErrorCases(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
+	}
+
+	// Login pour obtenir un token
+	{
+		payload := common.LoginRequest{
+			Email:    uniqueEmail,
+			Password: "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
 		var response common.JSONResponse
 		_ = json.Unmarshal(w.Body.Bytes(), &response)
 		if data, ok := response.Data.(map[string]interface{}); ok {
-			if id, ok := data["user_id"]; ok {
-				userID = int(id.(float64))
+			if token, ok := data["session_token"]; ok {
+				userToken = token.(string)
 			}
 		}
 	}
 
-	t.Run("Get Non-existent User", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/user/999", nil)
+	t.Run("Get User Me Without Token", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user/me", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusNotFound {
-			t.Errorf("Expected status %d, got %d", http.StatusNotFound, w.Code)
-		}
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrUserNotAuthenticated, response.Error)
 	})
 
 	t.Run("Create User with Invalid Email", func(t *testing.T) {
@@ -181,9 +239,12 @@ func TestUserErrorCases(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Contains(t, response.Error, common.ErrInvalidData)
 	})
 
 	t.Run("Create User with Short Password", func(t *testing.T) {
@@ -201,131 +262,50 @@ func TestUserErrorCases(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Contains(t, response.Error, common.ErrInvalidData)
 	})
 
-	t.Run("Create User with Missing Required Fields", func(t *testing.T) {
-		payload := map[string]interface{}{
-			"lastname": "Test",
-			// firstname manquant
-			"email":    "test@example.com",
-			"password": "motdepasse123",
+	t.Run("Login with Invalid Credentials", func(t *testing.T) {
+		payload := common.LoginRequest{
+			Email:    uniqueEmail,
+			Password: "wrongpassword",
 		}
 
 		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
 		req.Header.Set("Content-Type", "application/json")
 
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrInvalidCredentials, response.Error)
 	})
 
-	t.Run("Create User with Empty Fields", func(t *testing.T) {
-		payload := common.CreateUserRequest{
-			Lastname:  "",
-			Firstname: "",
-			Email:     "",
-			Password:  "",
-		}
-
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-
+	t.Run("Access Admin Route Without Admin Role", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user/999", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
+		require.Equal(t, http.StatusForbidden, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrInsufficientPermissions, response.Error)
 	})
+}
 
-	t.Run("Update User with Invalid Email", func(t *testing.T) {
-		payload := map[string]interface{}{
-			"email": "invalid-email-format",
-		}
-
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("PUT", fmt.Sprintf("/user/%d", userID), bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Update User with Short Password", func(t *testing.T) {
-		payload := map[string]interface{}{
-			"password": "123",
-		}
-
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("PUT", fmt.Sprintf("/user/%d", userID), bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Update User with Invalid JSON", func(t *testing.T) {
-		req, _ := http.NewRequest("PUT", fmt.Sprintf("/user/%d", userID), bytes.NewBuffer([]byte("invalid json")))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Get User with Invalid ID", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/user/invalid", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Update User with Invalid ID", func(t *testing.T) {
-		payload := map[string]interface{}{
-			"lastname": "Updated",
-		}
-
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("PUT", "/user/invalid", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
-
-	t.Run("Delete User with Invalid ID", func(t *testing.T) {
-		req, _ := http.NewRequest("DELETE", "/user/invalid", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		if w.Code != http.StatusBadRequest {
-			t.Errorf("Expected status %d, got %d", http.StatusBadRequest, w.Code)
-		}
-	})
+func itoa(i int) string {
+	return fmt.Sprintf("%d", i)
 }

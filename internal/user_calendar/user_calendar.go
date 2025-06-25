@@ -4,10 +4,11 @@ package user_calendar
 import (
 	"database/sql"
 	"errors"
-	"fmt"
 	"go-averroes/internal/common"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -19,11 +20,10 @@ var UserCalendar = UserCalendarStruct{}
 // Get récupère une liaison user calendar par user_id et calendar_id
 func (UserCalendarStruct) Get(c *gin.Context) {
 	slog.Info(common.LogUserCalendarGet)
-	userData, ok := common.GetUserFromContext(c)
+	userID, ok := checkUserAccess(c)
 	if !ok {
 		return
 	}
-	userID := userData.UserID
 
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
@@ -65,11 +65,10 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 // Add crée une nouvelle liaison user calendar
 func (UserCalendarStruct) Add(c *gin.Context) {
 	slog.Info(common.LogUserCalendarAdd)
-	userData, ok := common.GetUserFromContext(c)
+	userID, ok := checkUserAccess(c)
 	if !ok {
 		return
 	}
-	userID := userData.UserID
 
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
@@ -107,6 +106,15 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 		VALUES (?, ?, NOW())
 	`, userID, calendarID)
 	if err != nil {
+		// Vérifier si c'est une erreur de doublon MySQL
+		if strings.Contains(err.Error(), "Error 1062") || strings.Contains(err.Error(), "Duplicate entry") {
+			slog.Error(common.LogUserCalendarAdd + " - conflit : liaison déjà existante")
+			c.JSON(http.StatusConflict, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrUserCalendarConflict,
+			})
+			return
+		}
 		slog.Error(common.LogUserCalendarAdd + " - erreur lors de l'ajout de la liaison : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
@@ -138,11 +146,10 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 // Update met à jour une liaison user calendar par user_id et calendar_id
 func (UserCalendarStruct) Update(c *gin.Context) {
 	slog.Info(common.LogUserCalendarUpdate)
-	userData, ok := common.GetUserFromContext(c)
+	userID, ok := checkUserAccess(c)
 	if !ok {
 		return
 	}
-	userID := userData.UserID
 
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
@@ -204,11 +211,10 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 // Delete supprime une liaison user-calendar par user_id et calendar_id
 func (UserCalendarStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogUserCalendarDelete)
-	userData, ok := common.GetUserFromContext(c)
+	userID, ok := checkUserAccess(c)
 	if !ok {
 		return
 	}
-	userID := userData.UserID
 
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
@@ -266,7 +272,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 	})
 }
 
-// List récupère tous les calendriers d'un utilisateur avec leurs détails
+// List récupère toutes les liaisons user calendar pour un utilisateur
 func (UserCalendarStruct) List(c *gin.Context) {
 	slog.Info(common.LogUserCalendarList)
 	userData, ok := common.GetUserFromContext(c)
@@ -275,17 +281,16 @@ func (UserCalendarStruct) List(c *gin.Context) {
 	}
 	userID := userData.UserID
 
-	// Requête pour récupérer tous les calendriers de l'utilisateur avec leurs détails
 	rows, err := common.DB.Query(`
-		SELECT uc.user_calendar_id, uc.user_id, uc.calendar_id, 
-		       c.title, c.description, uc.created_at, uc.updated_at, uc.deleted_at
+		SELECT uc.user_calendar_id, uc.user_id, uc.calendar_id, uc.created_at, uc.updated_at, uc.deleted_at,
+		       c.title, c.description
 		FROM user_calendar uc
 		INNER JOIN calendar c ON uc.calendar_id = c.calendar_id
 		WHERE uc.user_id = ? AND uc.deleted_at IS NULL AND c.deleted_at IS NULL
 		ORDER BY uc.created_at DESC
 	`, userID)
 	if err != nil {
-		slog.Error(common.LogUserCalendarList + " - erreur SQL : " + err.Error())
+		slog.Error(common.LogUserCalendarList + " - erreur lors de la récupération des liaisons : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
@@ -294,43 +299,130 @@ func (UserCalendarStruct) List(c *gin.Context) {
 	}
 	defer rows.Close()
 
-	var calendars []common.UserCalendarWithDetails
+	var userCalendars []common.UserCalendarWithDetails
 	for rows.Next() {
-		var calendar common.UserCalendarWithDetails
+		var userCalendar common.UserCalendarWithDetails
 		err := rows.Scan(
-			&calendar.UserCalendarID,
-			&calendar.UserID,
-			&calendar.CalendarID,
-			&calendar.Title,
-			&calendar.Description,
-			&calendar.CreatedAt,
-			&calendar.UpdatedAt,
-			&calendar.DeletedAt,
+			&userCalendar.UserCalendarID,
+			&userCalendar.UserID,
+			&userCalendar.CalendarID,
+			&userCalendar.CreatedAt,
+			&userCalendar.UpdatedAt,
+			&userCalendar.DeletedAt,
+			&userCalendar.Title,
+			&userCalendar.Description,
 		)
 		if err != nil {
-			slog.Error(common.LogUserCalendarList + " - erreur lors du scan des données : " + err.Error())
+			slog.Error(common.LogUserCalendarList + " - erreur lors de la lecture des données : " + err.Error())
 			c.JSON(http.StatusInternalServerError, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrTransactionStart,
 			})
 			return
 		}
-		calendars = append(calendars, calendar)
+		userCalendars = append(userCalendars, userCalendar)
 	}
 
-	if err = rows.Err(); err != nil {
-		slog.Error(common.LogUserCalendarList + " - erreur lors de l'itération des résultats : " + err.Error())
+	slog.Info(common.LogUserCalendarList + " - succès")
+	c.JSON(http.StatusOK, common.JSONResponse{
+		Success: true,
+		Message: common.MsgSuccessListUserCalendars,
+		Data:    userCalendars,
+	})
+}
+
+// GetByUser récupère toutes les liaisons user calendar pour un utilisateur spécifique (admin)
+func (UserCalendarStruct) GetByUser(c *gin.Context) {
+	slog.Info(common.LogUserCalendarList)
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
+		return
+	}
+	userID := userData.UserID
+
+	rows, err := common.DB.Query(`
+		SELECT uc.user_calendar_id, uc.user_id, uc.calendar_id, uc.created_at, uc.updated_at, uc.deleted_at,
+		       c.title, c.description
+		FROM user_calendar uc
+		INNER JOIN calendar c ON uc.calendar_id = c.calendar_id
+		WHERE uc.user_id = ? AND uc.deleted_at IS NULL AND c.deleted_at IS NULL
+		ORDER BY uc.created_at DESC
+	`, userID)
+	if err != nil {
+		slog.Error(common.LogUserCalendarList + " - erreur lors de la récupération des liaisons : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrTransactionStart,
 		})
 		return
 	}
+	defer rows.Close()
 
-	slog.Info(common.LogUserCalendarList + " - succès, " + fmt.Sprintf("%d", len(calendars)) + " calendriers trouvés")
+	var userCalendars []common.UserCalendarWithDetails
+	for rows.Next() {
+		var userCalendar common.UserCalendarWithDetails
+		err := rows.Scan(
+			&userCalendar.UserCalendarID,
+			&userCalendar.UserID,
+			&userCalendar.CalendarID,
+			&userCalendar.CreatedAt,
+			&userCalendar.UpdatedAt,
+			&userCalendar.DeletedAt,
+			&userCalendar.Title,
+			&userCalendar.Description,
+		)
+		if err != nil {
+			slog.Error(common.LogUserCalendarList + " - erreur lors de la lecture des données : " + err.Error())
+			c.JSON(http.StatusInternalServerError, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrTransactionStart,
+			})
+			return
+		}
+		userCalendars = append(userCalendars, userCalendar)
+	}
+
+	slog.Info(common.LogUserCalendarList + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
 		Message: common.MsgSuccessListUserCalendars,
-		Data:    calendars,
+		Data:    userCalendars,
 	})
+}
+
+// checkUserAccess vérifie que l'utilisateur authentifié correspond au user_id de l'URL
+func checkUserAccess(c *gin.Context) (int, bool) {
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
+		return 0, false
+	}
+	authUserID := userData.UserID
+
+	userIDParam := c.Param("user_id")
+	if userIDParam == "" {
+		slog.Error("[user_calendar][Access] user_id manquant dans l'URL")
+		c.JSON(http.StatusBadRequest, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrInvalidUserID,
+		})
+		return 0, false
+	}
+	userIDFromURL, err := strconv.Atoi(userIDParam)
+	if err != nil {
+		slog.Error("[user_calendar][Access] user_id invalide dans l'URL")
+		c.JSON(http.StatusBadRequest, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrInvalidUserID,
+		})
+		return 0, false
+	}
+	if authUserID != userIDFromURL {
+		slog.Error("[user_calendar][Access] accès non autorisé à la liaison d'un autre utilisateur")
+		c.JSON(http.StatusForbidden, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrNoAccessToCalendar,
+		})
+		return 0, false
+	}
+	return userIDFromURL, true
 }

@@ -1,0 +1,465 @@
+package middleware
+
+import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"go-averroes/internal/common"
+	"go-averroes/internal/session"
+	"go-averroes/internal/user"
+	"go-averroes/testutils"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/stretchr/testify/require"
+)
+
+func setupTestRouter() *gin.Engine {
+	router := testutils.SetupTestRouter()
+
+	// Configuration des routes pour tester les middlewares
+	// Routes publiques
+	router.POST("/user", func(c *gin.Context) { user.User.Add(c) })
+	router.POST("/auth/login", func(c *gin.Context) { session.Session.Login(c) })
+
+	// Routes pour tester AuthMiddleware
+	router.GET("/protected", AuthMiddleware(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Protected route accessed"})
+	})
+
+	// Routes pour tester AdminMiddleware
+	router.GET("/admin", AuthMiddleware(), AdminMiddleware(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Admin route accessed"})
+	})
+
+	// Routes pour tester RoleMiddleware
+	router.GET("/moderator", AuthMiddleware(), RoleMiddleware("moderator"), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Moderator route accessed"})
+	})
+
+	// Routes pour tester UserExistsMiddleware
+	router.GET("/user/:user_id", AuthMiddleware(), UserExistsMiddleware("user_id"), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "User exists"})
+	})
+
+	// Routes pour tester CalendarExistsMiddleware
+	router.GET("/calendar/:calendar_id", AuthMiddleware(), CalendarExistsMiddleware("calendar_id"), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Calendar exists"})
+	})
+
+	// Routes pour tester EventExistsMiddleware
+	router.GET("/event/:event_id", AuthMiddleware(), EventExistsMiddleware("event_id"), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Event exists"})
+	})
+
+	// Routes pour tester RoleExistsMiddleware
+	router.GET("/role/:role_id", AuthMiddleware(), RoleExistsMiddleware("role_id"), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Role exists"})
+	})
+
+	return router
+}
+
+func TestAuthMiddleware(t *testing.T) {
+	router := setupTestRouter()
+	var userToken string
+	uniqueEmail := fmt.Sprintf("auth.middleware+%d@test.com", time.Now().UnixNano())
+
+	// Créer un utilisateur pour les tests
+	{
+		payload := common.CreateUserRequest{
+			Lastname:  "Test",
+			Firstname: "Auth",
+			Email:     uniqueEmail,
+			Password:  "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	// Login pour obtenir un token
+	{
+		payload := common.LoginRequest{
+			Email:    uniqueEmail,
+			Password: "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if token, ok := data["session_token"]; ok {
+				userToken = token.(string)
+			}
+		}
+	}
+
+	t.Run("Access Protected Route with Valid Token", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/protected", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusOK, w.Code)
+		var response map[string]interface{}
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.Equal(t, "Protected route accessed", response["message"])
+	})
+
+	t.Run("Access Protected Route without Token", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/protected", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrUserNotAuthenticated, response.Error)
+	})
+
+	t.Run("Access Protected Route with Invalid Token", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/protected", nil)
+		req.Header.Set("Authorization", "Bearer invalid_token")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrSessionInvalid, response.Error)
+	})
+
+	t.Run("Access Protected Route with Malformed Authorization Header", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/protected", nil)
+		req.Header.Set("Authorization", "InvalidFormat "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrSessionInvalid, response.Error)
+	})
+}
+
+func TestAdminMiddleware(t *testing.T) {
+	router := setupTestRouter()
+	var adminToken string
+	var userToken string
+	adminEmail := fmt.Sprintf("admin.middleware+%d@test.com", time.Now().UnixNano())
+	userEmail := fmt.Sprintf("user.middleware+%d@test.com", time.Now().UnixNano())
+
+	// Créer un utilisateur admin
+	{
+		payload := common.CreateUserRequest{
+			Lastname:  "Admin",
+			Firstname: "Middleware",
+			Email:     adminEmail,
+			Password:  "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	// Créer un utilisateur normal
+	{
+		payload := common.CreateUserRequest{
+			Lastname:  "User",
+			Firstname: "Middleware",
+			Email:     userEmail,
+			Password:  "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	// Login admin
+	{
+		payload := common.LoginRequest{
+			Email:    adminEmail,
+			Password: "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if token, ok := data["session_token"]; ok {
+				adminToken = token.(string)
+			}
+		}
+		// Attribution du rôle admin à l'utilisateur admin
+		var adminUserID int
+		err := common.DB.QueryRow("SELECT user_id FROM user WHERE email = ? AND deleted_at IS NULL", adminEmail).Scan(&adminUserID)
+		if err == nil {
+			var roleID int
+			err = common.DB.QueryRow("SELECT role_id FROM roles WHERE name = 'admin' AND deleted_at IS NULL").Scan(&roleID)
+			if err != nil {
+				result, err := common.DB.Exec("INSERT INTO roles (name, description, created_at) VALUES (?, ?, NOW())", "admin", "Rôle administrateur")
+				if err == nil {
+					roleID64, _ := result.LastInsertId()
+					roleID = int(roleID64)
+				}
+			}
+			if roleID > 0 {
+				_, _ = common.DB.Exec("INSERT INTO user_roles (user_id, role_id, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW()", adminUserID, roleID)
+			}
+		}
+	}
+
+	// Login user
+	{
+		payload := common.LoginRequest{
+			Email:    userEmail,
+			Password: "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if token, ok := data["session_token"]; ok {
+				userToken = token.(string)
+			}
+		}
+	}
+
+	// Créer un rôle admin et l'assigner à l'admin
+	{
+		// Note: Dans un vrai test, nous aurions besoin d'ajouter les routes admin
+		// Pour simplifier, nous simulons que l'admin a le rôle admin
+	}
+
+	t.Run("Access Admin Route with Admin User", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/admin", nil)
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		// Note: Ce test échouera car l'admin n'a pas encore le rôle admin
+		// Dans un vrai test, nous assignerions d'abord le rôle
+		require.Equal(t, http.StatusOK, w.Code)
+	})
+
+	t.Run("Access Admin Route with Regular User", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/admin", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusForbidden, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrInsufficientPermissions, response.Error)
+	})
+
+	t.Run("Access Admin Route without Token", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/admin", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusUnauthorized, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrUserNotAuthenticated, response.Error)
+	})
+}
+
+func TestRoleMiddleware(t *testing.T) {
+	router := setupTestRouter()
+	var userToken string
+	uniqueEmail := fmt.Sprintf("role.middleware+%d@test.com", time.Now().UnixNano())
+
+	// Créer un utilisateur pour les tests
+	{
+		payload := common.CreateUserRequest{
+			Lastname:  "Test",
+			Firstname: "Role",
+			Email:     uniqueEmail,
+			Password:  "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	// Login pour obtenir un token
+	{
+		payload := common.LoginRequest{
+			Email:    uniqueEmail,
+			Password: "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if token, ok := data["session_token"]; ok {
+				userToken = token.(string)
+			}
+		}
+	}
+
+	t.Run("Access Role-Specific Route without Required Role", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/moderator", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusForbidden, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrInsufficientPermissions, response.Error)
+	})
+}
+
+func TestExistsMiddlewares(t *testing.T) {
+	router := setupTestRouter()
+	var userToken string
+	uniqueEmail := fmt.Sprintf("exists.middleware+%d@test.com", time.Now().UnixNano())
+
+	// Créer un utilisateur pour les tests
+	{
+		payload := common.CreateUserRequest{
+			Lastname:  "Test",
+			Firstname: "Exists",
+			Email:     uniqueEmail,
+			Password:  "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+	}
+
+	// Login pour obtenir un token
+	{
+		payload := common.LoginRequest{
+			Email:    uniqueEmail,
+			Password: "motdepasse123",
+		}
+		jsonData, _ := json.Marshal(payload)
+		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+		var response common.JSONResponse
+		_ = json.Unmarshal(w.Body.Bytes(), &response)
+		if data, ok := response.Data.(map[string]interface{}); ok {
+			if token, ok := data["session_token"]; ok {
+				userToken = token.(string)
+			}
+		}
+	}
+
+	t.Run("UserExistsMiddleware with Non-existent User", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user/999", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusNotFound, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrUserNotFound, response.Error)
+	})
+
+	t.Run("CalendarExistsMiddleware with Non-existent Calendar", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/calendar/999", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusNotFound, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrCalendarNotFound, response.Error)
+	})
+
+	t.Run("EventExistsMiddleware with Non-existent Event", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/event/999", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusNotFound, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrEventNotFound, response.Error)
+	})
+
+	t.Run("RoleExistsMiddleware with Non-existent Role", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/role/999", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusNotFound, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, common.ErrRoleNotFound, response.Error)
+	})
+
+	t.Run("UserExistsMiddleware with Invalid User ID", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/user/invalid", nil)
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		require.Equal(t, http.StatusBadRequest, w.Code)
+		var response common.JSONResponse
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		require.NoError(t, err)
+		require.False(t, response.Success)
+		require.Equal(t, "ID utilisateur invalide", response.Error)
+	})
+}

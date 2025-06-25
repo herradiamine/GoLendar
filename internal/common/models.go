@@ -203,6 +203,11 @@ type AssignRoleRequest struct {
 	RoleID int `json:"role_id" binding:"required"`
 }
 
+type RevokeRoleRequest struct {
+	UserID int `json:"user_id" binding:"required"`
+	RoleID int `json:"role_id" binding:"required"`
+}
+
 type CreateSessionRequest struct {
 	UserID     int     `json:"user_id" binding:"required"`
 	DeviceInfo *string `json:"device_info,omitempty"`
