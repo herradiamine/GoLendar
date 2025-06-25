@@ -51,3 +51,26 @@ func GetCalendarFromContext(c *gin.Context) (Calendar, bool) {
 	}
 	return calendarData, true
 }
+
+// GetEventFromContext récupère l'événement du contexte Gin.
+// En cas d'échec, il envoie une réponse d'erreur et retourne false.
+func GetEventFromContext(c *gin.Context) (Event, bool) {
+	event, exists := c.Get("event")
+	if !exists {
+		c.JSON(http.StatusInternalServerError, JSONResponse{
+			Success: false,
+			Error:   ErrEventRetrieval,
+		})
+		return Event{}, false
+	}
+	eventData, ok := event.(Event)
+	if !ok {
+		// This case should ideally not happen if middleware is set correctly
+		c.JSON(http.StatusInternalServerError, JSONResponse{
+			Success: false,
+			Error:   ErrEventRetrieval,
+		})
+		return Event{}, false
+	}
+	return eventData, true
+}

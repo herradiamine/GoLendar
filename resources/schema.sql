@@ -73,3 +73,45 @@ CREATE TABLE IF NOT EXISTS `user_password` (
     CONSTRAINT fk_user_password_user FOREIGN KEY (user_id) REFERENCES `user`(user_id)
         ON DELETE CASCADE
 ) ENGINE=InnoDB;
+
+-- Table : roles
+CREATE TABLE IF NOT EXISTS `roles` (
+    role_id      INT AUTO_INCREMENT PRIMARY KEY,
+    name         VARCHAR(50) NOT NULL UNIQUE,
+    description  TEXT,
+    created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at   DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at   DATETIME DEFAULT NULL
+) ENGINE=InnoDB;
+
+-- Table : user_roles
+CREATE TABLE IF NOT EXISTS `user_roles` (
+    user_roles_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id       INT NOT NULL,
+    role_id       INT NOT NULL,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at    DATETIME DEFAULT NULL,
+    CONSTRAINT uc_user_roles UNIQUE (user_id, role_id),
+    CONSTRAINT fk_user_roles_user FOREIGN KEY (user_id) REFERENCES `user`(user_id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES `roles`(role_id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- Table : user_session
+CREATE TABLE IF NOT EXISTS `user_session` (
+    user_session_id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id         INT NOT NULL,
+    session_token   VARCHAR(500) NOT NULL UNIQUE,
+    refresh_token   VARCHAR(500) DEFAULT NULL,
+    expires_at      DATETIME NOT NULL,
+    device_info     VARCHAR(255) DEFAULT NULL,
+    ip_address      VARCHAR(45) DEFAULT NULL,
+    is_active       BOOL NOT NULL DEFAULT TRUE,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    deleted_at      DATETIME DEFAULT NULL,
+    CONSTRAINT fk_user_session_user FOREIGN KEY (user_id) REFERENCES `user`(user_id)
+        ON DELETE CASCADE
+) ENGINE=InnoDB;

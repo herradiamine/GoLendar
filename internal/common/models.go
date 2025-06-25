@@ -79,6 +79,53 @@ type UserCalendarWithDetails struct {
 	DeletedAt      *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
 }
 
+// Role représente la table roles
+type Role struct {
+	RoleID      int        `json:"role_id" db:"role_id"`
+	Name        string     `json:"name" db:"name"`
+	Description *string    `json:"description,omitempty" db:"description"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty" db:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
+}
+
+// UserRole représente la table user_roles
+type UserRole struct {
+	UserRolesID int        `json:"user_roles_id" db:"user_roles_id"`
+	UserID      int        `json:"user_id" db:"user_id"`
+	RoleID      int        `json:"role_id" db:"role_id"`
+	CreatedAt   time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt   *time.Time `json:"updated_at,omitempty" db:"updated_at"`
+	DeletedAt   *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
+}
+
+// UserSession représente la table user_session
+type UserSession struct {
+	UserSessionID int        `json:"user_session_id" db:"user_session_id"`
+	UserID        int        `json:"user_id" db:"user_id"`
+	SessionToken  string     `json:"session_token" db:"session_token"`
+	RefreshToken  *string    `json:"refresh_token,omitempty" db:"refresh_token"`
+	ExpiresAt     time.Time  `json:"expires_at" db:"expires_at"`
+	DeviceInfo    *string    `json:"device_info,omitempty" db:"device_info"`
+	IPAddress     *string    `json:"ip_address,omitempty" db:"ip_address"`
+	IsActive      bool       `json:"is_active" db:"is_active"`
+	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt     *time.Time `json:"updated_at,omitempty" db:"updated_at"`
+	DeletedAt     *time.Time `json:"deleted_at,omitempty" db:"deleted_at"`
+}
+
+// UserWithRoles représente un utilisateur avec ses rôles
+type UserWithRoles struct {
+	User
+	Roles []Role `json:"roles"`
+}
+
+// UserSessionWithUser représente une session avec les informations de l'utilisateur
+type UserSessionWithUser struct {
+	UserSession
+	User User `json:"user"`
+}
+
 // Structures pour les requêtes
 type CreateUserRequest struct {
 	Lastname  string `json:"lastname" binding:"required"`
@@ -125,6 +172,41 @@ type UpdateEventRequest struct {
 type ListEventsRequest struct {
 	FilterType string `json:"filter_type" binding:"required,oneof=month week day"`
 	Date       string `json:"date" binding:"required"` // Format: "2024-01-15" pour jour, "2024-01" pour mois, "2024-W01" pour semaine
+}
+
+// Structures pour l'authentification et les sessions
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type LoginResponse struct {
+	User         User      `json:"user"`
+	SessionToken string    `json:"session_token"`
+	RefreshToken string    `json:"refresh_token,omitempty"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	Roles        []Role    `json:"roles"`
+}
+
+type CreateRoleRequest struct {
+	Name        string  `json:"name" binding:"required"`
+	Description *string `json:"description,omitempty"`
+}
+
+type UpdateRoleRequest struct {
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+}
+
+type AssignRoleRequest struct {
+	UserID int `json:"user_id" binding:"required"`
+	RoleID int `json:"role_id" binding:"required"`
+}
+
+type CreateSessionRequest struct {
+	UserID     int     `json:"user_id" binding:"required"`
+	DeviceInfo *string `json:"device_info,omitempty"`
+	IPAddress  *string `json:"ip_address,omitempty"`
 }
 
 // StringPtr retourne un pointeur vers la chaîne passée en argument.
