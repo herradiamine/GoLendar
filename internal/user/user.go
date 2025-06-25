@@ -3,6 +3,7 @@ package user
 
 import (
 	"database/sql"
+	"fmt"
 	"go-averroes/internal/common"
 	"log/slog"
 	"net/http"
@@ -338,7 +339,62 @@ func (UserStruct) GetUserWithRoles(c *gin.Context) {
 		ORDER BY r.name
 	`, userData.UserID)
 	if err != nil {
-		slog.Error("Erreur lors de la récupération des rôles: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogRolesRetrievalError, err.Error()))
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrRoleNotFound,
+		})
+		return
+	}
+	defer rows.Close()
+
+	var roles []common.Role
+	for rows.Next() {
+		var role common.Role
+		err := rows.Scan(&role.RoleID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt, &role.DeletedAt)
+		if err != nil {
+			slog.Error("Erreur lors de la lecture du rôle: " + err.Error())
+			continue
+		}
+		roles = append(roles, role)
+	}
+
+	userWithRoles := common.UserWithRoles{
+		User:  userData,
+		Roles: roles,
+	}
+
+	slog.Info(common.LogUserGetWithRolesSuccess)
+	c.JSON(http.StatusOK, common.JSONResponse{
+		Success: true,
+		Data:    userWithRoles,
+	})
+}
+
+// GetAuthMe récupère les informations de l'utilisateur authentifié avec ses rôles
+func (UserStruct) GetAuthMe(c *gin.Context) {
+	slog.Info(common.LogUserGetWithRoles)
+
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
+		slog.Error(common.LogUserNotFoundInContext)
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrUserNotAuthenticated,
+		})
+		return
+	}
+
+	// Récupérer les rôles de l'utilisateur
+	rows, err := common.DB.Query(`
+		SELECT r.role_id, r.name, r.description, r.created_at, r.updated_at, r.deleted_at
+		FROM roles r
+		INNER JOIN user_roles ur ON r.role_id = ur.role_id
+		WHERE ur.user_id = ? AND ur.deleted_at IS NULL AND r.deleted_at IS NULL
+		ORDER BY r.name
+	`, userData.UserID)
+	if err != nil {
+		slog.Error(fmt.Sprintf(common.LogRolesRetrievalError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrRoleNotFound,

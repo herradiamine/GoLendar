@@ -78,7 +78,7 @@ func (SessionStruct) Login(c *gin.Context) {
 	// Récupérer les rôles de l'utilisateur
 	roles, err := getUserRoles(user.UserID)
 	if err != nil {
-		slog.Error("Erreur lors de la récupération des rôles: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogRolesRetrievalError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrRoleNotFound,

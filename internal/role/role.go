@@ -15,15 +15,16 @@ type RoleStruct struct{}
 
 var Role = RoleStruct{}
 
-// Get récupère un rôle par son ID
-func (RoleStruct) Get(c *gin.Context) {
-	slog.Info("Récupération d'un rôle")
+// GetRole récupère un rôle par son ID
+func (RoleStruct) GetRole(c *gin.Context) {
+	slog.Info(common.LogRoleGet)
+
 	roleID := c.Param("id")
 	if roleID == "" {
 		slog.Error(common.ErrMissingRoleID)
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData,
+			Error:   common.ErrMissingRoleID,
 		})
 		return
 	}
@@ -60,18 +61,18 @@ func (RoleStruct) Get(c *gin.Context) {
 	})
 }
 
-// List récupère tous les rôles
-func (RoleStruct) List(c *gin.Context) {
-	slog.Info("Récupération de tous les rôles")
+// ListRoles récupère tous les rôles
+func (RoleStruct) ListRoles(c *gin.Context) {
+	slog.Info(common.LogRoleList)
 
 	rows, err := common.DB.Query(`
-		SELECT role_id, name, description, created_at, updated_at, deleted_at 
+		SELECT role_id, name, description, created_at, updated_at, deleted_at
 		FROM roles 
-		WHERE deleted_at IS NULL 
+		WHERE deleted_at IS NULL
 		ORDER BY name
 	`)
 	if err != nil {
-		slog.Error("Erreur lors de la récupération des rôles: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogRolesRetrievalError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrRoleNotFound,
@@ -98,9 +99,10 @@ func (RoleStruct) List(c *gin.Context) {
 	})
 }
 
-// Add crée un nouveau rôle
-func (RoleStruct) Add(c *gin.Context) {
-	slog.Info("Création d'un nouveau rôle")
+// CreateRole crée un nouveau rôle
+func (RoleStruct) CreateRole(c *gin.Context) {
+	slog.Info(common.LogRoleCreate)
+
 	var req common.CreateRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
@@ -146,12 +148,13 @@ func (RoleStruct) Add(c *gin.Context) {
 	})
 }
 
-// Update met à jour un rôle
-func (RoleStruct) Update(c *gin.Context) {
-	slog.Info("Mise à jour d'un rôle")
-	roleID := c.Param("id")
-	if roleID == "" {
-		slog.Error(common.ErrMissingRoleID)
+// UpdateRole met à jour un rôle existant
+func (RoleStruct) UpdateRole(c *gin.Context) {
+	slog.Info(common.LogRoleUpdate)
+
+	var req common.UpdateRoleRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidData,
@@ -159,9 +162,9 @@ func (RoleStruct) Update(c *gin.Context) {
 		return
 	}
 
-	var req common.UpdateRoleRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
+	roleID := c.Param("id")
+	if roleID == "" {
+		slog.Error(common.ErrMissingRoleID)
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidData,
@@ -225,9 +228,10 @@ func (RoleStruct) Update(c *gin.Context) {
 	})
 }
 
-// Delete supprime un rôle
-func (RoleStruct) Delete(c *gin.Context) {
-	slog.Info("Suppression d'un rôle")
+// DeleteRole supprime un rôle
+func (RoleStruct) DeleteRole(c *gin.Context) {
+	slog.Info(common.LogRoleDelete)
+
 	roleID := c.Param("id")
 	if roleID == "" {
 		slog.Error(common.ErrMissingRoleID)
@@ -277,7 +281,8 @@ func (RoleStruct) Delete(c *gin.Context) {
 
 // AssignRole attribue un rôle à un utilisateur
 func (RoleStruct) AssignRole(c *gin.Context) {
-	slog.Info("Attribution d'un rôle à un utilisateur")
+	slog.Info(common.LogRoleAssign)
+
 	var req common.AssignRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
@@ -347,7 +352,8 @@ func (RoleStruct) AssignRole(c *gin.Context) {
 
 // RevokeRole révoque un rôle d'un utilisateur
 func (RoleStruct) RevokeRole(c *gin.Context) {
-	slog.Info("Révocation d'un rôle d'un utilisateur")
+	slog.Info(common.LogRoleRevoke)
+
 	var req common.AssignRoleRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error(fmt.Sprintf(common.LogInvalidData, err.Error()))
@@ -390,10 +396,11 @@ func (RoleStruct) RevokeRole(c *gin.Context) {
 
 // GetUserRoles récupère les rôles d'un utilisateur
 func (RoleStruct) GetUserRoles(c *gin.Context) {
-	slog.Info("Récupération des rôles d'un utilisateur")
+	slog.Info(common.LogRoleGetUserRoles)
+
 	userID := c.Param("user_id")
 	if userID == "" {
-		slog.Error("ID utilisateur manquant")
+		slog.Error(common.LogMissingUserID)
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidData,
@@ -421,7 +428,7 @@ func (RoleStruct) GetUserRoles(c *gin.Context) {
 		ORDER BY r.name
 	`, userID)
 	if err != nil {
-		slog.Error("Erreur lors de la récupération des rôles: " + err.Error())
+		slog.Error(fmt.Sprintf(common.LogRolesRetrievalError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrRoleNotFound,

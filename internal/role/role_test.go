@@ -28,11 +28,11 @@ func setupTestRouter() *gin.Engine {
 	router.POST("/auth/login", func(c *gin.Context) { session.Session.Login(c) })
 
 	// Routes admin pour les rôles
-	router.GET("/roles", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) { Role.List(c) })
-	router.GET("/roles/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.RoleExistsMiddleware("id"), func(c *gin.Context) { Role.Get(c) })
-	router.POST("/roles", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) { Role.Add(c) })
-	router.PUT("/roles/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.RoleExistsMiddleware("id"), func(c *gin.Context) { Role.Update(c) })
-	router.DELETE("/roles/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.RoleExistsMiddleware("id"), func(c *gin.Context) { Role.Delete(c) })
+	router.GET("/roles", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) { Role.ListRoles(c) })
+	router.GET("/roles/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.RoleExistsMiddleware("id"), func(c *gin.Context) { Role.GetRole(c) })
+	router.POST("/roles", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) { Role.CreateRole(c) })
+	router.PUT("/roles/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.RoleExistsMiddleware("id"), func(c *gin.Context) { Role.UpdateRole(c) })
+	router.DELETE("/roles/:id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.RoleExistsMiddleware("id"), func(c *gin.Context) { Role.DeleteRole(c) })
 	router.POST("/roles/assign", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) { Role.AssignRole(c) })
 	router.POST("/roles/revoke", middleware.AuthMiddleware(), middleware.AdminMiddleware(), func(c *gin.Context) { Role.RevokeRole(c) })
 	router.GET("/roles/user/:user_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { Role.GetUserRoles(c) })
