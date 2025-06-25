@@ -1,41 +1,162 @@
 {
 	"info": {
 		"_postman_id": "3a4cfb2e-0c8b-4732-980b-d0647923c56a",
-		"name": "GoLendar API",
-		"description": "Collection Postman pour tester l'API RESTful GoLendar.",
+		"name": "GoLendar API v1.2.0",
+		"description": "Collection Postman complète pour tester l'API RESTful GoLendar v1.2.0 avec authentification, gestion des rôles et sessions.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-		"_exporter_id": "2538754"
+		"_exporter_id": "2538754",
+		"version": "1.2.0"
 	},
 	"item": [
 		{
-			"name": "Users",
+			"name": "🔐 Authentication",
 			"item": [
 				{
-					"name": "Get User",
+					"name": "Login",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"password123\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "login"]
+						}
+					},
+					"response": [],
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"if (pm.response.code === 200) {",
+									"    const response = pm.response.json();",
+									"    if (response.data && response.data.session_token) {",
+									"        pm.environment.set('session_token', response.data.session_token);",
+									"        pm.environment.set('refresh_token', response.data.refresh_token);",
+									"        pm.environment.set('user_id', response.data.user.user_id);",
+									"    }",
+									"}"
+								]
+							}
+						}
+					]
+				},
+				{
+					"name": "Refresh Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/auth/refresh",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "refresh"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Logout",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/logout",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "logout"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Profile",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/user/:user_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user",
-								":user_id"
-							],
+							"raw": "{{base_url}}/auth/me",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "me"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Sessions",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/sessions",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "sessions"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Session",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/auth/sessions/:session_id",
+							"host": ["{{base_url}}"],
+							"path": ["auth", "sessions", ":session_id"],
 							"variable": [
 								{
-									"key": "user_id",
+									"key": "session_id",
 									"value": "1"
 								}
 							]
 						}
 					},
 					"response": []
-				},
+				}
+			]
+		},
+		{
+			"name": "👥 Users",
+			"item": [
 				{
-					"name": "Create User",
+					"name": "Create User (Register)",
 					"request": {
 						"method": "POST",
 						"header": [
@@ -50,24 +171,42 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/user",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user"
-							]
+							"host": ["{{base_url}}"],
+							"path": ["user"]
 						}
 					},
 					"response": []
 				},
 				{
-					"name": "Update User",
+					"name": "Get My Profile",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/me",
+							"host": ["{{base_url}}"],
+							"path": ["user", "me"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update My Profile",
 					"request": {
 						"method": "PUT",
 						"header": [
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
 							}
 						],
 						"body": {
@@ -75,14 +214,45 @@
 							"raw": "{\n  \"lastname\": \"Martin\",\n  \"firstname\": \"Pierre\",\n  \"email\": \"pierre.martin@example.com\"\n}"
 						},
 						"url": {
+							"raw": "{{base_url}}/user/me",
+							"host": ["{{base_url}}"],
+							"path": ["user", "me"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete My Account",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/me",
+							"host": ["{{base_url}}"],
+							"path": ["user", "me"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get User (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
 							"raw": "{{base_url}}/user/:user_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user",
-								":user_id"
-							],
+							"host": ["{{base_url}}"],
+							"path": ["user", ":user_id"],
 							"variable": [
 								{
 									"key": "user_id",
@@ -94,19 +264,75 @@
 					"response": []
 				},
 				{
-					"name": "Delete User",
+					"name": "Update User (Admin)",
 					"request": {
-						"method": "DELETE",
-						"header": [],
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"lastname\": \"Martin\",\n  \"firstname\": \"Pierre\",\n  \"email\": \"pierre.martin@example.com\"\n}"
+						},
 						"url": {
 							"raw": "{{base_url}}/user/:user_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user",
-								":user_id"
-							],
+							"host": ["{{base_url}}"],
+							"path": ["user", ":user_id"],
+							"variable": [
+								{
+									"key": "user_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete User (Admin)",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/:user_id",
+							"host": ["{{base_url}}"],
+							"path": ["user", ":user_id"],
+							"variable": [
+								{
+									"key": "user_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get User With Roles (Admin)",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/user/:user_id/with-roles",
+							"host": ["{{base_url}}"],
+							"path": ["user", ":user_id", "with-roles"],
 							"variable": [
 								{
 									"key": "user_id",
@@ -120,30 +346,43 @@
 			]
 		},
 		{
-			"name": "Calendars",
+			"name": "🔑 Roles (Admin)",
 			"item": [
 				{
-					"name": "Get Calendar",
+					"name": "List All Roles",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/calendar/:user_id/:calendar_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"calendar",
-								":user_id",
-								":calendar_id"
-							],
+							"raw": "{{base_url}}/roles",
+							"host": ["{{base_url}}"],
+							"path": ["roles"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Role",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/roles/:role_id",
+							"host": ["{{base_url}}"],
+							"path": ["roles", ":role_id"],
 							"variable": [
 								{
-									"key": "user_id",
-									"value": "1"
-								},
-								{
-									"key": "calendar_id",
+									"key": "role_id",
 									"value": "1"
 								}
 							]
@@ -152,6 +391,169 @@
 					"response": []
 				},
 				{
+					"name": "Create Role",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"moderator\",\n  \"description\": \"Rôle de modérateur avec permissions limitées\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/roles",
+							"host": ["{{base_url}}"],
+							"path": ["roles"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Update Role",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"super_moderator\",\n  \"description\": \"Rôle de super modérateur avec permissions étendues\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/roles/:role_id",
+							"host": ["{{base_url}}"],
+							"path": ["roles", ":role_id"],
+							"variable": [
+								{
+									"key": "role_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Role",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/roles/:role_id",
+							"host": ["{{base_url}}"],
+							"path": ["roles", ":role_id"],
+							"variable": [
+								{
+									"key": "role_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Assign Role to User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user_id\": 1,\n  \"role_id\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/roles/assign",
+							"host": ["{{base_url}}"],
+							"path": ["roles", "assign"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Revoke Role from User",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"user_id\": 1,\n  \"role_id\": 2\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/roles/revoke",
+							"host": ["{{base_url}}"],
+							"path": ["roles", "revoke"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get User Roles",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/roles/user/:user_id",
+							"host": ["{{base_url}}"],
+							"path": ["roles", "user", ":user_id"],
+							"variable": [
+								{
+									"key": "user_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "📅 Calendars",
+			"item": [
+				{
 					"name": "Create Calendar",
 					"request": {
 						"method": "POST",
@@ -159,6 +561,10 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
 							}
 						],
 						"body": {
@@ -166,17 +572,31 @@
 							"raw": "{\n  \"title\": \"Calendrier Personnel\",\n  \"description\": \"Mon calendrier personnel pour les événements privés\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/calendar/:user_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"calendar",
-								":user_id"
-							],
+							"raw": "{{base_url}}/calendar",
+							"host": ["{{base_url}}"],
+							"path": ["calendar"]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Calendar",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/calendar/:calendar_id",
+							"host": ["{{base_url}}"],
+							"path": ["calendar", ":calendar_id"],
 							"variable": [
 								{
-									"key": "user_id"
+									"key": "calendar_id",
+									"value": "1"
 								}
 							]
 						}
@@ -191,6 +611,10 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
 							}
 						],
 						"body": {
@@ -198,20 +622,10 @@
 							"raw": "{\n  \"title\": \"Calendrier Professionnel\",\n  \"description\": \"Calendrier pour les réunions et événements professionnels\"\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/calendar/:user_id/:calendar_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"calendar",
-								":user_id",
-								":calendar_id"
-							],
+							"raw": "{{base_url}}/calendar/:calendar_id",
+							"host": ["{{base_url}}"],
+							"path": ["calendar", ":calendar_id"],
 							"variable": [
-								{
-									"key": "user_id",
-									"value": "1"
-								},
 								{
 									"key": "calendar_id",
 									"value": "1"
@@ -225,22 +639,17 @@
 					"name": "Delete Calendar",
 					"request": {
 						"method": "DELETE",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/calendar/:user_id/:calendar_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"calendar",
-								":user_id",
-								":calendar_id"
-							],
+							"raw": "{{base_url}}/calendar/:calendar_id",
+							"host": ["{{base_url}}"],
+							"path": ["calendar", ":calendar_id"],
 							"variable": [
-								{
-									"key": "user_id",
-									"value": "1"
-								},
 								{
 									"key": "calendar_id",
 									"value": "1"
@@ -253,42 +662,8 @@
 			]
 		},
 		{
-			"name": "Events",
+			"name": "📝 Events",
 			"item": [
-				{
-					"name": "Get Event",
-					"request": {
-						"method": "GET",
-						"header": [],
-						"url": {
-							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/:event_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"calendar-event",
-								":user_id",
-								":calendar_id",
-								":event_id"
-							],
-							"variable": [
-								{
-									"key": "user_id",
-									"value": "1"
-								},
-								{
-									"key": "calendar_id",
-									"value": "1"
-								},
-								{
-									"key": "event_id",
-									"value": "1"
-								}
-							]
-						}
-					},
-					"response": []
-				},
 				{
 					"name": "Create Event",
 					"request": {
@@ -297,29 +672,51 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
 							}
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\n  \"title\": \"Réunion équipe\",\n  \"description\": \"Réunion hebdomadaire de l'équipe de développement\",\n  \"start\": \"2024-01-15T10:00:00Z\",\n  \"duration\": 60,\n  \"canceled\": false\n}"
+							"raw": "{\n  \"title\": \"Réunion équipe\",\n  \"description\": \"Réunion hebdomadaire de l'équipe de développement\",\n  \"start\": \"2024-01-15T10:00:00Z\",\n  \"duration\": 60,\n  \"calendar_id\": 1,\n  \"canceled\": false\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"calendar-event",
-								":user_id",
-								":calendar_id"
-							],
+							"raw": "{{base_url}}/calendar-event/:calendar_id",
+							"host": ["{{base_url}}"],
+							"path": ["calendar-event", ":calendar_id"],
 							"variable": [
 								{
-									"key": "user_id",
+									"key": "calendar_id",
+									"value": "1"
+								}
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Get Event",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/calendar-event/:calendar_id/:event_id",
+							"host": ["{{base_url}}"],
+							"path": ["calendar-event", ":calendar_id", ":event_id"],
+							"variable": [
+								{
+									"key": "calendar_id",
 									"value": "1"
 								},
 								{
-									"key": "calendar_id",
+									"key": "event_id",
 									"value": "1"
 								}
 							]
@@ -335,6 +732,10 @@
 							{
 								"key": "Content-Type",
 								"value": "application/json"
+							},
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
 							}
 						],
 						"body": {
@@ -342,21 +743,10 @@
 							"raw": "{\n  \"title\": \"Réunion équipe (modifiée)\",\n  \"start\": \"2024-01-15T11:00:00Z\",\n  \"duration\": 90\n}"
 						},
 						"url": {
-							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/:event_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"calendar-event",
-								":user_id",
-								":calendar_id",
-								":event_id"
-							],
+							"raw": "{{base_url}}/calendar-event/:calendar_id/:event_id",
+							"host": ["{{base_url}}"],
+							"path": ["calendar-event", ":calendar_id", ":event_id"],
 							"variable": [
-								{
-									"key": "user_id",
-									"value": "1"
-								},
 								{
 									"key": "calendar_id",
 									"value": "1"
@@ -374,23 +764,17 @@
 					"name": "Delete Event",
 					"request": {
 						"method": "DELETE",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/:event_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"calendar-event",
-								":user_id",
-								":calendar_id",
-								":event_id"
-							],
+							"raw": "{{base_url}}/calendar-event/:calendar_id/:event_id",
+							"host": ["{{base_url}}"],
+							"path": ["calendar-event", ":calendar_id", ":event_id"],
 							"variable": [
-								{
-									"key": "user_id",
-									"value": "1"
-								},
 								{
 									"key": "calendar_id",
 									"value": "1"
@@ -408,16 +792,29 @@
 					"name": "List Events By Month",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/month/:year/:month",
+							"raw": "{{base_url}}/calendar-event/:calendar_id/month/:year/:month",
 							"host": ["{{base_url}}"],
-							"path": ["calendar-event", ":user_id", ":calendar_id", "month", ":year", ":month"],
+							"path": ["calendar-event", ":calendar_id", "month", ":year", ":month"],
 							"variable": [
-								{"key": "user_id", "value": "1"},
-								{"key": "calendar_id", "value": "1"},
-								{"key": "year", "value": "2024"},
-								{"key": "month", "value": "1"}
+								{
+									"key": "calendar_id",
+									"value": "1"
+								},
+								{
+									"key": "year",
+									"value": "2024"
+								},
+								{
+									"key": "month",
+									"value": "1"
+								}
 							]
 						}
 					},
@@ -427,16 +824,29 @@
 					"name": "List Events By Week",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/week/:year/:week",
+							"raw": "{{base_url}}/calendar-event/:calendar_id/week/:year/:week",
 							"host": ["{{base_url}}"],
-							"path": ["calendar-event", ":user_id", ":calendar_id", "week", ":year", ":week"],
+							"path": ["calendar-event", ":calendar_id", "week", ":year", ":week"],
 							"variable": [
-								{"key": "user_id", "value": "1"},
-								{"key": "calendar_id", "value": "1"},
-								{"key": "year", "value": "2024"},
-								{"key": "week", "value": "3"}
+								{
+									"key": "calendar_id",
+									"value": "1"
+								},
+								{
+									"key": "year",
+									"value": "2024"
+								},
+								{
+									"key": "week",
+									"value": "3"
+								}
 							]
 						}
 					},
@@ -446,17 +856,33 @@
 					"name": "List Events By Day",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
-							"raw": "{{base_url}}/calendar-event/:user_id/:calendar_id/day/:year/:month/:day",
+							"raw": "{{base_url}}/calendar-event/:calendar_id/day/:year/:month/:day",
 							"host": ["{{base_url}}"],
-							"path": ["calendar-event", ":user_id", ":calendar_id", "day", ":year", ":month", ":day"],
+							"path": ["calendar-event", ":calendar_id", "day", ":year", ":month", ":day"],
 							"variable": [
-								{"key": "user_id", "value": "1"},
-								{"key": "calendar_id", "value": "1"},
-								{"key": "year", "value": "2024"},
-								{"key": "month", "value": "1"},
-								{"key": "day", "value": "15"}
+								{
+									"key": "calendar_id",
+									"value": "1"
+								},
+								{
+									"key": "year",
+									"value": "2024"
+								},
+								{
+									"key": "month",
+									"value": "1"
+								},
+								{
+									"key": "day",
+									"value": "15"
+								}
 							]
 						}
 					},
@@ -465,22 +891,22 @@
 			]
 		},
 		{
-			"name": "User Calendar Links",
+			"name": "🔗 User Calendar Links (Admin)",
 			"item": [
 				{
 					"name": "List User Calendars",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/user-calendar/:user_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user-calendar",
-								":user_id"
-							],
+							"host": ["{{base_url}}"],
+							"path": ["user-calendar", ":user_id"],
 							"variable": [
 								{
 									"key": "user_id",
@@ -495,17 +921,16 @@
 					"name": "Get User Calendar Link",
 					"request": {
 						"method": "GET",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/user-calendar/:user_id/:calendar_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user-calendar",
-								":user_id",
-								":calendar_id"
-							],
+							"host": ["{{base_url}}"],
+							"path": ["user-calendar", ":user_id", ":calendar_id"],
 							"variable": [
 								{
 									"key": "user_id",
@@ -524,17 +949,16 @@
 					"name": "Create User Calendar Link",
 					"request": {
 						"method": "POST",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/user-calendar/:user_id/:calendar_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user-calendar",
-								":user_id",
-								":calendar_id"
-							],
+							"host": ["{{base_url}}"],
+							"path": ["user-calendar", ":user_id", ":calendar_id"],
 							"variable": [
 								{
 									"key": "user_id",
@@ -553,17 +977,16 @@
 					"name": "Update User Calendar Link",
 					"request": {
 						"method": "PUT",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/user-calendar/:user_id/:calendar_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user-calendar",
-								":user_id",
-								":calendar_id"
-							],
+							"host": ["{{base_url}}"],
+							"path": ["user-calendar", ":user_id", ":calendar_id"],
 							"variable": [
 								{
 									"key": "user_id",
@@ -582,17 +1005,16 @@
 					"name": "Delete User Calendar Link",
 					"request": {
 						"method": "DELETE",
-						"header": [],
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{session_token}}"
+							}
+						],
 						"url": {
 							"raw": "{{base_url}}/user-calendar/:user_id/:calendar_id",
-							"host": [
-								"{{base_url}}"
-							],
-							"path": [
-								"user-calendar",
-								":user_id",
-								":calendar_id"
-							],
+							"host": ["{{base_url}}"],
+							"path": ["user-calendar", ":user_id", ":calendar_id"],
 							"variable": [
 								{
 									"key": "user_id",
@@ -608,12 +1030,40 @@
 					"response": []
 				}
 			]
+		},
+		{
+			"name": "🏥 Health Check",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						}
+					},
+					"response": []
+				}
+			]
 		}
 	],
 	"variable": [
 		{
 			"key": "base_url",
 			"value": "http://localhost:8080",
+			"type": "string"
+		},
+		{
+			"key": "session_token",
+			"value": "",
+			"type": "string"
+		},
+		{
+			"key": "refresh_token",
+			"value": "",
 			"type": "string"
 		},
 		{
@@ -628,6 +1078,16 @@
 		},
 		{
 			"key": "event_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "role_id",
+			"value": "1",
+			"type": "string"
+		},
+		{
+			"key": "session_id",
 			"value": "1",
 			"type": "string"
 		}
