@@ -494,3 +494,61 @@ func TestCalendarEventErrorCases(t *testing.T) {
 		require.Contains(t, response.Error, common.ErrInvalidData)
 	})
 }
+
+func TestParseDateFilter_Day(t *testing.T) {
+	start, end, err := parseDateFilter("day", "2024-01-15")
+	if err != nil {
+		t.Errorf("parseDateFilter(day) erreur inattendue: %v", err)
+	}
+	if !start.Equal(time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("Début incorrect: %v", start)
+	}
+	if !end.Equal(time.Date(2024, 1, 16, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("Fin incorrecte: %v", end)
+	}
+}
+
+func TestParseDateFilter_Week(t *testing.T) {
+	start, end, err := parseDateFilter("week", "2024-W01")
+	if err != nil {
+		t.Errorf("parseDateFilter(week) erreur inattendue: %v", err)
+	}
+	if !start.Equal(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("Début incorrect: %v", start)
+	}
+	if !end.Equal(time.Date(2024, 1, 8, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("Fin incorrecte: %v", end)
+	}
+}
+
+func TestParseDateFilter_Month(t *testing.T) {
+	start, end, err := parseDateFilter("month", "2024-01")
+	if err != nil {
+		t.Errorf("parseDateFilter(month) erreur inattendue: %v", err)
+	}
+	if !start.Equal(time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("Début incorrect: %v", start)
+	}
+	if !end.Equal(time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)) {
+		t.Errorf("Fin incorrecte: %v", end)
+	}
+}
+
+func TestParseDateFilter_Invalid(t *testing.T) {
+	_, _, err := parseDateFilter("day", "invalid-date")
+	if err == nil {
+		t.Error("Attendu une erreur pour une date invalide")
+	}
+	_, _, err = parseDateFilter("week", "2024-WXX")
+	if err == nil {
+		t.Error("Attendu une erreur pour une semaine invalide")
+	}
+	_, _, err = parseDateFilter("month", "2024-XX")
+	if err == nil {
+		t.Error("Attendu une erreur pour un mois invalide")
+	}
+	_, _, err = parseDateFilter("unknown", "2024-01-01")
+	if err == nil {
+		t.Error("Attendu une erreur pour un type de filtre inconnu")
+	}
+}
