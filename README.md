@@ -1,6 +1,5 @@
 <div align="center">
   <img src="assets/GoLendar-Logo.png" alt="GoLendar Logo" width="240"/>
-  <h1>GoLendar</h1>
   <p><em>API RESTful moderne pour la gestion de calendriers et d'événements</em></p>
 </div>
 
