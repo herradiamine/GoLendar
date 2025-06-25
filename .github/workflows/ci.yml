@@ -46,6 +46,16 @@ jobs:
           export DB_PASSWORD=password
           export DB_NAME=calendar
           go test -v ./internal/user ./internal/calendar ./internal/calendar_event ./internal/user_calendar
+      
+      - name: Run tests with coverage
+        run: |
+          go test -coverprofile=coverage.out -covermode=atomic ./...
+          go test -json ./... > test-report.json
+  
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarcloud-github-action@master
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
 
       - name: Upload des logs de test (si échec)
         if: failure()
