@@ -58,6 +58,7 @@ func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
 		calendarIDStr := c.Param(paramName)
 		calendarID, err := strconv.Atoi(calendarIDStr)
 		if err != nil {
+			slog.Error("CalendarExistsMiddleware: ID de calendrier invalide", "calendar_id", calendarIDStr, "error", err.Error())
 			c.JSON(http.StatusBadRequest, common.JSONResponse{
 				Success: false,
 				Error:   common.ErrInvalidCalendarID,
@@ -65,6 +66,8 @@ func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
 			c.Abort()
 			return
 		}
+
+		slog.Info("CalendarExistsMiddleware: Recherche du calendrier", "calendar_id", calendarID)
 
 		var calendar common.Calendar
 		err = common.DB.QueryRow(
@@ -79,9 +82,14 @@ func CalendarExistsMiddleware(paramName string) gin.HandlerFunc {
 			&calendar.DeletedAt,
 		)
 
-		if common.HandleDBError(c, err, http.StatusNotFound, common.ErrCalendarNotFound, common.ErrCalendarVerification) {
-			return
+		if err != nil {
+			slog.Error("CalendarExistsMiddleware: Calendrier non trouvé", "calendar_id", calendarID, "error", err.Error())
+			if common.HandleDBError(c, err, http.StatusNotFound, common.ErrCalendarNotFound, common.ErrCalendarVerification) {
+				return
+			}
 		}
+
+		slog.Info("CalendarExistsMiddleware: Calendrier trouvé", "calendar_id", calendar.CalendarID, "title", calendar.Title)
 
 		// Le calendrier existe, on l'ajoute au contexte et on continue
 		c.Set("calendar", calendar)
@@ -129,13 +137,29 @@ func UserCanAccessCalendarMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userData, ok := common.GetUserFromContext(c)
 		if !ok {
+			slog.Error("UserCanAccessCalendarMiddleware: Utilisateur non trouvé dans le contexte")
+			c.JSON(http.StatusUnauthorized, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrUserNotAuthenticated,
+			})
+			c.Abort()
 			return
 		}
 
+		slog.Info("UserCanAccessCalendarMiddleware: Utilisateur trouvé", "user_id", userData.UserID, "email", userData.Email)
+
 		calendarData, ok := common.GetCalendarFromContext(c)
 		if !ok {
+			slog.Error("UserCanAccessCalendarMiddleware: Calendrier non trouvé dans le contexte")
+			c.JSON(http.StatusNotFound, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrCalendarNotFound,
+			})
+			c.Abort()
 			return
 		}
+
+		slog.Info("UserCanAccessCalendarMiddleware: Calendrier trouvé", "calendar_id", calendarData.CalendarID, "title", calendarData.Title)
 
 		// Vérifier que l'utilisateur a accès au calendrier
 		var accessCheck int
@@ -144,10 +168,18 @@ func UserCanAccessCalendarMiddleware() gin.HandlerFunc {
 			WHERE user_id = ? AND calendar_id = ? AND deleted_at IS NULL
 		`, userData.UserID, calendarData.CalendarID).Scan(&accessCheck)
 
-		if common.HandleDBError(c, err, http.StatusForbidden, common.ErrNoAccessToCalendar, common.ErrCalendarAccessCheck) {
+		if err != nil {
+			slog.Error("UserCanAccessCalendarMiddleware: Accès refusé", "user_id", userData.UserID, "calendar_id", calendarData.CalendarID, "error", err.Error())
+			// Si le calendrier existe mais pas d'accès, retourner explicitement 403
+			c.JSON(http.StatusForbidden, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrNoAccessToCalendar,
+			})
+			c.Abort()
 			return
 		}
 
+		slog.Info("UserCanAccessCalendarMiddleware: Accès autorisé", "user_id", userData.UserID, "calendar_id", calendarData.CalendarID)
 		c.Next()
 	}
 }

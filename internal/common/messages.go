@@ -4,6 +4,7 @@ const (
 	MsgSuccessCreateUser         = "Utilisateur créé avec succès"
 	MsgSuccessUpdateUser         = "Utilisateur mis à jour avec succès"
 	MsgSuccessCreateCalendar     = "Calendrier créé avec succès"
+	MsgSuccessGetCalendar        = "Calendrier récupéré avec succès"
 	MsgSuccessUpdateCalendar     = "Calendrier mis à jour avec succès"
 	MsgSuccessDeleteCalendar     = "Calendrier supprimé avec succès"
 	MsgSuccessCreateEvent        = "Événement créé avec succès"

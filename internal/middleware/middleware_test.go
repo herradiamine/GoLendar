@@ -65,6 +65,7 @@ func setupTestRouter() *gin.Engine {
 }
 
 func TestAuthMiddleware(t *testing.T) {
+	testutils.ResetTestDB()
 	router := setupTestRouter()
 	var userToken string
 	uniqueEmail := fmt.Sprintf("auth.middleware+%d@test.com", time.Now().UnixNano())
@@ -82,26 +83,10 @@ func TestAuthMiddleware(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-	}
-
-	// Login pour obtenir un token
-	{
-		payload := common.LoginRequest{
-			Email:    uniqueEmail,
-			Password: "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var response common.JSONResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if token, ok := data["session_token"]; ok {
-				userToken = token.(string)
-			}
-		}
+		token, err := loginAndGetToken(router, uniqueEmail, "motdepasse123")
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+		userToken = token
 	}
 
 	t.Run("Access Protected Route with Valid Token", func(t *testing.T) {
@@ -160,9 +145,9 @@ func TestAuthMiddleware(t *testing.T) {
 }
 
 func TestAdminMiddleware(t *testing.T) {
+	testutils.ResetTestDB()
 	router := setupTestRouter()
-	var adminToken string
-	var userToken string
+	var adminToken, userToken string
 	adminEmail := fmt.Sprintf("admin.middleware+%d@test.com", time.Now().UnixNano())
 	userEmail := fmt.Sprintf("user.middleware+%d@test.com", time.Now().UnixNano())
 
@@ -179,6 +164,41 @@ func TestAdminMiddleware(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
+
+		// Récupérer l'ID de l'utilisateur admin
+		var adminUserID int
+		row := common.DB.QueryRow("SELECT user_id FROM user WHERE email = ?", adminEmail)
+		err := row.Scan(&adminUserID)
+		require.NoError(t, err)
+
+		// Créer le rôle admin s'il n'existe pas
+		var adminRoleID int
+		row = common.DB.QueryRow("SELECT role_id FROM roles WHERE name = 'admin'")
+		err = row.Scan(&adminRoleID)
+		if err != nil {
+			// Le rôle admin n'existe pas, on le crée
+			res, err2 := common.DB.Exec("INSERT INTO roles (name, description) VALUES ('admin', 'Administrateur')")
+			require.NoError(t, err2)
+			id, _ := res.LastInsertId()
+			adminRoleID = int(id)
+		}
+
+		// Attribuer le rôle admin à l'utilisateur
+		_, err = common.DB.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", adminUserID, adminRoleID)
+		if err != nil {
+			// Si l'insertion échoue, on vérifie si la liaison existe déjà
+			var count int
+			row = common.DB.QueryRow("SELECT COUNT(*) FROM user_roles WHERE user_id = ? AND role_id = ?", adminUserID, adminRoleID)
+			err2 := row.Scan(&count)
+			if err2 != nil || count == 0 {
+				require.NoError(t, err)
+			}
+		}
+
+		token, err := loginAndGetToken(router, adminEmail, "motdepasse123")
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+		adminToken = token
 	}
 
 	// Créer un utilisateur normal
@@ -194,69 +214,10 @@ func TestAdminMiddleware(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-	}
-
-	// Login admin
-	{
-		payload := common.LoginRequest{
-			Email:    adminEmail,
-			Password: "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var response common.JSONResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if token, ok := data["session_token"]; ok {
-				adminToken = token.(string)
-			}
-		}
-		// Attribution du rôle admin à l'utilisateur admin
-		var adminUserID int
-		err := common.DB.QueryRow("SELECT user_id FROM user WHERE email = ? AND deleted_at IS NULL", adminEmail).Scan(&adminUserID)
-		if err == nil {
-			var roleID int
-			err = common.DB.QueryRow("SELECT role_id FROM roles WHERE name = 'admin' AND deleted_at IS NULL").Scan(&roleID)
-			if err != nil {
-				result, err := common.DB.Exec("INSERT INTO roles (name, description, created_at) VALUES (?, ?, NOW())", "admin", "Rôle administrateur")
-				if err == nil {
-					roleID64, _ := result.LastInsertId()
-					roleID = int(roleID64)
-				}
-			}
-			if roleID > 0 {
-				_, _ = common.DB.Exec("INSERT INTO user_roles (user_id, role_id, created_at) VALUES (?, ?, NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW()", adminUserID, roleID)
-			}
-		}
-	}
-
-	// Login user
-	{
-		payload := common.LoginRequest{
-			Email:    userEmail,
-			Password: "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var response common.JSONResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if token, ok := data["session_token"]; ok {
-				userToken = token.(string)
-			}
-		}
-	}
-
-	// Créer un rôle admin et l'assigner à l'admin
-	{
-		// Note: Dans un vrai test, nous aurions besoin d'ajouter les routes admin
-		// Pour simplifier, nous simulons que l'admin a le rôle admin
+		token, err := loginAndGetToken(router, userEmail, "motdepasse123")
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+		userToken = token
 	}
 
 	t.Run("Access Admin Route with Admin User", func(t *testing.T) {
@@ -265,8 +226,6 @@ func TestAdminMiddleware(t *testing.T) {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
-		// Note: Ce test échouera car l'admin n'a pas encore le rôle admin
-		// Dans un vrai test, nous assignerions d'abord le rôle
 		require.Equal(t, http.StatusOK, w.Code)
 	})
 
@@ -299,6 +258,7 @@ func TestAdminMiddleware(t *testing.T) {
 }
 
 func TestRoleMiddleware(t *testing.T) {
+	testutils.ResetTestDB()
 	router := setupTestRouter()
 	var userToken string
 	uniqueEmail := fmt.Sprintf("role.middleware+%d@test.com", time.Now().UnixNano())
@@ -316,26 +276,10 @@ func TestRoleMiddleware(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-	}
-
-	// Login pour obtenir un token
-	{
-		payload := common.LoginRequest{
-			Email:    uniqueEmail,
-			Password: "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var response common.JSONResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if token, ok := data["session_token"]; ok {
-				userToken = token.(string)
-			}
-		}
+		token, err := loginAndGetToken(router, uniqueEmail, "motdepasse123")
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+		userToken = token
 	}
 
 	t.Run("Access Role-Specific Route without Required Role", func(t *testing.T) {
@@ -354,6 +298,7 @@ func TestRoleMiddleware(t *testing.T) {
 }
 
 func TestExistsMiddlewares(t *testing.T) {
+	testutils.ResetTestDB()
 	router := setupTestRouter()
 	var userToken string
 	uniqueEmail := fmt.Sprintf("exists.middleware+%d@test.com", time.Now().UnixNano())
@@ -371,26 +316,10 @@ func TestExistsMiddlewares(t *testing.T) {
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
-	}
-
-	// Login pour obtenir un token
-	{
-		payload := common.LoginRequest{
-			Email:    uniqueEmail,
-			Password: "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var response common.JSONResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if token, ok := data["session_token"]; ok {
-				userToken = token.(string)
-			}
-		}
+		token, err := loginAndGetToken(router, uniqueEmail, "motdepasse123")
+		require.NoError(t, err)
+		require.NotEmpty(t, token)
+		userToken = token
 	}
 
 	t.Run("UserExistsMiddleware with Non-existent User", func(t *testing.T) {
@@ -538,7 +467,37 @@ func TestRolesMiddleware_NoRole(t *testing.T) {
 	req, _ := http.NewRequest("GET", "/protected", nil)
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
-	if w.Code == 200 {
-		t.Error("RolesMiddleware devrait bloquer l'accès si l'utilisateur n'a aucun des rôles requis")
+
+	require.Equal(t, http.StatusForbidden, w.Code)
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	require.NoError(t, err)
+	require.False(t, response.Success)
+	require.Equal(t, common.ErrInsufficientPermissions, response.Error)
+}
+
+func loginAndGetToken(router *gin.Engine, email string, password string) (string, error) {
+	payload := common.LoginRequest{
+		Email:    email,
+		Password: password,
 	}
+	jsonData, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	if err != nil {
+		return "", err
+	}
+	if !response.Success {
+		return "", fmt.Errorf("login failed: %v", response.Error)
+	}
+	if data, ok := response.Data.(map[string]interface{}); ok {
+		if token, ok := data["session_token"]; ok {
+			return token.(string), nil
+		}
+	}
+	return "", fmt.Errorf("token not found in response")
 }

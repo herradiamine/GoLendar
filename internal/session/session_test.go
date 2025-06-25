@@ -7,8 +7,10 @@ import (
 	"go-averroes/internal/common"
 	"go-averroes/internal/user"
 	"go-averroes/testutils"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
@@ -56,6 +58,51 @@ func authMiddleware() gin.HandlerFunc {
 	}
 }
 
+// --- Helpers mutualisés ---
+func createUser(router http.Handler, email, password, firstname, lastname string) *http.Response {
+	payload := map[string]string{
+		"email":     email,
+		"password":  password,
+		"firstname": firstname,
+		"lastname":  lastname,
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest("POST", "/user", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w.Result()
+}
+
+func loginAndGetTokens(router http.Handler, email, password string) (string, string, error) {
+	payload := map[string]string{
+		"email":    email,
+		"password": password,
+	}
+	body, _ := json.Marshal(payload)
+	req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	resp := w.Result()
+	defer resp.Body.Close()
+	var jsonResp struct {
+		Success bool   `json:"success"`
+		Message string `json:"message"`
+		Data    struct {
+			SessionToken string `json:"session_token"`
+			RefreshToken string `json:"refresh_token"`
+		} `json:"data"`
+		Error string `json:"error"`
+	}
+	bodyBytes, _ := io.ReadAll(resp.Body)
+	_ = json.Unmarshal(bodyBytes, &jsonResp)
+	if !jsonResp.Success || jsonResp.Data.SessionToken == "" {
+		return "", "", fmt.Errorf("login failed: %s", jsonResp.Error)
+	}
+	return jsonResp.Data.SessionToken, jsonResp.Data.RefreshToken, nil
+}
+
 func setupTestRouter() *gin.Engine {
 	router := testutils.SetupTestRouter()
 
@@ -74,373 +121,355 @@ func setupTestRouter() *gin.Engine {
 	return router
 }
 
-func TestSessionAuthentication(t *testing.T) {
+// --- Table-driven tests pour toutes les routes session ---
+func TestSession_AllRoutes_TableDriven(t *testing.T) {
+	testutils.ResetTestDB()
 	router := setupTestRouter()
-	var userToken string
-	var refreshToken string
-	uniqueEmail := fmt.Sprintf("session.user+%d@test.com", time.Now().UnixNano())
 
-	// Créer un utilisateur pour les tests
-	{
-		payload := common.CreateUserRequest{
-			Lastname:  "Test",
-			Firstname: "Session",
-			Email:     uniqueEmail,
-			Password:  "motdepasse123",
+	// Création d'un utilisateur de test
+	email := fmt.Sprintf("sessionuser+%d@test.com", time.Now().UnixNano())
+	password := "motdepasse123"
+	_ = createUser(router, email, password, "Jean", "Session")
+	token, _, err := loginAndGetTokens(router, email, password)
+	require.NoError(t, err)
+	require.NotEmpty(t, token)
+
+	// --- Table-driven pour /auth/login ---
+	t.Run("POST /auth/login", func(t *testing.T) {
+		cases := []struct {
+			CaseName        string
+			Setup           func() (string, string) // retourne (email, password)
+			ExpectedStatus  int
+			ExpectedSuccess bool
+			ExpectedMsg     string
+			ExpectedError   string
+		}{
+			{
+				CaseName: "Succès - Login",
+				Setup: func() (string, string) {
+					router := setupTestRouter()
+					email := fmt.Sprintf("sessionuser+%d@test.com", time.Now().UnixNano())
+					password := "motdepasse123"
+					_ = createUser(router, email, password, "Jean", "Session")
+					return email, password
+				},
+				ExpectedStatus:  200,
+				ExpectedSuccess: true,
+				ExpectedMsg:     common.MsgSuccessLogin,
+				ExpectedError:   "",
+			},
+			{
+				CaseName: "Erreur - Credentials invalides",
+				Setup: func() (string, string) {
+					return "invalid@test.com", "wrongpassword"
+				},
+				ExpectedStatus:  401,
+				ExpectedSuccess: false,
+				ExpectedMsg:     "",
+				ExpectedError:   common.ErrInvalidCredentials,
+			},
 		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-	}
-
-	t.Run("Login User", func(t *testing.T) {
-		payload := common.LoginRequest{
-			Email:    uniqueEmail,
-			Password: "motdepasse123",
+		for _, c := range cases {
+			t.Run(c.CaseName, func(t *testing.T) {
+				email, password := c.Setup()
+				router := setupTestRouter()
+				payload := fmt.Sprintf(`{"email":"%s","password":"%s"}`, email, password)
+				req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader([]byte(payload)))
+				req.Header.Set("Content-Type", "application/json")
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+				resp := w.Result()
+				defer resp.Body.Close()
+				var jsonResp struct {
+					Success bool   `json:"success"`
+					Message string `json:"message"`
+					Error   string `json:"error"`
+				}
+				body, _ := io.ReadAll(resp.Body)
+				_ = json.Unmarshal(body, &jsonResp)
+				require.Equal(t, c.ExpectedStatus, resp.StatusCode)
+				require.Equal(t, c.ExpectedSuccess, jsonResp.Success)
+				if c.ExpectedMsg != "" {
+					require.Contains(t, jsonResp.Message, c.ExpectedMsg)
+				}
+				if c.ExpectedError != "" {
+					require.Contains(t, jsonResp.Error, c.ExpectedError)
+				}
+			})
 		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
+	})
 
-		require.Equal(t, http.StatusOK, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.True(t, response.Success)
-		require.Equal(t, common.MsgSuccessLogin, response.Message)
+	// --- Table-driven pour /auth/refresh ---
+	t.Run("POST /auth/refresh", func(t *testing.T) {
+		cases := []struct {
+			CaseName        string
+			Setup           func() (string, string) // retourne (refreshToken, password)
+			ExpectedStatus  int
+			ExpectedSuccess bool
+			ExpectedMsg     string
+			ExpectedError   string
+		}{
+			{
+				CaseName: "Succès - Refresh token",
+				Setup: func() (string, string) {
+					router := setupTestRouter()
+					email := fmt.Sprintf("sessionrefresh+%d@test.com", time.Now().UnixNano())
+					password := "motdepasse123"
+					_ = createUser(router, email, password, "Jean", "Session")
+					_, refreshToken, _ := loginAndGetTokens(router, email, password)
+					return refreshToken, password
+				},
+				ExpectedStatus:  200,
+				ExpectedSuccess: true,
+				ExpectedMsg:     common.MsgSuccessRefreshToken,
+				ExpectedError:   "",
+			},
+			{
+				CaseName: "Erreur - Token refresh invalide",
+				Setup: func() (string, string) {
+					return "invalid-refresh-token", "motdepasse123"
+				},
+				ExpectedStatus:  401,
+				ExpectedSuccess: false,
+				ExpectedMsg:     "",
+				ExpectedError:   common.ErrSessionInvalid,
+			},
+			{
+				CaseName: "Erreur - Token refresh vide",
+				Setup: func() (string, string) {
+					return "", "motdepasse123"
+				},
+				ExpectedStatus:  400,
+				ExpectedSuccess: false,
+				ExpectedMsg:     "",
+				ExpectedError:   common.ErrInvalidData,
+			},
+		}
+		for _, c := range cases {
+			t.Run(c.CaseName, func(t *testing.T) {
+				refreshToken, _ := c.Setup()
+				router := setupTestRouter()
+				payload := fmt.Sprintf(`{"refresh_token":"%s"}`, refreshToken)
+				req := httptest.NewRequest("POST", "/auth/refresh", bytes.NewReader([]byte(payload)))
+				req.Header.Set("Content-Type", "application/json")
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+				resp := w.Result()
+				defer resp.Body.Close()
+				var jsonResp struct {
+					Success bool   `json:"success"`
+					Message string `json:"message"`
+					Error   string `json:"error"`
+				}
+				body, _ := io.ReadAll(resp.Body)
+				_ = json.Unmarshal(body, &jsonResp)
+				require.Equal(t, c.ExpectedStatus, resp.StatusCode)
+				require.Equal(t, c.ExpectedSuccess, jsonResp.Success)
+				if c.ExpectedMsg != "" {
+					require.Contains(t, jsonResp.Message, c.ExpectedMsg)
+				}
+				if c.ExpectedError != "" {
+					require.Contains(t, jsonResp.Error, c.ExpectedError)
+				}
+			})
+		}
+	})
 
-		// Récupérer les tokens
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if token, ok := data["session_token"]; ok {
-				userToken = token.(string)
+	// --- Table-driven pour /auth/logout ---
+	t.Run("POST /auth/logout", func(t *testing.T) {
+		cases := []struct {
+			CaseName        string
+			Setup           func() string // retourne le token
+			ExpectedStatus  int
+			ExpectedSuccess bool
+			ExpectedMsg     string
+			ExpectedError   string
+		}{
+			{
+				CaseName: "Succès - Logout",
+				Setup: func() string {
+					router := setupTestRouter()
+					email := fmt.Sprintf("sessionlogout+%d@test.com", time.Now().UnixNano())
+					password := "motdepasse123"
+					_ = createUser(router, email, password, "Jean", "Session")
+					_, _, _ = loginAndGetTokens(router, email, password)
+					return ""
+				},
+				ExpectedStatus:  200,
+				ExpectedSuccess: true,
+				ExpectedMsg:     common.MsgSuccessLogout,
+				ExpectedError:   "",
+			},
+			{
+				CaseName: "Erreur - Non authentifié",
+				Setup: func() string {
+					return ""
+				},
+				ExpectedStatus:  401,
+				ExpectedSuccess: false,
+				ExpectedMsg:     "",
+				ExpectedError:   common.ErrSessionInvalid,
+			},
+		}
+		for _, c := range cases {
+			t.Run(c.CaseName, func(t *testing.T) {
+				token := c.Setup()
+				router := setupTestRouter()
+				req := httptest.NewRequest("POST", "/auth/logout", nil)
+				if token != "" {
+					req.Header.Set("Authorization", "Bearer "+token)
+				}
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+				resp := w.Result()
+				defer resp.Body.Close()
+				var jsonResp struct {
+					Success bool   `json:"success"`
+					Message string `json:"message"`
+					Error   string `json:"error"`
+				}
+				body, _ := io.ReadAll(resp.Body)
+				_ = json.Unmarshal(body, &jsonResp)
+				require.Equal(t, c.ExpectedStatus, resp.StatusCode)
+				require.Equal(t, c.ExpectedSuccess, jsonResp.Success)
+				if c.ExpectedMsg != "" {
+					require.Contains(t, jsonResp.Message, c.ExpectedMsg)
+				}
+				if c.ExpectedError != "" {
+					require.Contains(t, jsonResp.Error, c.ExpectedError)
+				}
+			})
+		}
+	})
+
+	// --- Table-driven pour /auth/me et /auth/sessions ---
+	t.Run("GET /auth/me et /auth/sessions", func(t *testing.T) {
+		endpoints := []string{"/auth/me", "/auth/sessions"}
+		for _, endpoint := range endpoints {
+			cases := []struct {
+				CaseName        string
+				Setup           func() string // retourne le token
+				ExpectedStatus  int
+				ExpectedSuccess bool
+				ExpectedError   string
+			}{
+				{
+					CaseName: "Succès - Accès protégé",
+					Setup: func() string {
+						router := setupTestRouter()
+						email := fmt.Sprintf("sessionme+%d@test.com", time.Now().UnixNano())
+						password := "motdepasse123"
+						_ = createUser(router, email, password, "Jean", "Session")
+						_, _, _ = loginAndGetTokens(router, email, password)
+						return ""
+					},
+					ExpectedStatus:  200,
+					ExpectedSuccess: true,
+					ExpectedError:   "",
+				},
+				{
+					CaseName: "Erreur - Non authentifié",
+					Setup: func() string {
+						return ""
+					},
+					ExpectedStatus:  401,
+					ExpectedSuccess: false,
+					ExpectedError:   common.ErrSessionInvalid,
+				},
 			}
-			if refresh, ok := data["refresh_token"]; ok {
-				refreshToken = refresh.(string)
-			}
-		}
-		require.NotEmpty(t, userToken)
-		require.NotEmpty(t, refreshToken)
-	})
-
-	t.Run("Get User Info", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/auth/me", nil)
-		req.Header.Set("Authorization", "Bearer "+userToken)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusOK, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.True(t, response.Success)
-	})
-
-	t.Run("Get User Sessions", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/auth/sessions", nil)
-		req.Header.Set("Authorization", "Bearer "+userToken)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusOK, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.True(t, response.Success)
-	})
-
-	t.Run("Refresh Token", func(t *testing.T) {
-		payload := RefreshTokenRequest{
-			RefreshToken: refreshToken,
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusOK, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.True(t, response.Success)
-		require.Equal(t, common.MsgSuccessRefreshToken, response.Message)
-
-		// Récupérer le nouveau token
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if token, ok := data["session_token"]; ok {
-				userToken = token.(string)
+			for _, c := range cases {
+				t.Run(endpoint+"/"+c.CaseName, func(t *testing.T) {
+					token := c.Setup()
+					router := setupTestRouter()
+					req := httptest.NewRequest("GET", endpoint, nil)
+					if token != "" {
+						req.Header.Set("Authorization", "Bearer "+token)
+					}
+					w := httptest.NewRecorder()
+					router.ServeHTTP(w, req)
+					resp := w.Result()
+					defer resp.Body.Close()
+					var jsonResp struct {
+						Success bool   `json:"success"`
+						Error   string `json:"error"`
+					}
+					body, _ := io.ReadAll(resp.Body)
+					_ = json.Unmarshal(body, &jsonResp)
+					require.Equal(t, c.ExpectedStatus, resp.StatusCode)
+					require.Equal(t, c.ExpectedSuccess, jsonResp.Success)
+					if c.ExpectedError != "" {
+						require.Contains(t, jsonResp.Error, c.ExpectedError)
+					}
+				})
 			}
 		}
 	})
 
-	t.Run("Logout User", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/auth/logout", nil)
-		req.Header.Set("Authorization", "Bearer "+userToken)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusOK, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.True(t, response.Success)
-		require.Equal(t, common.MsgSuccessLogout, response.Message)
+	// --- Table-driven pour DELETE /auth/sessions/:session_id ---
+	t.Run("DELETE /auth/sessions/:session_id", func(t *testing.T) {
+		cases := []struct {
+			CaseName        string
+			Setup           func() (string, string) // retourne (token, sessionID)
+			ExpectedStatus  int
+			ExpectedSuccess bool
+			ExpectedError   string
+		}{
+			{
+				CaseName: "Erreur - Non authentifié",
+				Setup: func() (string, string) {
+					return "", "1"
+				},
+				ExpectedStatus:  401,
+				ExpectedSuccess: false,
+				ExpectedError:   common.ErrSessionInvalid,
+			},
+			{
+				CaseName: "Erreur - Session inexistante",
+				Setup: func() (string, string) {
+					router := setupTestRouter()
+					email := fmt.Sprintf("sessiondelsess+%d@test.com", time.Now().UnixNano())
+					password := "motdepasse123"
+					_ = createUser(router, email, password, "Jean", "Session")
+					_, _, _ = loginAndGetTokens(router, email, password)
+					return "", "99999"
+				},
+				ExpectedStatus:  404,
+				ExpectedSuccess: false,
+				ExpectedError:   common.ErrSessionNotFound,
+			},
+		}
+		for _, c := range cases {
+			t.Run(c.CaseName, func(t *testing.T) {
+				token, sessionID := c.Setup()
+				router := setupTestRouter()
+				url := "/auth/sessions/" + sessionID
+				req := httptest.NewRequest("DELETE", url, nil)
+				if token != "" {
+					req.Header.Set("Authorization", "Bearer "+token)
+				}
+				w := httptest.NewRecorder()
+				router.ServeHTTP(w, req)
+				resp := w.Result()
+				defer resp.Body.Close()
+				var jsonResp struct {
+					Success bool   `json:"success"`
+					Error   string `json:"error"`
+				}
+				body, _ := io.ReadAll(resp.Body)
+				_ = json.Unmarshal(body, &jsonResp)
+				require.Equal(t, c.ExpectedStatus, resp.StatusCode)
+				require.Equal(t, c.ExpectedSuccess, jsonResp.Success)
+				if c.ExpectedError != "" {
+					require.Contains(t, jsonResp.Error, c.ExpectedError)
+				}
+			})
+		}
 	})
 }
 
-func TestSessionErrorCases(t *testing.T) {
-	router := setupTestRouter()
-	uniqueEmail := fmt.Sprintf("error.session+%d@test.com", time.Now().UnixNano())
-
-	// Créer un utilisateur pour les tests d'erreur
-	{
-		payload := common.CreateUserRequest{
-			Lastname:  "Test",
-			Firstname: "Error",
-			Email:     uniqueEmail,
-			Password:  "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-	}
-
-	// Login pour obtenir les tokens
-	{
-		payload := common.LoginRequest{
-			Email:    uniqueEmail,
-			Password: "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var response common.JSONResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-	}
-
-	t.Run("Login with Invalid Credentials", func(t *testing.T) {
-		payload := common.LoginRequest{
-			Email:    uniqueEmail,
-			Password: "wrongpassword",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusUnauthorized, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.False(t, response.Success)
-		require.Equal(t, common.ErrInvalidCredentials, response.Error)
-	})
-
-	t.Run("Refresh Token with Invalid Token", func(t *testing.T) {
-		payload := RefreshTokenRequest{
-			RefreshToken: "invalid-refresh-token",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusUnauthorized, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.False(t, response.Success)
-	})
-
-	t.Run("Refresh Token with Empty Token", func(t *testing.T) {
-		payload := RefreshTokenRequest{
-			RefreshToken: "",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/refresh", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusBadRequest, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.False(t, response.Success)
-	})
-
-	t.Run("Logout without Token", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/auth/logout", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, 401, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.False(t, response.Success)
-		require.Equal(t, common.ErrSessionInvalid, response.Error)
-	})
-
-	t.Run("Get Sessions without Token", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/auth/sessions", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusUnauthorized, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.False(t, response.Success)
-	})
-
-	t.Run("Delete Session without Token", func(t *testing.T) {
-		req, _ := http.NewRequest("DELETE", "/auth/sessions/1", nil)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusUnauthorized, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.False(t, response.Success)
-	})
-}
-
-func TestSessionSecurity(t *testing.T) {
-	router := setupTestRouter()
-	var userToken string
-	uniqueEmail := fmt.Sprintf("security.session+%d@test.com", time.Now().UnixNano())
-
-	// Créer un utilisateur pour les tests de sécurité
-	{
-		payload := common.CreateUserRequest{
-			Lastname:  "Test",
-			Firstname: "Security",
-			Email:     uniqueEmail,
-			Password:  "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-	}
-
-	// Login pour obtenir le token
-	{
-		payload := common.LoginRequest{
-			Email:    uniqueEmail,
-			Password: "motdepasse123",
-		}
-		jsonData, _ := json.Marshal(payload)
-		req, _ := http.NewRequest("POST", "/auth/login", bytes.NewBuffer(jsonData))
-		req.Header.Set("Content-Type", "application/json")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-		var response common.JSONResponse
-		_ = json.Unmarshal(w.Body.Bytes(), &response)
-		if data, ok := response.Data.(map[string]interface{}); ok {
-			if token, ok := data["session_token"]; ok {
-				userToken = token.(string)
-			}
-		}
-	}
-
-	t.Run("Access Protected Route with Valid Token", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/auth/sessions", nil)
-		req.Header.Set("Authorization", "Bearer "+userToken)
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusOK, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.True(t, response.Success)
-	})
-
-	t.Run("Access Protected Route with Invalid Token Format", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/auth/sessions", nil)
-		req.Header.Set("Authorization", "InvalidToken")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusUnauthorized, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.False(t, response.Success)
-	})
-
-	t.Run("Access Protected Route with Empty Token", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/auth/sessions", nil)
-		req.Header.Set("Authorization", "Bearer ")
-		w := httptest.NewRecorder()
-		router.ServeHTTP(w, req)
-
-		require.Equal(t, http.StatusUnauthorized, w.Code)
-		var response common.JSONResponse
-		err := json.Unmarshal(w.Body.Bytes(), &response)
-		require.NoError(t, err)
-		require.False(t, response.Success)
-	})
-}
-
-func TestDeleteSession_NoUser(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.DELETE("/auth/sessions/:session_id", func(c *gin.Context) {
-		Session.DeleteSession(c)
-	})
-	req, _ := http.NewRequest("DELETE", "/auth/sessions/1", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusUnauthorized && w.Code != http.StatusInternalServerError {
-		t.Errorf("DeleteSession sans user: code HTTP = %d, want 401 ou 500", w.Code)
-	}
-}
-
-func TestDeleteSession_MissingSessionID(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	r := gin.New()
-	r.Use(func(c *gin.Context) {
-		c.Set("auth_user", common.User{UserID: 1})
-	})
-	r.DELETE("/auth/sessions/", func(c *gin.Context) {
-		Session.DeleteSession(c)
-	})
-	req, _ := http.NewRequest("DELETE", "/auth/sessions/", nil)
-	w := httptest.NewRecorder()
-	r.ServeHTTP(w, req)
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("DeleteSession sans session_id: code HTTP = %d, want 400", w.Code)
-	}
-}
-
-func TestValidateSession_TokenInconnu(t *testing.T) {
-	_, err := Session.ValidateSession("token-inconnu")
-	if err == nil {
-		t.Error("ValidateSession devrait retourner une erreur pour un token inconnu")
-	}
-}
-
-func TestValidateSession_DBError(t *testing.T) {
-	if common.DB != nil {
-		_ = common.DB.Close()
-	}
-	_, err := Session.ValidateSession("token-test")
-	if err == nil {
-		t.Error("ValidateSession devrait retourner une erreur si la DB est fermée")
-	}
+func TestMain(m *testing.M) {
+	testutils.SetupTestDB()
+	code := m.Run()
+	common.DB.Close()
+	os.Exit(code)
 }

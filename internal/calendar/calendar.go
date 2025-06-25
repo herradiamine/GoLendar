@@ -18,18 +18,27 @@ var Calendar = CalendarStruct{}
 func (CalendarStruct) Get(c *gin.Context) {
 	slog.Info(common.LogCalendarGet)
 	if _, ok := common.GetUserFromContext(c); !ok {
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrUserNotAuthenticated,
+		})
 		return
 	}
 
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
 		slog.Error(common.LogCalendarGet + " - calendrier non trouvé dans le contexte")
+		c.JSON(http.StatusNotFound, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrCalendarNotFound,
+		})
 		return
 	}
 
 	slog.Info(common.LogCalendarGet + " - succès")
 	c.JSON(http.StatusOK, common.JSONResponse{
 		Success: true,
+		Message: common.MsgSuccessGetCalendar,
 		Data:    calendarData,
 	})
 }
@@ -43,6 +52,8 @@ func (CalendarStruct) Add(c *gin.Context) {
 	}
 	userID := userData.UserID
 
+	slog.Info("Calendar.Add: Utilisateur récupéré", "user_id", userID)
+
 	var req common.CreateCalendarRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		slog.Error(common.LogCalendarAdd + " - données invalides : " + err.Error())
@@ -52,6 +63,8 @@ func (CalendarStruct) Add(c *gin.Context) {
 		})
 		return
 	}
+
+	slog.Info("Calendar.Add: Données reçues", "title", req.Title, "description", req.Description)
 
 	tx, err := common.DB.Begin()
 	if err != nil {
@@ -78,6 +91,7 @@ func (CalendarStruct) Add(c *gin.Context) {
 	}
 
 	calendarID, _ := result.LastInsertId()
+	slog.Info("Calendar.Add: Calendrier créé", "calendar_id", calendarID)
 
 	_, err = tx.Exec(`
         INSERT INTO user_calendar (user_id, calendar_id, created_at) 
@@ -91,6 +105,8 @@ func (CalendarStruct) Add(c *gin.Context) {
 		})
 		return
 	}
+
+	slog.Info("Calendar.Add: Liaison user_calendar créée", "user_id", userID, "calendar_id", calendarID)
 
 	if err := tx.Commit(); err != nil {
 		slog.Error(common.LogCalendarAdd + " - erreur lors du commit de la transaction : " + err.Error())
@@ -116,12 +132,20 @@ func (CalendarStruct) Add(c *gin.Context) {
 func (CalendarStruct) Update(c *gin.Context) {
 	slog.Info(common.LogCalendarUpdate)
 	if _, ok := common.GetUserFromContext(c); !ok {
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrUserNotAuthenticated,
+		})
 		return
 	}
 
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
 		slog.Error(common.LogCalendarUpdate + " - calendrier non trouvé dans le contexte")
+		c.JSON(http.StatusNotFound, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrCalendarNotFound,
+		})
 		return
 	}
 	calendarID := calendarData.CalendarID
@@ -136,18 +160,22 @@ func (CalendarStruct) Update(c *gin.Context) {
 		return
 	}
 
-	query := "UPDATE calendar SET updated_at = NOW()"
-	var args []interface{}
-
-	if req.Title != nil {
-		query += ", title = ?"
-		args = append(args, *req.Title)
+	// Validation du titre obligatoire (non nil et non vide)
+	if req.Title == nil || *req.Title == "" {
+		slog.Error(common.LogCalendarUpdate + " - titre manquant ou vide")
+		c.JSON(http.StatusBadRequest, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrInvalidData,
+		})
+		return
 	}
+
+	query := "UPDATE calendar SET updated_at = NOW(), title = ?"
+	args := []interface{}{*req.Title}
 	if req.Description != nil {
 		query += ", description = ?"
 		args = append(args, *req.Description)
 	}
-
 	query += " WHERE calendar_id = ?"
 	args = append(args, calendarID)
 
@@ -172,12 +200,20 @@ func (CalendarStruct) Update(c *gin.Context) {
 func (CalendarStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogCalendarDelete)
 	if _, ok := common.GetUserFromContext(c); !ok {
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrUserNotAuthenticated,
+		})
 		return
 	}
 
 	calendarData, ok := common.GetCalendarFromContext(c)
 	if !ok {
 		slog.Error(common.LogCalendarDelete + " - calendrier non trouvé dans le contexte")
+		c.JSON(http.StatusNotFound, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrCalendarNotFound,
+		})
 		return
 	}
 	calendarID := calendarData.CalendarID
