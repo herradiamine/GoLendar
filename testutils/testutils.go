@@ -3,6 +3,7 @@ package testutils
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"go-averroes/internal/common"
@@ -628,4 +629,31 @@ func ExpireRefreshToken(refreshToken string) error {
 	}
 	_, err := common.DB.Exec("UPDATE user_session SET expires_at = ? WHERE refresh_token = ?", time.Now().Add(-2*time.Hour), refreshToken)
 	return err
+}
+
+// CreateTestCalendar crée un calendrier de test et retourne son ID
+func CreateTestCalendar() int {
+	if common.DB == nil {
+		return 0
+	}
+	result, err := common.DB.Exec(`INSERT INTO calendar (name, created_at) VALUES (?, NOW())`, GenerateUniqueName("calendartest"))
+	if err != nil {
+		return 0
+	}
+	id, _ := result.LastInsertId()
+	return int(id)
+}
+
+// AddUserCalendarLink crée une liaison user-calendar
+func AddUserCalendarLink(userID, calendarID int) error {
+	if common.DB == nil {
+		return fmt.Errorf("base de données non initialisée")
+	}
+	_, err := common.DB.Exec(`INSERT INTO user_calendar (user_id, calendar_id, created_at) VALUES (?, ?, NOW())`, userID, calendarID)
+	return err
+}
+
+// Itoa convertit un int en string
+func Itoa(i int) string {
+	return strconv.Itoa(i)
 }
