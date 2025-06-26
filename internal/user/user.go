@@ -23,6 +23,10 @@ func (UserStruct) Get(c *gin.Context) {
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		slog.Error(common.LogUserGet + " - utilisateur non trouvé dans le contexte")
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrUserNotAuthenticated,
+		})
 		return
 	}
 
@@ -131,6 +135,10 @@ func (UserStruct) Update(c *gin.Context) {
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		slog.Error(common.LogUserUpdate + " - utilisateur non trouvé dans le contexte")
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrUserNotAuthenticated,
+		})
 		return
 	}
 	userID := userData.UserID
@@ -266,6 +274,10 @@ func (UserStruct) Delete(c *gin.Context) {
 	userData, ok := common.GetUserFromContext(c)
 	if !ok {
 		slog.Error(common.LogUserDelete + " - utilisateur non trouvé dans le contexte")
+		c.JSON(http.StatusUnauthorized, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrUserNotAuthenticated,
+		})
 		return
 	}
 	userID := userData.UserID
