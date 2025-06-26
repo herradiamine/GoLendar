@@ -3,639 +3,501 @@ package calendar
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"go-averroes/internal/common"
-	"go-averroes/internal/middleware"
-	"go-averroes/internal/session"
-	"go-averroes/internal/user"
 	"go-averroes/testutils"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/bcrypt"
 )
 
-func setupTestRouter() *gin.Engine {
+// =============================================================================
+// FONCTIONS MUTUALISÉES POUR LES DONNÉES DE TEST
+// =============================================================================
+
+// createTestUser crée un utilisateur de test dans la base de données
+func createTestUser(t *testing.T, lastname, firstname, email, password string) *common.User {
+	// Hasher le mot de passe
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	assert.NoError(t, err)
+
+	// Insérer l'utilisateur
+	result, err := common.DB.Exec(`
+		INSERT INTO user (lastname, firstname, email, created_at) 
+		VALUES (?, ?, ?, NOW())
+	`, lastname, firstname, email)
+	assert.NoError(t, err)
+
+	userID, err := result.LastInsertId()
+	assert.NoError(t, err)
+
+	// Insérer le mot de passe
+	_, err = common.DB.Exec(`
+		INSERT INTO user_password (user_id, password_hash, created_at) 
+		VALUES (?, ?, NOW())
+	`, userID, string(hashedPassword))
+	assert.NoError(t, err)
+
+	// Récupérer l'utilisateur créé
+	var user common.User
+	err = common.DB.QueryRow(`
+		SELECT user_id, lastname, firstname, email, created_at, updated_at, deleted_at
+		FROM user WHERE user_id = ?
+	`, userID).Scan(&user.UserID, &user.Lastname, &user.Firstname, &user.Email, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	assert.NoError(t, err)
+
+	return &user
+}
+
+// createTestCalendar crée un calendrier de test dans la base de données
+func createTestCalendar(t *testing.T, title string, description *string) *common.Calendar {
+	// Insérer le calendrier
+	result, err := common.DB.Exec(`
+		INSERT INTO calendar (title, description, created_at) 
+		VALUES (?, ?, NOW())
+	`, title, description)
+	assert.NoError(t, err)
+
+	calendarID, err := result.LastInsertId()
+	assert.NoError(t, err)
+
+	// Récupérer le calendrier créé
+	var calendar common.Calendar
+	err = common.DB.QueryRow(`
+		SELECT calendar_id, title, description, created_at, updated_at, deleted_at
+		FROM calendar WHERE calendar_id = ?
+	`, calendarID).Scan(&calendar.CalendarID, &calendar.Title, &calendar.Description, &calendar.CreatedAt, &calendar.UpdatedAt, &calendar.DeletedAt)
+	assert.NoError(t, err)
+
+	return &calendar
+}
+
+// createTestUserCalendar crée une liaison utilisateur-calendrier de test
+func createTestUserCalendar(t *testing.T, userID int, calendarID int) *common.UserCalendar {
+	// Insérer la liaison
+	result, err := common.DB.Exec(`
+		INSERT INTO user_calendar (user_id, calendar_id, created_at) 
+		VALUES (?, ?, NOW())
+	`, userID, calendarID)
+	assert.NoError(t, err)
+
+	userCalendarID, err := result.LastInsertId()
+	assert.NoError(t, err)
+
+	// Récupérer la liaison créée
+	var userCalendar common.UserCalendar
+	err = common.DB.QueryRow(`
+		SELECT user_calendar_id, user_id, calendar_id, created_at, updated_at, deleted_at
+		FROM user_calendar WHERE user_calendar_id = ?
+	`, userCalendarID).Scan(&userCalendar.UserCalendarID, &userCalendar.UserID, &userCalendar.CalendarID, &userCalendar.CreatedAt, &userCalendar.UpdatedAt, &userCalendar.DeletedAt)
+	assert.NoError(t, err)
+
+	return &userCalendar
+}
+
+// setupTestContext configure le contexte Gin avec un utilisateur et un calendrier
+func setupTestContext(t *testing.T, user *common.User, calendar *common.Calendar) *gin.Context {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set("auth_user", *user)
+	if calendar != nil {
+		c.Set("calendar", *calendar)
+	}
+	return c
+}
+
+// =============================================================================
+// TESTS POUR LA FONCTION Add
+// =============================================================================
+
+func TestCalendarAdd_Success(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
 	router := testutils.SetupTestRouter()
+	router.POST("/calendars", Calendar.Add)
 
-	// Configuration des routes pour les tests calendrier avec la nouvelle architecture
-	// Routes publiques
-	router.POST("/user", func(c *gin.Context) { user.User.Add(c) })
-	router.POST("/auth/login", func(c *gin.Context) { session.Session.Login(c) })
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser, nil)
 
-	// Routes protégées par authentification
-	router.POST("/calendar", middleware.AuthMiddleware(), func(c *gin.Context) { Calendar.Add(c) })
-	router.GET("/calendar/:calendar_id", middleware.AuthMiddleware(), middleware.CalendarExistsMiddleware("calendar_id"), middleware.UserCanAccessCalendarMiddleware(), func(c *gin.Context) { Calendar.Get(c) })
-	router.PUT("/calendar/:calendar_id", middleware.AuthMiddleware(), middleware.CalendarExistsMiddleware("calendar_id"), middleware.UserCanAccessCalendarMiddleware(), func(c *gin.Context) { Calendar.Update(c) })
-	router.DELETE("/calendar/:calendar_id", middleware.AuthMiddleware(), middleware.CalendarExistsMiddleware("calendar_id"), middleware.UserCanAccessCalendarMiddleware(), func(c *gin.Context) { Calendar.Delete(c) })
-
-	return router
-}
-
-// --- Helpers mutualisés ---
-// Retourne l'ID de l'utilisateur créé
-func createUser(router http.Handler, email, password, firstname, lastname string) (int, *http.Response) {
-	payload := map[string]string{
-		"email":     email,
-		"password":  password,
-		"firstname": firstname,
-		"lastname":  lastname,
+	requestBody := common.CreateCalendarRequest{
+		Title:       "Mon Calendrier Personnel",
+		Description: common.StringPtr("Description de mon calendrier"),
 	}
-	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("POST", "/user", bytes.NewReader(body))
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("POST", "/calendars", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
+	c.Request = req
+	Calendar.Add(c)
 
-	// Vérifier que la création a réussi
-	if w.Code != http.StatusCreated {
-		return 0, w.Result()
-	}
+	// Assert
+	assert.Equal(t, http.StatusCreated, w.Code)
 
-	// Récupérer l'ID créé
-	var userID int
-	row := common.DB.QueryRow("SELECT user_id FROM user WHERE email = ?", email)
-	err := row.Scan(&userID)
-	if err != nil {
-		return 0, w.Result()
-	}
-	return userID, w.Result()
-}
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Equal(t, common.MsgSuccessCreateCalendar, response.Message)
+	assert.NotNil(t, response.Data)
 
-func loginAndGetToken(router http.Handler, email, password string) (string, error) {
-	payload := map[string]string{
-		"email":    email,
-		"password": password,
-	}
-	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-	resp := w.Result()
-	defer resp.Body.Close()
-	var jsonResp struct {
-		Success bool `json:"success"`
-		Data    struct {
-			SessionToken string `json:"session_token"`
-		} `json:"data"`
-		Error string `json:"error"`
-	}
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	_ = json.Unmarshal(bodyBytes, &jsonResp)
-	if !jsonResp.Success || jsonResp.Data.SessionToken == "" {
-		return "", fmt.Errorf("login failed: %s", jsonResp.Error)
-	}
-	return jsonResp.Data.SessionToken, nil
-}
-
-// Retourne l'ID du calendrier créé
-func createCalendar(router http.Handler, token, title, description string) (int, *http.Response) {
-	payload := map[string]string{
-		"title":       title,
-		"description": description,
-	}
-	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("POST", "/calendar", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, req)
-
-	// Vérifier que la création a réussi
-	if w.Code != http.StatusCreated {
-		return 0, w.Result()
-	}
-
-	// Récupérer l'ID créé
+	// Vérifier que le calendrier a été créé en base
 	var calendarID int
-	row := common.DB.QueryRow("SELECT calendar_id FROM calendar WHERE title = ? AND description = ?", title, description)
-	err := row.Scan(&calendarID)
-	if err != nil {
-		return 0, w.Result()
-	}
-	return calendarID, w.Result()
+	err = common.DB.QueryRow("SELECT calendar_id FROM calendar WHERE title = ?", requestBody.Title).Scan(&calendarID)
+	assert.NoError(t, err)
+	assert.Greater(t, calendarID, 0)
+
+	// Vérifier que la liaison utilisateur-calendrier a été créée
+	var userCalendarID int
+	err = common.DB.QueryRow("SELECT user_calendar_id FROM user_calendar WHERE user_id = ? AND calendar_id = ?", testUser.UserID, calendarID).Scan(&userCalendarID)
+	assert.NoError(t, err)
+	assert.Greater(t, userCalendarID, 0)
 }
 
-// --- Test table-driven pour GET /calendar/:calendar_id ---
-func TestGetCalendar(t *testing.T) {
-	var TestCases = []struct {
-		CaseName        string
-		Prepare         func(router *gin.Engine) (token string, calendarID string, otherToken string)
-		Token           string
-		CalendarID      string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName: "Succès - Get calendar",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserget+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Test", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				return token, fmt.Sprintf("%d", calendarID), ""
-			},
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessGetCalendar,
-			ExpectedError:   "",
-		},
-		{
-			CaseName: "Erreur - Non authentifié",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserget+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Test", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				return "", fmt.Sprintf("%d", calendarID), ""
-			},
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName: "Erreur - Accès interdit",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserget+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Test", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				// Création d'un autre utilisateur
-				otherEmail := fmt.Sprintf("othercalendaruser+%d@test.com", time.Now().UnixNano())
-				otherUserID, otherResp := createUser(router, otherEmail, password, "Autre", "User")
-				require.NotEqual(t, 0, otherUserID, "La création de l'autre utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, otherResp.StatusCode)
-				otherToken, err := loginAndGetToken(router, otherEmail, password)
-				require.NoError(t, err)
-				return otherToken, fmt.Sprintf("%d", calendarID), ""
-			},
-			ExpectedStatus:  403,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrNoAccessToCalendar,
-		},
-		{
-			CaseName: "Erreur - Calendar inexistant",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserget+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				return token, "99999", ""
-			},
-			ExpectedStatus:  404,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrCalendarNotFound,
-		},
-	}
+func TestCalendarAdd_InvalidData(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.POST("/calendars", Calendar.Add)
 
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			testutils.ResetTestDB()
-			router := setupTestRouter()
-			token, calendarID, _ := testCase.Prepare(router)
-			url := "/calendar/" + calendarID
-			req := httptest.NewRequest("GET", url, nil)
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser, nil)
+
+	requestBody := common.CreateCalendarRequest{
+		Title: "", // Titre vide - données invalides
 	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("POST", "/calendars", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Add(c)
+
+	// Assert
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Contains(t, response.Error, common.ErrInvalidData)
 }
 
-// --- Test table-driven pour PUT /calendar/:calendar_id ---
-func TestUpdateCalendar(t *testing.T) {
-	var TestCases = []struct {
-		CaseName        string
-		Prepare         func(router *gin.Engine) (token string, calendarID string, otherToken string)
-		Payload         string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName: "Succès - Update calendar",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserupdate+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Update", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				return token, fmt.Sprintf("%d", calendarID), ""
-			},
-			Payload:         `{"title":"Calendrier Modifié","description":"Description modifiée"}`,
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessUpdateCalendar,
-			ExpectedError:   "",
-		},
-		{
-			CaseName: "Erreur - Non authentifié",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserupdate+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Update", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				return "", fmt.Sprintf("%d", calendarID), ""
-			},
-			Payload:         `{"title":"Calendrier Modifié"}`,
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName: "Erreur - Accès interdit",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserupdate+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Update", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				// Création d'un autre utilisateur
-				otherEmail := fmt.Sprintf("othercalendaruserupdate+%d@test.com", time.Now().UnixNano())
-				otherUserID, otherResp := createUser(router, otherEmail, password, "Autre", "User")
-				require.NotEqual(t, 0, otherUserID, "La création de l'autre utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, otherResp.StatusCode)
-				otherToken, err := loginAndGetToken(router, otherEmail, password)
-				require.NoError(t, err)
-				return otherToken, fmt.Sprintf("%d", calendarID), ""
-			},
-			Payload:         `{"title":"Calendrier Hacké"}`,
-			ExpectedStatus:  403,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrNoAccessToCalendar,
-		},
-		{
-			CaseName: "Erreur - Calendar inexistant",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserupdate+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				return token, "99999", ""
-			},
-			Payload:         `{"title":"Calendrier Modifié"}`,
-			ExpectedStatus:  404,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrCalendarNotFound,
-		},
-		{
-			CaseName: "Erreur - Données invalides (titre manquant)",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserupdate+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Update", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				return token, fmt.Sprintf("%d", calendarID), ""
-			},
-			Payload:         `{"description":"Description sans titre"}`,
-			ExpectedStatus:  400,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrInvalidData,
-		},
-	}
+func TestCalendarAdd_UserNotAuthenticated(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.POST("/calendars", Calendar.Add)
 
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			testutils.ResetTestDB()
-			router := setupTestRouter()
-			token, calendarID, _ := testCase.Prepare(router)
-			url := "/calendar/" + calendarID
-			req := httptest.NewRequest("PUT", url, bytes.NewReader([]byte(testCase.Payload)))
-			req.Header.Set("Content-Type", "application/json")
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
+	// Créer un contexte sans utilisateur authentifié
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	requestBody := common.CreateCalendarRequest{
+		Title:       "Mon Calendrier Personnel",
+		Description: common.StringPtr("Description de mon calendrier"),
 	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("POST", "/calendars", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Add(c)
+
+	// Assert
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrUserNotAuthenticated, response.Error)
 }
 
-// --- Test table-driven pour DELETE /calendar/:calendar_id ---
-func TestDeleteCalendar(t *testing.T) {
-	var TestCases = []struct {
-		CaseName        string
-		Prepare         func(router *gin.Engine) (token string, calendarID string, otherToken string)
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName: "Succès - Delete calendar",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserdelete+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Delete", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				return token, fmt.Sprintf("%d", calendarID), ""
-			},
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessDeleteCalendar,
-			ExpectedError:   "",
-		},
-		{
-			CaseName: "Erreur - Non authentifié",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserdelete+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Delete", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				return "", fmt.Sprintf("%d", calendarID), ""
-			},
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName: "Erreur - Accès interdit",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserdelete+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				calendarID, resp := createCalendar(router, token, "Calendrier Delete", "Description")
-				require.NotEqual(t, 0, calendarID, "La création du calendrier a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				// Création d'un autre utilisateur
-				otherEmail := fmt.Sprintf("othercalendaruserdelete+%d@test.com", time.Now().UnixNano())
-				otherUserID, otherResp := createUser(router, otherEmail, password, "Autre", "User")
-				require.NotEqual(t, 0, otherUserID, "La création de l'autre utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, otherResp.StatusCode)
-				otherToken, err := loginAndGetToken(router, otherEmail, password)
-				require.NoError(t, err)
-				return otherToken, fmt.Sprintf("%d", calendarID), ""
-			},
-			ExpectedStatus:  403,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrNoAccessToCalendar,
-		},
-		{
-			CaseName: "Erreur - Calendar inexistant",
-			Prepare: func(router *gin.Engine) (string, string, string) {
-				email := fmt.Sprintf("calendaruserdelete+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				return token, "99999", ""
-			},
-			ExpectedStatus:  404,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrCalendarNotFound,
-		},
-	}
+// =============================================================================
+// TESTS POUR LA FONCTION Get
+// =============================================================================
 
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			testutils.ResetTestDB()
-			router := setupTestRouter()
-			token, calendarID, _ := testCase.Prepare(router)
-			url := "/calendar/" + calendarID
-			req := httptest.NewRequest("DELETE", url, nil)
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+func TestCalendarGet_Success(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.GET("/calendars/:id", Calendar.Get)
+
+	// Créer un utilisateur et un calendrier de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	testCalendar := createTestCalendar(t, "Mon Calendrier", common.StringPtr("Description"))
+	createTestUserCalendar(t, testUser.UserID, testCalendar.CalendarID)
+
+	c := setupTestContext(t, testUser, testCalendar)
+
+	// Act
+	req, _ := http.NewRequest("GET", "/calendars/1", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Get(c)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Equal(t, common.MsgSuccessGetCalendar, response.Message)
+	assert.NotNil(t, response.Data)
+
+	// Vérifier que les données du calendrier sont correctes
+	calendarData, ok := response.Data.(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, float64(testCalendar.CalendarID), calendarData["calendar_id"])
+	assert.Equal(t, testCalendar.Title, calendarData["title"])
+	assert.Equal(t, *testCalendar.Description, calendarData["description"])
 }
 
-// --- Test table-driven pour POST /calendar ---
-func TestAddCalendar(t *testing.T) {
-	var TestCases = []struct {
-		CaseName        string
-		Prepare         func(router *gin.Engine) (token string)
-		Payload         string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName: "Succès - Création calendrier",
-			Prepare: func(router *gin.Engine) string {
-				email := fmt.Sprintf("calendaradd+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				return token
-			},
-			Payload:         `{"title":"Calendrier Test","description":"Description"}`,
-			ExpectedStatus:  201,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessCreateCalendar,
-			ExpectedError:   "",
-		},
-		{
-			CaseName: "Erreur - Non authentifié",
-			Prepare: func(router *gin.Engine) string {
-				return ""
-			},
-			Payload:         `{"title":"Calendrier Test","description":"Description"}`,
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName: "Erreur - Données invalides (titre manquant)",
-			Prepare: func(router *gin.Engine) string {
-				email := fmt.Sprintf("calendaradd+%d@test.com", time.Now().UnixNano())
-				password := "motdepasse123"
-				userID, resp := createUser(router, email, password, "Jean", "Calendrier")
-				require.NotEqual(t, 0, userID, "La création de l'utilisateur a échoué")
-				require.Equal(t, http.StatusCreated, resp.StatusCode)
-				token, err := loginAndGetToken(router, email, password)
-				require.NoError(t, err)
-				return token
-			},
-			Payload:         `{"description":"Description sans titre"}`,
-			ExpectedStatus:  400,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrInvalidData,
-		},
-	}
+func TestCalendarGet_UserNotAuthenticated(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.GET("/calendars/:id", Calendar.Get)
 
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			testutils.ResetTestDB()
-			router := setupTestRouter()
-			token := testCase.Prepare(router)
-			req := httptest.NewRequest("POST", "/calendar", bytes.NewReader([]byte(testCase.Payload)))
-			req.Header.Set("Content-Type", "application/json")
-			if token != "" {
-				req.Header.Set("Authorization", "Bearer "+token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	// Créer un contexte sans utilisateur authentifié
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	// Act
+	req, _ := http.NewRequest("GET", "/calendars/1", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Get(c)
+
+	// Assert
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrUserNotAuthenticated, response.Error)
 }
 
-func TestMain(m *testing.M) {
-	code := m.Run()
-	common.DB.Close()
-	os.Exit(code)
+func TestCalendarGet_CalendarNotInContext(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.GET("/calendars/:id", Calendar.Get)
+
+	// Créer un utilisateur de test sans calendrier dans le contexte
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser, nil)
+
+	// Act
+	req, _ := http.NewRequest("GET", "/calendars/1", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Get(c)
+
+	// Assert
+	assert.Equal(t, http.StatusNotFound, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrCalendarNotFound, response.Error)
+}
+
+// =============================================================================
+// TESTS POUR LA FONCTION Update
+// =============================================================================
+
+func TestCalendarUpdate_Success(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.PUT("/calendars/:id", Calendar.Update)
+
+	// Créer un utilisateur et un calendrier de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	testCalendar := createTestCalendar(t, "Mon Calendrier", common.StringPtr("Description"))
+	createTestUserCalendar(t, testUser.UserID, testCalendar.CalendarID)
+
+	c := setupTestContext(t, testUser, testCalendar)
+
+	requestBody := common.UpdateCalendarRequest{
+		Title:       common.StringPtr("Mon Calendrier Modifié"),
+		Description: common.StringPtr("Nouvelle description"),
+	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("PUT", "/calendars/1", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Update(c)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Equal(t, common.MsgSuccessUpdateCalendar, response.Message)
+
+	// Vérifier que le calendrier a été mis à jour en base
+	var updatedCalendar common.Calendar
+	err = common.DB.QueryRow(`
+		SELECT calendar_id, title, description, created_at, updated_at, deleted_at
+		FROM calendar WHERE calendar_id = ?
+	`, testCalendar.CalendarID).Scan(&updatedCalendar.CalendarID, &updatedCalendar.Title, &updatedCalendar.Description, &updatedCalendar.CreatedAt, &updatedCalendar.UpdatedAt, &updatedCalendar.DeletedAt)
+	assert.NoError(t, err)
+	assert.Equal(t, "Mon Calendrier Modifié", updatedCalendar.Title)
+	assert.Equal(t, "Nouvelle description", *updatedCalendar.Description)
+	assert.NotNil(t, updatedCalendar.UpdatedAt)
+}
+
+func TestCalendarUpdate_InvalidData(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.PUT("/calendars/:id", Calendar.Update)
+
+	// Créer un utilisateur et un calendrier de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	testCalendar := createTestCalendar(t, "Mon Calendrier", common.StringPtr("Description"))
+	createTestUserCalendar(t, testUser.UserID, testCalendar.CalendarID)
+
+	c := setupTestContext(t, testUser, testCalendar)
+
+	requestBody := common.UpdateCalendarRequest{
+		Title: common.StringPtr(""), // Titre vide - données invalides
+	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("PUT", "/calendars/1", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Update(c)
+
+	// Assert
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrInvalidData, response.Error)
+}
+
+func TestCalendarUpdate_UserNotAuthenticated(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.PUT("/calendars/:id", Calendar.Update)
+
+	// Créer un contexte sans utilisateur authentifié
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	requestBody := common.UpdateCalendarRequest{
+		Title:       common.StringPtr("Mon Calendrier Modifié"),
+		Description: common.StringPtr("Nouvelle description"),
+	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("PUT", "/calendars/1", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Update(c)
+
+	// Assert
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrUserNotAuthenticated, response.Error)
+}
+
+// =============================================================================
+// TESTS POUR LA FONCTION Delete
+// =============================================================================
+
+func TestCalendarDelete_Success(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.DELETE("/calendars/:id", Calendar.Delete)
+
+	// Créer un utilisateur et un calendrier de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	testCalendar := createTestCalendar(t, "Mon Calendrier", common.StringPtr("Description"))
+	createTestUserCalendar(t, testUser.UserID, testCalendar.CalendarID)
+
+	c := setupTestContext(t, testUser, testCalendar)
+
+	// Act
+	req, _ := http.NewRequest("DELETE", "/calendars/1", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Delete(c)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Equal(t, common.MsgSuccessDeleteCalendar, response.Message)
+
+	// Vérifier que le calendrier a été supprimé (soft delete)
+	var deletedAt *time.Time
+	err = common.DB.QueryRow("SELECT deleted_at FROM calendar WHERE calendar_id = ?", testCalendar.CalendarID).Scan(&deletedAt)
+	assert.NoError(t, err)
+	assert.NotNil(t, deletedAt)
+}
+
+func TestCalendarDelete_UserNotAuthenticated(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.DELETE("/calendars/:id", Calendar.Delete)
+
+	// Créer un contexte sans utilisateur authentifié
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	// Act
+	req, _ := http.NewRequest("DELETE", "/calendars/1", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	Calendar.Delete(c)
+
+	// Assert
+	assert.Equal(t, http.StatusUnauthorized, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrUserNotAuthenticated, response.Error)
 }

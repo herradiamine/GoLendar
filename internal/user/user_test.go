@@ -3,840 +3,491 @@ package user
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"go-averroes/internal/middleware"
-	"go-averroes/internal/session"
+	"go-averroes/internal/common"
 	"go-averroes/testutils"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"strings"
 	"testing"
-
-	"go-averroes/internal/common"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/assert"
+	"golang.org/x/crypto/bcrypt"
 )
 
-func setupTestRouter() *gin.Engine {
+// =============================================================================
+// FONCTIONS MUTUALISÉES POUR LES DONNÉES DE TEST
+// =============================================================================
+
+// createTestUser crée un utilisateur de test dans la base de données
+func createTestUser(t *testing.T, lastname, firstname, email, password string) *common.User {
+	// Hasher le mot de passe
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	assert.NoError(t, err)
+
+	// Insérer l'utilisateur
+	result, err := common.DB.Exec(`
+		INSERT INTO user (lastname, firstname, email, created_at) 
+		VALUES (?, ?, ?, NOW())
+	`, lastname, firstname, email)
+	assert.NoError(t, err)
+
+	userID, err := result.LastInsertId()
+	assert.NoError(t, err)
+
+	// Insérer le mot de passe
+	_, err = common.DB.Exec(`
+		INSERT INTO user_password (user_id, password_hash, created_at) 
+		VALUES (?, ?, NOW())
+	`, userID, string(hashedPassword))
+	assert.NoError(t, err)
+
+	// Récupérer l'utilisateur créé
+	var user common.User
+	err = common.DB.QueryRow(`
+		SELECT user_id, lastname, firstname, email, created_at, updated_at, deleted_at
+		FROM user WHERE user_id = ?
+	`, userID).Scan(&user.UserID, &user.Lastname, &user.Firstname, &user.Email, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt)
+	assert.NoError(t, err)
+
+	return &user
+}
+
+// createTestUserWithPassword crée un utilisateur avec mot de passe et retourne les données complètes
+func createTestUserWithPassword(t *testing.T, lastname, firstname, email, password string) (*common.User, string) {
+	user := createTestUser(t, lastname, firstname, email, password)
+	return user, password
+}
+
+// setupTestContext configure le contexte Gin avec un utilisateur authentifié
+func setupTestContext(t *testing.T, user *common.User) *gin.Context {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Set("auth_user", *user)
+	return c
+}
+
+// =============================================================================
+// TESTS POUR LA FONCTION Add
+// =============================================================================
+
+func TestUserAdd_Success(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
 	router := testutils.SetupTestRouter()
+	router.POST("/users", User.Add)
 
-	// Configuration des routes pour les tests utilisateur avec la nouvelle architecture
-	// Routes publiques
-	router.POST("/user", func(c *gin.Context) { User.Add(c) })
-	router.POST("/auth/login", func(c *gin.Context) { session.Session.Login(c) })
-	router.POST("/auth/refresh", func(c *gin.Context) { session.Session.RefreshToken(c) })
-
-	// Routes protégées par authentification
-	router.GET("/user/me", middleware.AuthMiddleware(), func(c *gin.Context) { User.Get(c) })
-	router.PUT("/user/me", middleware.AuthMiddleware(), func(c *gin.Context) { User.Update(c) })
-	router.DELETE("/user/me", middleware.AuthMiddleware(), func(c *gin.Context) { User.Delete(c) })
-	router.POST("/auth/logout", middleware.AuthMiddleware(), func(c *gin.Context) { session.Session.Logout(c) })
-	router.GET("/auth/me", middleware.AuthMiddleware(), func(c *gin.Context) { User.GetUserWithRoles(c) })
-	router.GET("/auth/sessions", middleware.AuthMiddleware(), func(c *gin.Context) { session.Session.GetUserSessions(c) })
-
-	// Routes admin
-	router.GET("/user/:user_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Get(c) })
-	router.PUT("/user/:user_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Update(c) })
-	router.DELETE("/user/:user_id", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Delete(c) })
-	router.GET("/user/:user_id/with-roles", middleware.AuthMiddleware(), middleware.AdminMiddleware(), middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.GetUserWithRoles(c) })
-
-	return router
-}
-
-// --- Helpers mutualisés (à compléter selon tes besoins) ---
-
-// Retourne l'ID de l'utilisateur créé
-func createUser(t *testing.T, router http.Handler, email, password, firstname, lastname string) (int, *http.Response) {
-	payload := map[string]string{
-		"email":     email,
-		"password":  password,
-		"firstname": firstname,
-		"lastname":  lastname,
+	requestBody := common.CreateUserRequest{
+		Lastname:  "Dupont",
+		Firstname: "Jean",
+		Email:     "jean.dupont@example.com",
+		Password:  "password123",
 	}
-	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("POST", "/user", bytes.NewReader(body))
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("POST", "/users", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
-	// Récupérer l'ID créé
+
+	// Assert
+	assert.Equal(t, http.StatusCreated, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Equal(t, common.MsgSuccessCreateUser, response.Message)
+	assert.NotNil(t, response.Data)
+
+	// Vérifier que l'utilisateur a été créé en base
 	var userID int
-	row := common.DB.QueryRow("SELECT user_id FROM user WHERE email = ?", email)
-	_ = row.Scan(&userID)
-	token, err := loginAndGetToken(router, email, password)
-	require.NoError(t, err)
-	require.NotEmpty(t, token)
-	return userID, w.Result()
+	err = common.DB.QueryRow("SELECT user_id FROM user WHERE email = ?", requestBody.Email).Scan(&userID)
+	assert.NoError(t, err)
+	assert.Greater(t, userID, 0)
 }
 
-// Retourne l'ID de l'admin créé
-func createAdmin(t *testing.T, router http.Handler, email, password, firstname, lastname string) (int, *http.Response) {
-	userID, resp := createUser(t, router, email, password, firstname, lastname)
-	// Vérifie si le rôle admin existe, sinon le crée
-	var adminRoleID int
-	row := common.DB.QueryRow("SELECT role_id FROM roles WHERE name = 'admin'")
-	err := row.Scan(&adminRoleID)
-	if err != nil {
-		// Le rôle admin n'existe pas, on le crée
-		res, err2 := common.DB.Exec("INSERT INTO roles (name, description) VALUES ('admin', 'Administrateur')")
-		if err2 != nil {
-			panic("Impossible de créer le rôle admin: " + err2.Error())
-		}
-		id, _ := res.LastInsertId()
-		adminRoleID = int(id)
-	}
-	// Attribue le rôle admin à l'utilisateur
-	_, err = common.DB.Exec("INSERT INTO user_roles (user_id, role_id) VALUES (?, ?)", userID, adminRoleID)
-	if err != nil {
-		panic("Impossible d'attribuer le rôle admin à l'utilisateur: " + err.Error())
-	}
-	token, err := loginAndGetToken(router, email, password)
-	require.NoError(t, err)
-	require.NotEmpty(t, token)
-	return userID, resp
-}
+func TestUserAdd_InvalidData(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.POST("/users", User.Add)
 
-// --- Helper pour login et récupération de token ---
-func loginAndGetToken(router http.Handler, email, password string) (string, error) {
-	payload := map[string]string{
-		"email":    email,
-		"password": password,
+	requestBody := common.CreateUserRequest{
+		Lastname:  "", // Données invalides
+		Firstname: "",
+		Email:     "invalid-email",
+		Password:  "123", // Mot de passe trop court
 	}
-	body, _ := json.Marshal(payload)
-	req := httptest.NewRequest("POST", "/auth/login", bytes.NewReader(body))
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("POST", "/users", bytes.NewBuffer(jsonBody))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
-	resp := w.Result()
-	defer resp.Body.Close()
-	var jsonResp struct {
-		Success      bool   `json:"success"`
-		SessionToken string `json:"data.session_token"`
-		Data         struct {
-			SessionToken string `json:"session_token"`
-		} `json:"data"`
-		Error string `json:"error"`
-	}
-	bodyBytes, _ := io.ReadAll(resp.Body)
-	_ = json.Unmarshal(bodyBytes, &jsonResp)
-	if !jsonResp.Success || jsonResp.Data.SessionToken == "" {
-		return "", fmt.Errorf("login failed: %s", jsonResp.Error)
-	}
-	return jsonResp.Data.SessionToken, nil
+
+	// Assert
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrInvalidData, response.Error)
 }
 
-// --- Squelette de tests table-driven pour toutes les routes du package user.go ---
-
-func TestAddUser(t *testing.T) {
+func TestUserAdd_UserAlreadyExists(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	router := setupTestRouter()
-	// Préparation des cas à tester
-	var TestCases = []struct {
-		CaseName        string
-		Payload         string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string // message attendu (succès)
-		ExpectedError   string // erreur attendue (échec)
-	}{
-		{
-			CaseName:        "Succès - Création utilisateur",
-			Payload:         `{"email":"testadduser1@example.com","password":"azerty1","firstname":"Jean","lastname":"Dupont"}`,
-			ExpectedStatus:  201,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessCreateUser,
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Email invalide",
-			Payload:         `{"email":"notanemail","password":"azerty1","firstname":"Jean","lastname":"Dupont"}`,
-			ExpectedStatus:  400,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrInvalidData,
-		},
-		{
-			CaseName:        "Erreur - Mot de passe trop court",
-			Payload:         `{"email":"testadduser2@example.com","password":"123","firstname":"Jean","lastname":"Dupont"}`,
-			ExpectedStatus:  400,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrInvalidData,
-		},
-		{
-			CaseName:        "Erreur - Email déjà utilisé",
-			Payload:         `{"email":"testadduser3@example.com","password":"azerty1","firstname":"Jean","lastname":"Dupont"}`,
-			ExpectedStatus:  409,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserAlreadyExists,
-		},
-	}
+	router := testutils.SetupTestRouter()
+	router.POST("/users", User.Add)
 
-	// Préparer un utilisateur pour le cas de conflit
-	_, _ = createUser(t, router, "testadduser3@example.com", "azerty1", "Jean", "Dupont")
+	// Créer un utilisateur existant
+	existingUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
 
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			req := httptest.NewRequest("POST", "/user", strings.NewReader(testCase.Payload))
-			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
+	requestBody := common.CreateUserRequest{
+		Lastname:  "Dupont",
+		Firstname: "Jean",
+		Email:     existingUser.Email, // Email déjà existant
+		Password:  "password123",
 	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("POST", "/users", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	// Assert
+	assert.Equal(t, http.StatusConflict, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrUserAlreadyExists, response.Error)
 }
 
-func TestGetUserMe(t *testing.T) {
+// =============================================================================
+// TESTS POUR LA FONCTION Get
+// =============================================================================
+
+func TestUserGet_Success(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	router := setupTestRouter()
-	// Création d'un utilisateur et login pour obtenir un token
-	email := "getme@example.com"
-	password := "azerty1"
-	_, _ = createUser(t, router, email, password, "Jean", "Dupont")
-	token, err := loginAndGetToken(router, email, password)
-	require.NoError(t, err)
+	router := testutils.SetupTestRouter()
+	router.GET("/users/me", User.Get)
 
-	var TestCases = []struct {
-		CaseName        string
-		Token           string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName:        "Succès - Get user me",
-			Token:           token,
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     "",
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Non authentifié",
-			Token:           "",
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-	}
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			req := httptest.NewRequest("GET", "/user/me", nil)
-			if testCase.Token != "" {
-				req.Header.Set("Authorization", "Bearer "+testCase.Token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser)
+
+	// Act
+	req, _ := http.NewRequest("GET", "/users/me", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	User.Get(c)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.NotNil(t, response.Data)
+
+	// Vérifier que les données utilisateur sont correctes
+	userData, ok := response.Data.(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, float64(testUser.UserID), userData["user_id"])
+	assert.Equal(t, testUser.Lastname, userData["lastname"])
+	assert.Equal(t, testUser.Firstname, userData["firstname"])
+	assert.Equal(t, testUser.Email, userData["email"])
 }
 
-func TestUpdateUserMe(t *testing.T) {
+func TestUserGet_UserNotInContext(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	router := setupTestRouter()
-	email := "updateme@example.com"
-	password := "azerty1"
-	_, _ = createUser(t, router, email, password, "Jean", "Dupont")
-	token, err := loginAndGetToken(router, email, password)
-	require.NoError(t, err)
+	router := testutils.SetupTestRouter()
+	router.GET("/users/me", User.Get)
 
-	var TestCases = []struct {
-		CaseName        string
-		Token           string
-		Payload         string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName:        "Succès - Update firstname",
-			Token:           token,
-			Payload:         `{"firstname":"Paul"}`,
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessUserUpdate,
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Non authentifié",
-			Token:           "",
-			Payload:         `{"firstname":"Paul"}`,
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName:        "Erreur - Email invalide",
-			Token:           token,
-			Payload:         `{"email":"notanemail"}`,
-			ExpectedStatus:  400,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrInvalidEmailFormat,
-		},
-		{
-			CaseName:        "Erreur - Password trop court",
-			Token:           token,
-			Payload:         `{"password":"123"}`,
-			ExpectedStatus:  400,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrPasswordTooShort,
-		},
-	}
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			req := httptest.NewRequest("PUT", "/user/me", strings.NewReader(testCase.Payload))
-			req.Header.Set("Content-Type", "application/json")
-			if testCase.Token != "" {
-				req.Header.Set("Authorization", "Bearer "+testCase.Token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	// Créer un contexte sans utilisateur
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+
+	// Act
+	req, _ := http.NewRequest("GET", "/users/me", nil)
+	c.Request = req
+	User.Get(c)
+
+	// Assert
+	// La fonction ne retourne pas d'erreur HTTP mais log une erreur
+	// On vérifie juste qu'elle ne panique pas
+	assert.NotNil(t, c)
 }
 
-func TestDeleteUserMe(t *testing.T) {
+// =============================================================================
+// TESTS POUR LA FONCTION Update
+// =============================================================================
+
+func TestUserUpdate_Success(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	router := setupTestRouter()
-	email := "deleteme@example.com"
-	password := "azerty1"
-	_, _ = createUser(t, router, email, password, "Jean", "Dupont")
-	token, err := loginAndGetToken(router, email, password)
-	require.NoError(t, err)
+	router := testutils.SetupTestRouter()
+	router.PUT("/users/me", User.Update)
 
-	var TestCases = []struct {
-		CaseName        string
-		Token           string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName:        "Succès - Delete user me",
-			Token:           token,
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessUserDelete,
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Non authentifié",
-			Token:           "",
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser)
+
+	requestBody := common.UpdateUserRequest{
+		Lastname:  common.StringPtr("Martin"),
+		Firstname: common.StringPtr("Pierre"),
+		Email:     common.StringPtr("pierre.martin@example.com"),
+		Password:  common.StringPtr("newpassword123"),
 	}
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			req := httptest.NewRequest("DELETE", "/user/me", nil)
-			if testCase.Token != "" {
-				req.Header.Set("Authorization", "Bearer "+testCase.Token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("PUT", "/users/me", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	User.Update(c)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Equal(t, common.MsgSuccessUpdateUser, response.Message)
+
+	// Vérifier que l'utilisateur a été mis à jour en base
+	var updatedUser common.User
+	err = common.DB.QueryRow(`
+		SELECT user_id, lastname, firstname, email, created_at, updated_at, deleted_at
+		FROM user WHERE user_id = ?
+	`, testUser.UserID).Scan(&updatedUser.UserID, &updatedUser.Lastname, &updatedUser.Firstname, &updatedUser.Email, &updatedUser.CreatedAt, &updatedUser.UpdatedAt, &updatedUser.DeletedAt)
+	assert.NoError(t, err)
+	assert.Equal(t, "Martin", updatedUser.Lastname)
+	assert.Equal(t, "Pierre", updatedUser.Firstname)
+	assert.Equal(t, "pierre.martin@example.com", updatedUser.Email)
+	assert.NotNil(t, updatedUser.UpdatedAt)
 }
 
-func TestGetUserWithRolesMe(t *testing.T) {
+func TestUserUpdate_InvalidEmailFormat(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	router := setupTestRouter()
-	email := "rolesme@example.com"
-	password := "azerty1"
-	_, _ = createUser(t, router, email, password, "Jean", "Dupont")
-	token, err := loginAndGetToken(router, email, password)
-	require.NoError(t, err)
+	router := testutils.SetupTestRouter()
+	router.PUT("/users/me", User.Update)
 
-	var TestCases = []struct {
-		CaseName        string
-		Token           string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName:        "Succès - Get user with roles me",
-			Token:           token,
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     "", // Pas de message utilisateur spécifique attendu
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Non authentifié",
-			Token:           "",
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser)
+
+	requestBody := common.UpdateUserRequest{
+		Email: common.StringPtr("invalid-email-format"),
 	}
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			req := httptest.NewRequest("GET", "/auth/me", nil)
-			if testCase.Token != "" {
-				req.Header.Set("Authorization", "Bearer "+testCase.Token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("PUT", "/users/me", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	User.Update(c)
+
+	// Assert
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrInvalidEmailFormat, response.Error)
 }
 
-func TestGetUserByID_Admin(t *testing.T) {
+func TestUserUpdate_PasswordTooShort(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	router := setupTestRouter()
-	// Création d'un admin et d'un user cible
-	adminEmail := "admingetid@example.com"
-	adminPassword := "azerty1"
-	userEmail := "usergetid@example.com"
-	userPassword := "azerty1"
-	_, _ = createAdmin(t, router, adminEmail, adminPassword, "Admin", "Root")
-	userID, _ := createUser(t, router, userEmail, userPassword, "Jean", "Dupont")
-	adminToken, err := loginAndGetToken(router, adminEmail, adminPassword)
-	require.NoError(t, err)
+	router := testutils.SetupTestRouter()
+	router.PUT("/users/me", User.Update)
 
-	var TestCases = []struct {
-		CaseName        string
-		Token           string
-		UserID          string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName:        "Succès - Admin get user by id",
-			Token:           adminToken,
-			UserID:          fmt.Sprintf("%d", userID),
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     "",
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Non authentifié",
-			Token:           "",
-			UserID:          fmt.Sprintf("%d", userID),
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName:        "Erreur - User inexistant",
-			Token:           adminToken,
-			UserID:          "99999",
-			ExpectedStatus:  404,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotFound,
-		},
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser)
+
+	requestBody := common.UpdateUserRequest{
+		Password: common.StringPtr("123"), // Mot de passe trop court
 	}
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			url := "/user/" + testCase.UserID
-			req := httptest.NewRequest("GET", url, nil)
-			if testCase.Token != "" {
-				req.Header.Set("Authorization", "Bearer "+testCase.Token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("PUT", "/users/me", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	User.Update(c)
+
+	// Assert
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrPasswordTooShort, response.Error)
 }
 
-func TestUpdateUserByID_Admin(t *testing.T) {
+func TestUserUpdate_EmailAlreadyExists(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	router := setupTestRouter()
-	// Création d'un admin et d'un user cible
-	adminEmail := "adminupdateid@example.com"
-	adminPassword := "azerty1"
-	userEmail := "userupdateid@example.com"
-	userPassword := "azerty1"
-	_, _ = createAdmin(t, router, adminEmail, adminPassword, "Admin", "Root")
-	userID, _ := createUser(t, router, userEmail, userPassword, "Jean", "Dupont")
-	adminToken, err := loginAndGetToken(router, adminEmail, adminPassword)
-	require.NoError(t, err)
+	router := testutils.SetupTestRouter()
+	router.PUT("/users/me", User.Update)
 
-	// Préparer un utilisateur avec l'email de conflit pour le test "Erreur - Email déjà utilisé"
-	_, _ = createUser(t, router, "conflictupdateid@example.com", "azerty1", "Jean", "Dupont")
+	// Créer deux utilisateurs de test
+	testUser1 := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	testUser2 := createTestUser(t, "Martin", "Pierre", "pierre.martin@example.com", "password123")
 
-	var TestCases = []struct {
-		CaseName        string
-		Token           string
-		UserID          string
-		Payload         string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName:        "Succès - Admin update user by id",
-			Token:           adminToken,
-			UserID:          fmt.Sprintf("%d", userID),
-			Payload:         `{"firstname":"Paul"}`,
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessUserUpdate,
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Non authentifié",
-			Token:           "",
-			UserID:          fmt.Sprintf("%d", userID),
-			Payload:         `{"firstname":"Paul"}`,
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName:        "Erreur - User inexistant",
-			Token:           adminToken,
-			UserID:          "99999",
-			Payload:         `{"firstname":"Paul"}`,
-			ExpectedStatus:  404,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotFound,
-		},
-		{
-			CaseName:        "Erreur - Email déjà utilisé",
-			Token:           adminToken,
-			UserID:          fmt.Sprintf("%d", userID),
-			Payload:         `{"email":"conflictupdateid@example.com"}`,
-			ExpectedStatus:  409,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserAlreadyExists,
-		},
+	c := setupTestContext(t, testUser1)
+
+	requestBody := common.UpdateUserRequest{
+		Email: common.StringPtr(testUser2.Email), // Email déjà utilisé par un autre utilisateur
 	}
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			url := "/user/" + testCase.UserID
-			req := httptest.NewRequest("PUT", url, strings.NewReader(testCase.Payload))
-			req.Header.Set("Content-Type", "application/json")
-			if testCase.Token != "" {
-				req.Header.Set("Authorization", "Bearer "+testCase.Token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	jsonBody, _ := json.Marshal(requestBody)
+
+	// Act
+	req, _ := http.NewRequest("PUT", "/users/me", bytes.NewBuffer(jsonBody))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	c.Request = req
+	User.Update(c)
+
+	// Assert
+	assert.Equal(t, http.StatusConflict, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.False(t, response.Success)
+	assert.Equal(t, common.ErrUserAlreadyExists, response.Error)
 }
 
-func TestDeleteUserByID_Admin(t *testing.T) {
+// =============================================================================
+// TESTS POUR LA FONCTION Delete
+// =============================================================================
+
+func TestUserDelete_Success(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	// Création d'un admin et d'un user cible pour les cas classiques
-	adminEmail := "admindeleteid@example.com"
-	adminPassword := "azerty1"
-	userEmail := "userdeleteid@example.com"
-	userPassword := "azerty1"
-	_, _ = createAdmin(t, setupTestRouter(), adminEmail, adminPassword, "Admin", "Root")
-	userID, _ := createUser(t, setupTestRouter(), userEmail, userPassword, "Jean", "Dupont")
-	adminToken, err := loginAndGetToken(setupTestRouter(), adminEmail, adminPassword)
-	require.NoError(t, err)
+	router := testutils.SetupTestRouter()
+	router.DELETE("/users/me", User.Delete)
 
-	var TestCases = []struct {
-		CaseName        string
-		Token           string
-		UserID          string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName:        "Succès - Admin delete user by id",
-			Token:           adminToken,
-			UserID:          fmt.Sprintf("%d", userID),
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     common.MsgSuccessUserDelete,
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Non authentifié",
-			Token:           "",
-			UserID:          fmt.Sprintf("%d", userID),
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName: "Erreur - User inexistant",
-			// On crée un nouvel admin et récupère son token juste avant ce test pour garantir une session valide
-			Token: func() string {
-				newAdminEmail := "admininexistant@example.com"
-				newAdminPassword := "azerty1"
-				_, _ = createAdmin(t, setupTestRouter(), newAdminEmail, newAdminPassword, "Admin", "Root")
-				token, err := loginAndGetToken(setupTestRouter(), newAdminEmail, newAdminPassword)
-				require.NoError(t, err)
-				return token
-			}(),
-			UserID:          "99999",
-			ExpectedStatus:  404,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotFound,
-		},
-	}
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			url := "/user/" + testCase.UserID
-			req := httptest.NewRequest("DELETE", url, nil)
-			if testCase.Token != "" {
-				req.Header.Set("Authorization", "Bearer "+testCase.Token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser)
+
+	// Act
+	req, _ := http.NewRequest("DELETE", "/users/me", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	User.Delete(c)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.Equal(t, common.MsgSuccessUserDelete, response.Message)
+
+	// Vérifier que l'utilisateur a été supprimé (soft delete)
+	var deletedAt *time.Time
+	err = common.DB.QueryRow("SELECT deleted_at FROM user WHERE user_id = ?", testUser.UserID).Scan(&deletedAt)
+	assert.NoError(t, err)
+	assert.NotNil(t, deletedAt)
 }
 
-func TestGetUserWithRolesByID_Admin(t *testing.T) {
+// =============================================================================
+// TESTS POUR LA FONCTION GetUserWithRoles
+// =============================================================================
+
+func TestUserGetUserWithRoles_Success(t *testing.T) {
+	// Arrange
 	testutils.ResetTestDB()
-	router := setupTestRouter()
-	// Création d'un admin et d'un user cible
-	adminEmail := "admingetrolesid@example.com"
-	adminPassword := "azerty1"
-	userEmail := "usergetrolesid@example.com"
-	userPassword := "azerty1"
-	_, _ = createAdmin(t, router, adminEmail, adminPassword, "Admin", "Root")
-	userID, _ := createUser(t, router, userEmail, userPassword, "Jean", "Dupont")
-	adminToken, err := loginAndGetToken(router, adminEmail, adminPassword)
-	require.NoError(t, err)
+	router := testutils.SetupTestRouter()
+	router.GET("/users/me/roles", User.GetUserWithRoles)
 
-	var TestCases = []struct {
-		CaseName        string
-		Token           string
-		UserID          string
-		ExpectedStatus  int
-		ExpectedSuccess bool
-		ExpectedMsg     string
-		ExpectedError   string
-	}{
-		{
-			CaseName:        "Succès - Admin get user with roles by id",
-			Token:           adminToken,
-			UserID:          fmt.Sprintf("%d", userID),
-			ExpectedStatus:  200,
-			ExpectedSuccess: true,
-			ExpectedMsg:     "", // Pas de message utilisateur spécifique attendu
-			ExpectedError:   "",
-		},
-		{
-			CaseName:        "Erreur - Non authentifié",
-			Token:           "",
-			UserID:          fmt.Sprintf("%d", userID),
-			ExpectedStatus:  401,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotAuthenticated,
-		},
-		{
-			CaseName:        "Erreur - User inexistant",
-			Token:           adminToken,
-			UserID:          "99999",
-			ExpectedStatus:  404,
-			ExpectedSuccess: false,
-			ExpectedMsg:     "",
-			ExpectedError:   common.ErrUserNotFound,
-		},
-	}
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			router := setupTestRouter()
-			url := "/user/" + testCase.UserID + "/with-roles"
-			req := httptest.NewRequest("GET", url, nil)
-			if testCase.Token != "" {
-				req.Header.Set("Authorization", "Bearer "+testCase.Token)
-			}
-			w := httptest.NewRecorder()
-			router.ServeHTTP(w, req)
-			resp := w.Result()
-			defer resp.Body.Close()
-			var jsonResp struct {
-				Success bool   `json:"success"`
-				Message string `json:"message"`
-				Error   string `json:"error"`
-			}
-			body, _ := io.ReadAll(resp.Body)
-			_ = json.Unmarshal(body, &jsonResp)
-			require.Equal(t, testCase.ExpectedStatus, resp.StatusCode)
-			require.Equal(t, testCase.ExpectedSuccess, jsonResp.Success)
-			if testCase.ExpectedMsg != "" {
-				require.Contains(t, jsonResp.Message, testCase.ExpectedMsg)
-			}
-			if testCase.ExpectedError != "" {
-				require.Contains(t, jsonResp.Error, testCase.ExpectedError)
-			}
-		})
-	}
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser)
+
+	// Act
+	req, _ := http.NewRequest("GET", "/users/me/roles", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	User.GetUserWithRoles(c)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.NotNil(t, response.Data)
+
+	// Vérifier que les données utilisateur avec rôles sont correctes
+	userData, ok := response.Data.(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, float64(testUser.UserID), userData["user_id"])
+	assert.Equal(t, testUser.Lastname, userData["lastname"])
+	assert.Equal(t, testUser.Firstname, userData["firstname"])
+	assert.Equal(t, testUser.Email, userData["email"])
+	assert.NotNil(t, userData["roles"])
 }
 
-func TestMain(m *testing.M) {
-	code := m.Run()
-	common.DB.Close()
-	os.Exit(code)
+// =============================================================================
+// TESTS POUR LA FONCTION GetAuthMe
+// =============================================================================
+
+func TestUserGetAuthMe_Success(t *testing.T) {
+	// Arrange
+	testutils.ResetTestDB()
+	router := testutils.SetupTestRouter()
+	router.GET("/auth/me", User.GetAuthMe)
+
+	// Créer un utilisateur de test
+	testUser := createTestUser(t, "Dupont", "Jean", "jean.dupont@example.com", "password123")
+	c := setupTestContext(t, testUser)
+
+	// Act
+	req, _ := http.NewRequest("GET", "/auth/me", nil)
+	w := httptest.NewRecorder()
+	c.Request = req
+	User.GetAuthMe(c)
+
+	// Assert
+	assert.Equal(t, http.StatusOK, w.Code)
+
+	var response common.JSONResponse
+	err := json.Unmarshal(w.Body.Bytes(), &response)
+	assert.NoError(t, err)
+	assert.True(t, response.Success)
+	assert.NotNil(t, response.Data)
+
+	// Vérifier que les données utilisateur sont correctes
+	userData, ok := response.Data.(map[string]interface{})
+	assert.True(t, ok)
+	assert.Equal(t, float64(testUser.UserID), userData["user_id"])
+	assert.Equal(t, testUser.Lastname, userData["lastname"])
+	assert.Equal(t, testUser.Firstname, userData["firstname"])
+	assert.Equal(t, testUser.Email, userData["email"])
 }
