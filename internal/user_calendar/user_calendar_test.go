@@ -237,7 +237,8 @@ func TestAddUserCalendar(t *testing.T) {
 					panic("Erreur création session: " + err.Error())
 				}
 				cleanup := func() {
-					_ = testutils.PurgeTestData(user.Email)
+					_ = testutils.PurgeTestData(email1)
+					_ = testutils.PurgeTestData(email2)
 					_ = testutils.PurgeTestCalendar(calendarID)
 				}
 				return "Bearer " + token, user.UserID, calendarID, cleanup
@@ -254,8 +255,8 @@ func TestAddUserCalendar(t *testing.T) {
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
 			testutils.PurgeAllTestUsers() // Purge avant chaque test
-			userID := int(time.Now().UnixNano() % 1000000000)
 			adminID := int(time.Now().UnixNano() % 1000000000)
+			userID := int(time.Now().UnixNano() % 1000000000)
 			token, userID, calendarID, cleanup := testCase.SetupDataWithIDs(adminID, userID)
 			defer cleanup()
 
@@ -280,6 +281,146 @@ func TestAddUserCalendar(t *testing.T) {
 			}
 			if testCase.ExpectedMessage != "" {
 				require.Contains(t, response["message"], testCase.ExpectedMessage)
+			}
+		})
+	}
+}
+
+func TestGetUserCalendar(t *testing.T) {
+	testutils.PurgeAllTestUsers()
+	gin.SetMode(gin.TestMode)
+	router := createTestRouter()
+
+	var TestCases = []struct {
+		CaseName         string
+		SetupData        func() (token string, userID int, calendarID int, cleanup func())
+		ExpectedHttpCode int
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Succès (admin)",
+			SetupData: func() (string, int, int, func()) {
+				adminID := int(time.Now().UnixNano() % 1000000000)
+				admin, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
+				if err != nil {
+					panic("Erreur création admin: " + err.Error())
+				}
+				user, err := testutils.CreateUserWithPassword("Test", "User", testutils.GenerateUniqueEmail("user"), "password123")
+				if err != nil {
+					panic("Erreur création user: " + err.Error())
+				}
+				calendarID, err := testutils.CreateTestCalendar()
+				if err != nil {
+					panic(err)
+				}
+				if err := testutils.AddUserCalendarLink(user.UserID, calendarID); err != nil {
+					panic(err)
+				}
+				cleanup := func() {
+					_ = testutils.PurgeTestData(admin.Email)
+					_ = testutils.PurgeTestData(user.Email)
+					_ = testutils.PurgeTestCalendar(calendarID)
+				}
+				return "Bearer " + adminToken, user.UserID, calendarID, cleanup
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Liaison inexistante",
+			SetupData: func() (string, int, int, func()) {
+				adminID := int(time.Now().UnixNano() % 1000000000)
+				admin, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
+				if err != nil {
+					panic("Erreur création admin: " + err.Error())
+				}
+				user, err := testutils.CreateUserWithPassword("Test", "User", testutils.GenerateUniqueEmail("user"), "password123")
+				if err != nil {
+					panic("Erreur création user: " + err.Error())
+				}
+				calendarID, err := testutils.CreateTestCalendar()
+				if err != nil {
+					panic(err)
+				}
+				cleanup := func() {
+					_ = testutils.PurgeTestData(admin.Email)
+					_ = testutils.PurgeTestData(user.Email)
+					_ = testutils.PurgeTestCalendar(calendarID)
+				}
+				return "Bearer " + adminToken, user.UserID, calendarID, cleanup
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedError:    "Liaison utilisateur-calendrier non trouvée",
+		},
+		{
+			CaseName: "Utilisateur non admin (accès refusé)",
+			SetupData: func() (string, int, int, func()) {
+				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano()))
+				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano())) + "-" + testutils.Itoa(rand.Intn(1000000))
+				user, err := testutils.CreateUserWithPassword("Test", "User", email1, "password123")
+				if err != nil {
+					panic("Erreur création user: " + err.Error())
+				}
+				calendarID, err := testutils.CreateTestCalendar()
+				if err != nil {
+					panic(err)
+				}
+				_, token, err := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, email2)
+				if err != nil {
+					panic("Erreur création session: " + err.Error())
+				}
+				cleanup := func() {
+					_ = testutils.PurgeTestData(email1)
+					_ = testutils.PurgeTestData(email2)
+					_ = testutils.PurgeTestCalendar(calendarID)
+				}
+				return "Bearer " + token, user.UserID, calendarID, cleanup
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedError:    "Permissions insuffisantes",
+		},
+		{
+			CaseName: "Utilisateur non authentifié",
+			SetupData: func() (string, int, int, func()) {
+				user, err := testutils.CreateUserWithPassword("Test", "User", testutils.GenerateUniqueEmail("user"), "password123")
+				if err != nil {
+					panic("Erreur création user: " + err.Error())
+				}
+				calendarID, err := testutils.CreateTestCalendar()
+				if err != nil {
+					panic(err)
+				}
+				cleanup := func() {
+					_ = testutils.PurgeTestData(user.Email)
+					_ = testutils.PurgeTestCalendar(calendarID)
+				}
+				return "", user.UserID, calendarID, cleanup
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedError:    "Utilisateur non authentifié",
+		},
+	}
+
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			token, userID, calendarID, cleanup := testCase.SetupData()
+			defer cleanup()
+			url := "/user-calendar/" + testutils.Itoa(userID) + "/" + testutils.Itoa(calendarID)
+			req, err := http.NewRequest("GET", url, nil)
+			require.NoError(t, err)
+			if token != "" {
+				req.Header.Set("Authorization", token)
+			}
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			if w.Code != testCase.ExpectedHttpCode {
+				t.Logf("Body de la réponse (code %d): %s", w.Code, w.Body.String())
+			}
+			require.Equal(t, testCase.ExpectedHttpCode, w.Code)
+			if testCase.ExpectedError != "" {
+				var response map[string]interface{}
+				_ = json.Unmarshal(w.Body.Bytes(), &response)
+				require.Contains(t, response["error"], testCase.ExpectedError)
 			}
 		})
 	}

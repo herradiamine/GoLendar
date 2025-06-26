@@ -638,7 +638,7 @@ func CreateTestCalendar() (int, error) {
 	}
 	result, err := common.DB.Exec(`INSERT INTO calendar (title, created_at) VALUES (?, NOW())`, GenerateUniqueName("calendartest"))
 	if err != nil {
-		return 0, fmt.Errorf("Erreur SQL CreateTestCalendar: %v", err)
+		return 0, fmt.Errorf("erreur SQL CreateTestCalendar: %v", err)
 	}
 	id, _ := result.LastInsertId()
 	return int(id), nil
