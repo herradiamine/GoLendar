@@ -536,3 +536,96 @@ func CreateAdminUser(userID int, lastname, firstname, email string) (*common.Use
 
 	return user, token, nil
 }
+
+// GetSessionIDForUser récupère le session_token de la session active d'un utilisateur
+func GetSessionIDForUser(userID int) (string, error) {
+	if common.DB == nil {
+		return "", fmt.Errorf("base de données non initialisée")
+	}
+	var sessionID string
+	err := common.DB.QueryRow("SELECT session_token FROM user_session WHERE user_id = ? AND is_active = TRUE LIMIT 1", userID).Scan(&sessionID)
+	if err != nil {
+		return "", fmt.Errorf("aucune session active trouvée pour l'utilisateur %d: %v", userID, err)
+	}
+	return sessionID, nil
+}
+
+// GetUserSessionIDForUser récupère le user_session_id actif d'un utilisateur
+func GetUserSessionIDForUser(userID int) (string, error) {
+	if common.DB == nil {
+		return "", fmt.Errorf("base de données non initialisée")
+	}
+	var sessionID string
+	err := common.DB.QueryRow("SELECT user_session_id FROM user_session WHERE user_id = ? AND is_active = TRUE AND deleted_at IS NULL LIMIT 1", userID).Scan(&sessionID)
+	if err != nil {
+		return "", fmt.Errorf("aucune session active trouvée pour l'utilisateur %d: %v", userID, err)
+	}
+	return sessionID, nil
+}
+
+// DeleteUserSessionByID supprime (soft delete) une session par son user_session_id
+func DeleteUserSessionByID(sessionID string) error {
+	if common.DB == nil {
+		return fmt.Errorf("base de données non initialisée")
+	}
+	_, err := common.DB.Exec("UPDATE user_session SET deleted_at = NOW() WHERE user_session_id = ?", sessionID)
+	return err
+}
+
+// CreateSessionForUser crée une nouvelle session pour un utilisateur et retourne le token
+func CreateSessionForUser(userID int) (string, error) {
+	if common.DB == nil {
+		return "", fmt.Errorf("base de données non initialisée")
+	}
+	sessionToken, err := generateToken()
+	if err != nil {
+		return "", err
+	}
+	refreshToken, err := generateToken()
+	if err != nil {
+		return "", err
+	}
+	_, err = common.DB.Exec(`
+		INSERT INTO user_session (user_id, session_token, refresh_token, expires_at, device_info, ip_address, is_active, created_at)
+		VALUES (?, ?, ?, ?, ?, ?, TRUE, NOW())
+	`, userID, sessionToken, refreshToken, time.Now().Add(1*time.Hour), "test-device-2", "127.0.0.2")
+	if err != nil {
+		return "", err
+	}
+	return sessionToken, nil
+}
+
+// GetUserSessionIDByToken récupère le user_session_id à partir d'un token
+func GetUserSessionIDByToken(token string) (string, error) {
+	if common.DB == nil {
+		return "", fmt.Errorf("base de données non initialisée")
+	}
+	var sessionID string
+	err := common.DB.QueryRow("SELECT user_session_id FROM user_session WHERE session_token = ? AND deleted_at IS NULL LIMIT 1", token).Scan(&sessionID)
+	if err != nil {
+		return "", fmt.Errorf("aucune session trouvée pour le token: %v", err)
+	}
+	return sessionID, nil
+}
+
+// GetRefreshTokenForUser récupère le refresh_token actif d'un utilisateur
+func GetRefreshTokenForUser(userID int) (string, error) {
+	if common.DB == nil {
+		return "", fmt.Errorf("base de données non initialisée")
+	}
+	var refreshToken string
+	err := common.DB.QueryRow("SELECT refresh_token FROM user_session WHERE user_id = ? AND is_active = TRUE AND deleted_at IS NULL LIMIT 1", userID).Scan(&refreshToken)
+	if err != nil {
+		return "", fmt.Errorf("aucun refresh_token actif trouvé pour l'utilisateur %d: %v", userID, err)
+	}
+	return refreshToken, nil
+}
+
+// ExpireRefreshToken rend un refresh_token expiré en base
+func ExpireRefreshToken(refreshToken string) error {
+	if common.DB == nil {
+		return fmt.Errorf("base de données non initialisée")
+	}
+	_, err := common.DB.Exec("UPDATE user_session SET expires_at = ? WHERE refresh_token = ?", time.Now().Add(-2*time.Hour), refreshToken)
+	return err
+}
