@@ -34,7 +34,7 @@ func RegisterRoutes(router *gin.Engine) {
 	authProtectedGroup.Use(middleware.AuthMiddleware())
 	{
 		authProtectedGroup.POST("/logout", func(c *gin.Context) { session.Session.Logout(c) })
-		authProtectedGroup.GET("/me", func(c *gin.Context) { user.User.GetUserWithRoles(c) })
+		authProtectedGroup.GET("/me", func(c *gin.Context) { user.User.GetAuthMe(c) })
 		authProtectedGroup.GET("/sessions", func(c *gin.Context) { session.Session.GetUserSessions(c) })
 		authProtectedGroup.DELETE("/sessions/:session_id", func(c *gin.Context) { session.Session.DeleteSession(c) })
 	}

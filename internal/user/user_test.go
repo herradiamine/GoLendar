@@ -29,7 +29,7 @@ func createTestRouter() *gin.Engine {
 	authProtectedGroup.Use(middleware.AuthMiddleware())
 	{
 		authProtectedGroup.POST("/logout", func(c *gin.Context) { session.Session.Logout(c) })
-		authProtectedGroup.GET("/me", func(c *gin.Context) { User.GetUserWithRoles(c) })
+		authProtectedGroup.GET("/me", func(c *gin.Context) { User.GetAuthMe(c) })
 		authProtectedGroup.GET("/sessions", func(c *gin.Context) { session.Session.GetUserSessions(c) })
 		authProtectedGroup.DELETE("/sessions/:session_id", func(c *gin.Context) { session.Session.DeleteSession(c) })
 	}
@@ -562,7 +562,7 @@ func TestUserGetWithRoles(t *testing.T) {
 			ExpectedError:    "",
 		},
 		{
-			CaseName: "Utilisateur non authentifié - route /auth/me",
+			CaseName: "Utilisateur non authentifié - route /auth/me-with-roles",
 			SetupAuth: func() (string, string, error) {
 				return "", "", nil
 			},
