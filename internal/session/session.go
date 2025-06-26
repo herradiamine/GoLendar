@@ -76,7 +76,7 @@ func (SessionStruct) Login(c *gin.Context) {
 	}
 
 	// Récupérer les rôles de l'utilisateur
-	roles, err := getUserRoles(user.UserID)
+	roles, err := GetUserRoles(user.UserID)
 	if err != nil {
 		slog.Error(fmt.Sprintf(common.LogRolesRetrievalError, err.Error()))
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
@@ -446,8 +446,8 @@ func extractTokenFromHeader(authHeader string) string {
 	return ""
 }
 
-// getUserRoles récupère les rôles d'un utilisateur
-func getUserRoles(userID int) ([]common.Role, error) {
+// GetUserRoles récupère les rôles d'un utilisateur
+func GetUserRoles(userID int) ([]common.Role, error) {
 	rows, err := common.DB.Query(`
 		SELECT r.role_id, r.name, r.description, r.created_at, r.updated_at, r.deleted_at
 		FROM roles r

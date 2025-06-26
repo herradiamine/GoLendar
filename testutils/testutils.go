@@ -631,17 +631,17 @@ func ExpireRefreshToken(refreshToken string) error {
 	return err
 }
 
-// CreateTestCalendar crée un calendrier de test et retourne son ID
-func CreateTestCalendar() int {
+// CreateTestCalendar crée un calendrier de test et retourne son ID et une erreur éventuelle
+func CreateTestCalendar() (int, error) {
 	if common.DB == nil {
-		return 0
+		return 0, fmt.Errorf("DB non initialisée dans CreateTestCalendar")
 	}
-	result, err := common.DB.Exec(`INSERT INTO calendar (name, created_at) VALUES (?, NOW())`, GenerateUniqueName("calendartest"))
+	result, err := common.DB.Exec(`INSERT INTO calendar (title, created_at) VALUES (?, NOW())`, GenerateUniqueName("calendartest"))
 	if err != nil {
-		return 0
+		return 0, fmt.Errorf("Erreur SQL CreateTestCalendar: %v", err)
 	}
 	id, _ := result.LastInsertId()
-	return int(id)
+	return int(id), nil
 }
 
 // AddUserCalendarLink crée une liaison user-calendar
@@ -656,4 +656,18 @@ func AddUserCalendarLink(userID, calendarID int) error {
 // Itoa convertit un int en string
 func Itoa(i int) string {
 	return strconv.Itoa(i)
+}
+
+// Purge toutes les données liées aux utilisateurs de test (user, user_roles, user_session, user_password, user_calendar)
+func PurgeAllTestUsers() {
+	if common.DB == nil {
+		return
+	}
+	common.DB.Exec("SET FOREIGN_KEY_CHECKS=0;")
+	common.DB.Exec("TRUNCATE TABLE user_calendar")
+	common.DB.Exec("TRUNCATE TABLE user_roles")
+	common.DB.Exec("TRUNCATE TABLE user_session")
+	common.DB.Exec("TRUNCATE TABLE user_password")
+	common.DB.Exec("TRUNCATE TABLE user")
+	common.DB.Exec("SET FOREIGN_KEY_CHECKS=1;")
 }

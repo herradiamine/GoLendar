@@ -6,10 +6,12 @@ import (
 	"go-averroes/internal/session"
 	"go-averroes/internal/user_calendar"
 	"go-averroes/testutils"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -116,18 +118,26 @@ func TestRouteExample(t *testing.T) {
 func TestAddUserCalendar(t *testing.T) {
 	var TestCases = []struct {
 		CaseName         string
-		SetupData        func() (adminToken string, userID int, calendarID int, cleanup func())
+		SetupDataWithIDs func(adminID, userID int) (string, int, int, func())
 		ExpectedHttpCode int
 		ExpectedMessage  string
 		ExpectedError    string
 	}{
 		{
 			CaseName: "Création de liaison user-calendar (succès)",
-			SetupData: func() (string, int, int, func()) {
-				// Créer un admin, un user, un calendar
-				admin, adminToken, _ := testutils.CreateAdminUser(1001, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
-				user := testutils.CreateTestUser(1002, testutils.GenerateUniqueEmail("user"))
-				calendarID := testutils.CreateTestCalendar()
+			SetupDataWithIDs: func(adminID, userID int) (string, int, int, func()) {
+				admin, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
+				if err != nil {
+					panic("Erreur création admin: " + err.Error())
+				}
+				user, err := testutils.CreateUserWithPassword("Test", "User", testutils.GenerateUniqueEmail("user")+"-"+testutils.Itoa(int(time.Now().UnixNano())), "password123")
+				if err != nil {
+					panic("Erreur création user: " + err.Error())
+				}
+				calendarID, err := testutils.CreateTestCalendar()
+				if err != nil {
+					panic(err)
+				}
 				cleanup := func() {
 					_ = testutils.PurgeTestData(admin.Email)
 					_ = testutils.PurgeTestData(user.Email)
@@ -141,10 +151,19 @@ func TestAddUserCalendar(t *testing.T) {
 		},
 		{
 			CaseName: "Conflit : liaison déjà existante",
-			SetupData: func() (string, int, int, func()) {
-				admin, adminToken, _ := testutils.CreateAdminUser(1003, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
-				user := testutils.CreateTestUser(1004, testutils.GenerateUniqueEmail("user"))
-				calendarID := testutils.CreateTestCalendar()
+			SetupDataWithIDs: func(adminID, userID int) (string, int, int, func()) {
+				admin, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
+				if err != nil {
+					panic("Erreur création admin: " + err.Error())
+				}
+				user, err := testutils.CreateUserWithPassword("Test", "User", testutils.GenerateUniqueEmail("user")+"-"+testutils.Itoa(int(time.Now().UnixNano())), "password123")
+				if err != nil {
+					panic("Erreur création user: " + err.Error())
+				}
+				calendarID, err := testutils.CreateTestCalendar()
+				if err != nil {
+					panic(err)
+				}
 				_ = testutils.AddUserCalendarLink(user.UserID, calendarID)
 				cleanup := func() {
 					_ = testutils.PurgeTestData(admin.Email)
@@ -155,13 +174,19 @@ func TestAddUserCalendar(t *testing.T) {
 			},
 			ExpectedHttpCode: http.StatusConflict,
 			ExpectedMessage:  "",
-			ExpectedError:    "Liaison déjà existante", // À adapter
+			ExpectedError:    "Liaison utilisateur-calendrier déjà existante", // À adapter
 		},
 		{
 			CaseName: "Utilisateur inexistant",
-			SetupData: func() (string, int, int, func()) {
-				admin, adminToken, _ := testutils.CreateAdminUser(1005, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
-				calendarID := testutils.CreateTestCalendar()
+			SetupDataWithIDs: func(adminID, userID int) (string, int, int, func()) {
+				admin, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
+				if err != nil {
+					panic("Erreur création admin: " + err.Error())
+				}
+				calendarID, err := testutils.CreateTestCalendar()
+				if err != nil {
+					panic(err)
+				}
 				cleanup := func() {
 					_ = testutils.PurgeTestData(admin.Email)
 					_ = testutils.PurgeTestCalendar(calendarID)
@@ -174,9 +199,15 @@ func TestAddUserCalendar(t *testing.T) {
 		},
 		{
 			CaseName: "Calendrier inexistant",
-			SetupData: func() (string, int, int, func()) {
-				admin, adminToken, _ := testutils.CreateAdminUser(1006, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
-				user := testutils.CreateTestUser(1007, testutils.GenerateUniqueEmail("user"))
+			SetupDataWithIDs: func(adminID, userID int) (string, int, int, func()) {
+				admin, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "Test", testutils.GenerateUniqueEmail("admin"))
+				if err != nil {
+					panic("Erreur création admin: " + err.Error())
+				}
+				user, err := testutils.CreateUserWithPassword("Test", "User", testutils.GenerateUniqueEmail("user")+"-"+testutils.Itoa(int(time.Now().UnixNano())), "password123")
+				if err != nil {
+					panic("Erreur création user: " + err.Error())
+				}
 				cleanup := func() {
 					_ = testutils.PurgeTestData(admin.Email)
 					_ = testutils.PurgeTestData(user.Email)
@@ -189,10 +220,22 @@ func TestAddUserCalendar(t *testing.T) {
 		},
 		{
 			CaseName: "Accès non admin refusé",
-			SetupData: func() (string, int, int, func()) {
-				user := testutils.CreateTestUser(1008, testutils.GenerateUniqueEmail("user"))
-				calendarID := testutils.CreateTestCalendar()
-				_, token, _ := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, user.Email)
+			SetupDataWithIDs: func(adminID, userID int) (string, int, int, func()) {
+				// Générer deux emails uniques et distincts
+				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano()))
+				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano())) + "-" + testutils.Itoa(rand.Intn(1000000))
+				user, err := testutils.CreateUserWithPassword("Test", "User", email1, "password123")
+				if err != nil {
+					panic("Erreur création user: " + err.Error())
+				}
+				calendarID, err := testutils.CreateTestCalendar()
+				if err != nil {
+					panic(err)
+				}
+				_, token, err := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, email2)
+				if err != nil {
+					panic("Erreur création session: " + err.Error())
+				}
 				cleanup := func() {
 					_ = testutils.PurgeTestData(user.Email)
 					_ = testutils.PurgeTestCalendar(calendarID)
@@ -201,7 +244,7 @@ func TestAddUserCalendar(t *testing.T) {
 			},
 			ExpectedHttpCode: http.StatusForbidden,
 			ExpectedMessage:  "",
-			ExpectedError:    "Accès refusé", // À adapter
+			ExpectedError:    "Permissions insuffisantes", // Message exact retourné par l'API
 		},
 	}
 
@@ -210,7 +253,10 @@ func TestAddUserCalendar(t *testing.T) {
 
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
-			token, userID, calendarID, cleanup := testCase.SetupData()
+			testutils.PurgeAllTestUsers() // Purge avant chaque test
+			userID := int(time.Now().UnixNano() % 1000000000)
+			adminID := int(time.Now().UnixNano() % 1000000000)
+			token, userID, calendarID, cleanup := testCase.SetupDataWithIDs(adminID, userID)
 			defer cleanup()
 
 			url := "/user-calendar/" + testutils.Itoa(userID) + "/" + testutils.Itoa(calendarID)
@@ -221,6 +267,9 @@ func TestAddUserCalendar(t *testing.T) {
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
+			if w.Code != testCase.ExpectedHttpCode {
+				t.Logf("Body de la réponse (code %d): %s", w.Code, w.Body.String())
+			}
 			require.Equal(t, testCase.ExpectedHttpCode, w.Code)
 
 			var response map[string]interface{}

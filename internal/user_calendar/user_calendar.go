@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"go-averroes/internal/session"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -416,6 +418,38 @@ func checkUserAccess(c *gin.Context) (int, bool) {
 		})
 		return 0, false
 	}
+
+	// Vérifier si l'utilisateur authentifié est admin
+	roles, err := session.GetUserRoles(authUserID)
+	if err == nil {
+		isAdmin := false
+		for _, r := range roles {
+			if r.Name == "admin" {
+				isAdmin = true
+				break
+			}
+		}
+		if isAdmin {
+			// Un admin ne peut pas cibler un autre admin
+			targetRoles, err := session.GetUserRoles(userIDFromURL)
+			if err == nil {
+				for _, r := range targetRoles {
+					if r.Name == "admin" {
+						slog.Error("[user_calendar][Access] Tentative d'action admin sur un autre admin interdite")
+						c.JSON(http.StatusForbidden, common.JSONResponse{
+							Success: false,
+							Error:   common.ErrInsufficientPermissions,
+						})
+						return 0, false
+					}
+				}
+			}
+			// Admin autorisé
+			return userIDFromURL, true
+		}
+	}
+
+	// Sinon, accès seulement à soi-même
 	if authUserID != userIDFromURL {
 		slog.Error("[user_calendar][Access] " + common.LogUserCalendarUnauthorizedAccess)
 		c.JSON(http.StatusForbidden, common.JSONResponse{
