@@ -1,4 +1,4 @@
-package user
+package user_test
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 	"go-averroes/internal/common"
 	"go-averroes/internal/middleware"
 	"go-averroes/internal/session"
+	"go-averroes/internal/user"
 	"go-averroes/testutils"
 
 	"github.com/gin-gonic/gin"
@@ -29,7 +30,7 @@ func createTestRouter() *gin.Engine {
 	authProtectedGroup.Use(middleware.AuthMiddleware())
 	{
 		authProtectedGroup.POST("/logout", func(c *gin.Context) { session.Session.Logout(c) })
-		authProtectedGroup.GET("/me", func(c *gin.Context) { User.GetAuthMe(c) })
+		authProtectedGroup.GET("/me", func(c *gin.Context) { user.User.GetAuthMe(c) })
 		authProtectedGroup.GET("/sessions", func(c *gin.Context) { session.Session.GetUserSessions(c) })
 		authProtectedGroup.DELETE("/sessions/:session_id", func(c *gin.Context) { session.Session.DeleteSession(c) })
 	}
@@ -38,26 +39,26 @@ func createTestRouter() *gin.Engine {
 	userGroup := router.Group("/user")
 	{
 		// Création d'utilisateur (public - inscription)
-		userGroup.POST("", func(c *gin.Context) { User.Add(c) })
+		userGroup.POST("", func(c *gin.Context) { user.User.Add(c) })
 
 		// Routes protégées par authentification
 		userProtectedGroup := userGroup.Group("")
 		userProtectedGroup.Use(middleware.AuthMiddleware())
 		{
 			// L'utilisateur peut accéder à ses propres données
-			userProtectedGroup.GET("/me", func(c *gin.Context) { User.Get(c) })
-			userProtectedGroup.PUT("/me", func(c *gin.Context) { User.Update(c) })
-			userProtectedGroup.DELETE("/me", func(c *gin.Context) { User.Delete(c) })
+			userProtectedGroup.GET("/me", func(c *gin.Context) { user.User.Get(c) })
+			userProtectedGroup.PUT("/me", func(c *gin.Context) { user.User.Update(c) })
+			userProtectedGroup.DELETE("/me", func(c *gin.Context) { user.User.Delete(c) })
 		}
 
 		// Routes admin pour gérer tous les utilisateurs
 		userAdminGroup := userGroup.Group("")
 		userAdminGroup.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
 		{
-			userAdminGroup.GET("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Get(c) })
-			userAdminGroup.PUT("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Update(c) })
-			userAdminGroup.DELETE("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.Delete(c) })
-			userAdminGroup.GET("/:user_id/with-roles", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { User.GetUserWithRoles(c) })
+			userAdminGroup.GET("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { user.User.Get(c) })
+			userAdminGroup.PUT("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { user.User.Update(c) })
+			userAdminGroup.DELETE("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { user.User.Delete(c) })
+			userAdminGroup.GET("/:user_id/with-roles", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { user.User.GetUserWithRoles(c) })
 		}
 	}
 
