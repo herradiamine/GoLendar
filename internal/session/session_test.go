@@ -3,9 +3,6 @@ package session_test
 import (
 	"bytes"
 	"encoding/json"
-	"go-averroes/internal/middleware"
-	"go-averroes/internal/session"
-	"go-averroes/internal/user"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,30 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-func createTestRouter() *gin.Engine {
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-
-	// ===== ROUTES D'AUTHENTIFICATION (publiques) =====
-	authGroup := router.Group("/auth")
-	{
-		authGroup.POST("/login", func(c *gin.Context) { session.Session.Login(c) })
-		authGroup.POST("/refresh", func(c *gin.Context) { session.Session.RefreshToken(c) })
-	}
-
-	// ===== ROUTES D'AUTHENTIFICATION (protégées) =====
-	authProtectedGroup := router.Group("/auth")
-	authProtectedGroup.Use(middleware.AuthMiddleware())
-	{
-		authProtectedGroup.POST("/logout", func(c *gin.Context) { session.Session.Logout(c) })
-		authProtectedGroup.GET("/me", func(c *gin.Context) { user.User.GetAuthMe(c) })
-		authProtectedGroup.GET("/sessions", func(c *gin.Context) { session.Session.GetUserSessions(c) })
-		authProtectedGroup.DELETE("/sessions/:session_id", func(c *gin.Context) { session.Session.DeleteSession(c) })
-	}
-
-	return router
-}
 
 // TestMain configure l'environnement de test global
 func TestMain(m *testing.M) {
@@ -96,6 +69,9 @@ func TestRouteExample(t *testing.T) {
 
 // TestGetUserSessions teste la récupération des sessions utilisateur via /auth/sessions
 func TestGetUserSessions(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	var TestCases = []struct {
 		CaseName         string
 		SetupAuth        func() (string, string, error)
@@ -125,9 +101,6 @@ func TestGetUserSessions(t *testing.T) {
 			ExpectedError:    "Utilisateur non authentifié", // À adapter selon ton message d'erreur
 		},
 	}
-
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
@@ -164,6 +137,9 @@ func TestGetUserSessions(t *testing.T) {
 
 // TestLogout teste la déconnexion via /auth/logout
 func TestLogout(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	var TestCases = []struct {
 		CaseName         string
 		SetupAuth        func() (string, string, error)
@@ -191,9 +167,6 @@ func TestLogout(t *testing.T) {
 			ExpectedError:    "Utilisateur non authentifié", // À adapter
 		},
 	}
-
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
@@ -229,6 +202,9 @@ func TestLogout(t *testing.T) {
 
 // TestGetAuthMe teste la récupération des infos utilisateur via /auth/me
 func TestGetAuthMe(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	var TestCases = []struct {
 		CaseName         string
 		SetupAuth        func() (string, string, error)
@@ -256,9 +232,6 @@ func TestGetAuthMe(t *testing.T) {
 			ExpectedError:    "Utilisateur non authentifié", // À adapter
 		},
 	}
-
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
@@ -294,6 +267,9 @@ func TestGetAuthMe(t *testing.T) {
 
 // TestDeleteSession teste la suppression d'une session via /auth/sessions/:session_id
 func TestDeleteSession(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	var TestCases = []struct {
 		CaseName         string
 		SetupAuth        func() (token string, userEmail string, sessionID string, err error)
@@ -420,9 +396,6 @@ func TestDeleteSession(t *testing.T) {
 		},
 	}
 
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
-
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
 			token, userEmail, sessionID, err := testCase.SetupAuth()
@@ -458,6 +431,9 @@ func TestDeleteSession(t *testing.T) {
 
 // TestLogin teste la route POST /auth/login
 func TestLogin(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	var TestCases = []struct {
 		CaseName         string
 		RequestData      map[string]interface{}
@@ -533,9 +509,6 @@ func TestLogin(t *testing.T) {
 		},
 	}
 
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
-
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
 			email, _, cleanup := testCase.SetupUser()
@@ -571,6 +544,9 @@ func TestLogin(t *testing.T) {
 
 // TestRefreshToken teste la route POST /auth/refresh
 func TestRefreshToken(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	var TestCases = []struct {
 		CaseName         string
 		RequestData      map[string]interface{}
@@ -649,9 +625,6 @@ func TestRefreshToken(t *testing.T) {
 			},
 		},
 	}
-
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,59 +12,11 @@ import (
 	"time"
 
 	"go-averroes/internal/common"
-	"go-averroes/internal/middleware"
-	"go-averroes/internal/session"
-	"go-averroes/internal/user"
 	"go-averroes/testutils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-// createTestRouter crée un routeur Gin avec les routes utilisateur configurées comme en production
-func createTestRouter() *gin.Engine {
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-
-	// ===== ROUTES D'AUTHENTIFICATION (protégées) =====
-	authProtectedGroup := router.Group("/auth")
-	authProtectedGroup.Use(middleware.AuthMiddleware())
-	{
-		authProtectedGroup.POST("/logout", func(c *gin.Context) { session.Session.Logout(c) })
-		authProtectedGroup.GET("/me", func(c *gin.Context) { user.User.GetAuthMe(c) })
-		authProtectedGroup.GET("/sessions", func(c *gin.Context) { session.Session.GetUserSessions(c) })
-		authProtectedGroup.DELETE("/sessions/:session_id", func(c *gin.Context) { session.Session.DeleteSession(c) })
-	}
-
-	// ===== ROUTES DE GESTION DES UTILISATEURS =====
-	userGroup := router.Group("/user")
-	{
-		// Création d'utilisateur (public - inscription)
-		userGroup.POST("", func(c *gin.Context) { user.User.Add(c) })
-
-		// Routes protégées par authentification
-		userProtectedGroup := userGroup.Group("")
-		userProtectedGroup.Use(middleware.AuthMiddleware())
-		{
-			// L'utilisateur peut accéder à ses propres données
-			userProtectedGroup.GET("/me", func(c *gin.Context) { user.User.Get(c) })
-			userProtectedGroup.PUT("/me", func(c *gin.Context) { user.User.Update(c) })
-			userProtectedGroup.DELETE("/me", func(c *gin.Context) { user.User.Delete(c) })
-		}
-
-		// Routes admin pour gérer tous les utilisateurs
-		userAdminGroup := userGroup.Group("")
-		userAdminGroup.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
-		{
-			userAdminGroup.GET("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { user.User.Get(c) })
-			userAdminGroup.PUT("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { user.User.Update(c) })
-			userAdminGroup.DELETE("/:user_id", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { user.User.Delete(c) })
-			userAdminGroup.GET("/:user_id/with-roles", middleware.UserExistsMiddleware("user_id"), func(c *gin.Context) { user.User.GetUserWithRoles(c) })
-		}
-	}
-
-	return router
-}
 
 // TestMain configure l'environnement de test global
 func TestMain(m *testing.M) {
@@ -120,6 +73,9 @@ func TestRouteExample(t *testing.T) {
 
 // TestUserAdd teste la fonction d'ajout d'utilisateur avec plusieurs cas
 func TestUserAdd(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -177,10 +133,6 @@ func TestUserAdd(t *testing.T) {
 			ExpectedError:    common.ErrInvalidData,
 		},
 	}
-	// On isole le cas avant de le traiter.
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -224,6 +176,9 @@ func TestUserAdd(t *testing.T) {
 
 // TestUserGet teste la fonction de récupération d'utilisateur
 func TestUserGet(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -261,11 +216,6 @@ func TestUserGet(t *testing.T) {
 			ExpectedError:    common.ErrSessionInvalid,
 		},
 	}
-
-	// On isole le cas avant de le traiter.
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -308,6 +258,9 @@ func TestUserGet(t *testing.T) {
 
 // TestUserUpdate teste la fonction de mise à jour d'utilisateur
 func TestUserUpdate(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -399,10 +352,6 @@ func TestUserUpdate(t *testing.T) {
 			ExpectedError:    common.ErrUserNotAuthenticated,
 		},
 	}
-	// On isole le cas avant de le traiter.
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -456,6 +405,9 @@ func TestUserUpdate(t *testing.T) {
 
 // TestUserDelete teste la fonction de suppression d'utilisateur
 func TestUserDelete(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -488,11 +440,6 @@ func TestUserDelete(t *testing.T) {
 			ExpectedError:    common.ErrUserNotAuthenticated,
 		},
 	}
-
-	// On isole le cas avant de le traiter.
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -542,6 +489,9 @@ func TestUserDelete(t *testing.T) {
 
 // TestUserGetWithRoles teste la fonction de récupération d'utilisateur avec rôles
 func TestUserGetWithRoles(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -571,11 +521,6 @@ func TestUserGetWithRoles(t *testing.T) {
 			ExpectedError:    common.ErrUserNotAuthenticated,
 		},
 	}
-
-	// On isole le cas avant de le traiter.
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -618,6 +563,9 @@ func TestUserGetWithRoles(t *testing.T) {
 
 // TestUserGetAuthMe teste la fonction GetAuthMe (alias de GetUserWithRoles)
 func TestUserGetAuthMe(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -647,11 +595,6 @@ func TestUserGetAuthMe(t *testing.T) {
 			ExpectedError:    common.ErrUserNotAuthenticated,
 		},
 	}
-
-	// Initialiser le router une seule fois
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -692,6 +635,9 @@ func TestUserGetAuthMe(t *testing.T) {
 
 // TestUserAddErrors teste les cas d'erreur de la fonction Add
 func TestUserAddErrors(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -721,11 +667,6 @@ func TestUserAddErrors(t *testing.T) {
 			ExpectedError:    common.ErrUserAlreadyExists,
 		},
 	}
-
-	// On isole le cas avant de le traiter.
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -768,6 +709,9 @@ func TestUserAddErrors(t *testing.T) {
 
 // TestUserUpdateErrors teste les cas d'erreur de la fonction Update
 func TestUserUpdateErrors(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -779,16 +723,18 @@ func TestUserUpdateErrors(t *testing.T) {
 		{
 			CaseName: "Email déjà utilisé par un autre utilisateur",
 			SetupAuth: func() (string, string, string, error) {
-				// Créer un premier utilisateur
+				// Créer un premier utilisateur avec un userID unique
+				userID1 := int(time.Now().UnixNano() % 1000000)
 				email1 := testutils.GenerateUniqueEmail("jean.dupont")
-				user1, _, err := testutils.CreateAuthenticatedUser(1, "Dupont", "Jean", email1)
+				user1, _, err := testutils.CreateAuthenticatedUser(userID1, "Dupont", "Jean", email1)
 				if err != nil {
 					return "", "", "", err
 				}
 
-				// Créer un deuxième utilisateur
+				// Créer un deuxième utilisateur avec un autre userID unique
+				userID2 := int(time.Now().UnixNano()%1000000) + 1000000 + rand.Intn(1000000)
 				email2 := testutils.GenerateUniqueEmail("marie.martin")
-				user2, token, err := testutils.CreateAuthenticatedUser(2, "Martin", "Marie", email2)
+				user2, token, err := testutils.CreateAuthenticatedUser(userID2, "Martin", "Marie", email2)
 				if err != nil {
 					return "", "", "", err
 				}
@@ -803,11 +749,6 @@ func TestUserUpdateErrors(t *testing.T) {
 			ExpectedError:    common.ErrUserAlreadyExists,
 		},
 	}
-
-	// On isole le cas avant de le traiter.
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -865,6 +806,9 @@ func TestUserUpdateErrors(t *testing.T) {
 
 // TestUserAdminRoutes teste les routes admin pour la gestion des utilisateurs
 func TestUserAdminRoutes(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	var TestCases = []struct {
 		CaseName         string
 		SetupAuth        func() (token string, userEmail string, url string, err error)
@@ -969,10 +913,6 @@ func TestUserAdminRoutes(t *testing.T) {
 		},
 	}
 
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
-
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
 			token, userEmail, url, err := testCase.SetupAuth()
@@ -1011,6 +951,9 @@ func TestUserAdminRoutes(t *testing.T) {
 
 // TestUserGetAuthMeDirect teste directement la fonction GetAuthMe (pas via route)
 func TestUserGetAuthMeDirect(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -1040,11 +983,6 @@ func TestUserGetAuthMeDirect(t *testing.T) {
 			ExpectedError:    common.ErrUserNotAuthenticated,
 		},
 	}
-
-	// Initialiser le router une seule fois
-	router := createTestRouter()
-	// On isole le cas avant de le traiter.
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -1085,6 +1023,9 @@ func TestUserGetAuthMeDirect(t *testing.T) {
 
 // TestUserAddDatabaseErrors teste les erreurs de base de données lors de la création
 func TestUserAddDatabaseErrors(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -1104,9 +1045,6 @@ func TestUserAddDatabaseErrors(t *testing.T) {
 			ExpectedError:    common.ErrUserAlreadyExists,
 		},
 	}
-
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -1160,6 +1098,9 @@ func TestUserAddDatabaseErrors(t *testing.T) {
 
 // TestUserUpdateDatabaseErrors teste les erreurs de base de données lors de la mise à jour
 func TestUserUpdateDatabaseErrors(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -1171,16 +1112,18 @@ func TestUserUpdateDatabaseErrors(t *testing.T) {
 		{
 			CaseName: "Email déjà utilisé par un autre utilisateur",
 			SetupAuth: func() (string, string, string, error) {
-				// Créer un premier utilisateur
+				// Créer un premier utilisateur avec un userID unique
+				userID1 := int(time.Now().UnixNano() % 1000000)
 				email1 := testutils.GenerateUniqueEmail("jean.dupont")
-				user1, _, err := testutils.CreateAuthenticatedUser(1, "Dupont", "Jean", email1)
+				user1, _, err := testutils.CreateAuthenticatedUser(userID1, "Dupont", "Jean", email1)
 				if err != nil {
 					return "", "", "", err
 				}
 
-				// Créer un deuxième utilisateur
+				// Créer un deuxième utilisateur avec un autre userID unique
+				userID2 := int(time.Now().UnixNano()%1000000) + 1000000 + rand.Intn(1000000)
 				email2 := testutils.GenerateUniqueEmail("marie.martin")
-				user2, token, err := testutils.CreateAuthenticatedUser(2, "Martin", "Marie", email2)
+				user2, token, err := testutils.CreateAuthenticatedUser(userID2, "Martin", "Marie", email2)
 				if err != nil {
 					return "", "", "", err
 				}
@@ -1195,9 +1138,6 @@ func TestUserUpdateDatabaseErrors(t *testing.T) {
 			ExpectedError:    common.ErrUserAlreadyExists,
 		},
 	}
-
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -1255,6 +1195,9 @@ func TestUserUpdateDatabaseErrors(t *testing.T) {
 
 // TestUserGetWithRolesDatabaseErrors teste les erreurs de base de données dans GetUserWithRoles
 func TestUserGetWithRolesDatabaseErrors(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -1284,10 +1227,6 @@ func TestUserGetWithRolesDatabaseErrors(t *testing.T) {
 			ExpectedError:    common.ErrUserNotAuthenticated,
 		},
 	}
-
-	// Initialiser le router une seule fois
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -1330,6 +1269,9 @@ func TestUserGetWithRolesDatabaseErrors(t *testing.T) {
 
 // TestUserDeleteDatabaseErrors teste les erreurs de base de données lors de la suppression
 func TestUserDeleteDatabaseErrors(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -1362,9 +1304,6 @@ func TestUserDeleteDatabaseErrors(t *testing.T) {
 			ExpectedError:    common.ErrUserNotAuthenticated,
 		},
 	}
-
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {
@@ -1414,12 +1353,8 @@ func TestUserDeleteDatabaseErrors(t *testing.T) {
 
 // TestUserAddPasswordHashingError teste l'erreur de hash de mot de passe
 func TestUserAddPasswordHashingError(t *testing.T) {
-	// Ce test simule une erreur de hash de mot de passe
-	// En pratique, bcrypt.GenerateFromPassword ne devrait jamais échouer avec des données valides
-	// Mais nous testons quand même le code de gestion d'erreur
-
+	router := testutils.CreateTestRouter()
 	gin.SetMode(gin.TestMode)
-	router := createTestRouter()
 
 	// Créer une requête avec un mot de passe valide
 	req := common.CreateUserRequest{
@@ -1450,11 +1385,11 @@ func TestUserAddPasswordHashingError(t *testing.T) {
 
 // TestUserUpdatePasswordHashingError teste l'erreur de hash de mot de passe lors de la mise à jour
 func TestUserUpdatePasswordHashingError(t *testing.T) {
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	// Ce test simule une erreur de hash de mot de passe lors de la mise à jour
 	// En pratique, bcrypt.GenerateFromPassword ne devrait jamais échouer avec des données valides
-
-	router := createTestRouter()
-
 	// Créer un utilisateur authentifié
 	email := testutils.GenerateUniqueEmail("jean.dupont")
 	user, token, err := testutils.CreateAuthenticatedUser(1, "Dupont", "Jean", email)
@@ -1487,8 +1422,8 @@ func TestUserUpdatePasswordHashingError(t *testing.T) {
 
 // TestUserAddInvalidJSON teste l'erreur de parsing JSON invalide
 func TestUserAddInvalidJSON(t *testing.T) {
+	router := testutils.CreateTestRouter()
 	gin.SetMode(gin.TestMode)
-	router := createTestRouter()
 
 	// Créer une requête avec JSON invalide
 	invalidJSON := `{"lastname": "Dupont", "firstname": "Jean", "email": "jean.dupont@example.com", "password": "password123"`
@@ -1512,7 +1447,7 @@ func TestUserAddInvalidJSON(t *testing.T) {
 // TestUserUpdateInvalidJSON teste l'erreur de parsing JSON invalide lors de la mise à jour
 func TestUserUpdateInvalidJSON(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	router := createTestRouter()
+	router := testutils.CreateTestRouter()
 
 	// Créer un utilisateur authentifié
 	email := testutils.GenerateUniqueEmail("jean.dupont")
@@ -1546,6 +1481,9 @@ func TestUserUpdateInvalidJSON(t *testing.T) {
 
 // TestUserGetWithRolesErrorHandling teste la gestion d'erreur dans GetUserWithRoles
 func TestUserGetWithRolesErrorHandling(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := testutils.CreateTestRouter()
+
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -1575,10 +1513,6 @@ func TestUserGetWithRolesErrorHandling(t *testing.T) {
 			ExpectedError:    common.ErrUserNotAuthenticated,
 		},
 	}
-
-	// Initialiser le router une seule fois
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
 
 	// On boucle sur les cas de test contenu dans TestCases
 	for _, testCase := range TestCases {

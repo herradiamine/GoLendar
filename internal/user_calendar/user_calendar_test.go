@@ -2,9 +2,6 @@ package user_calendar_test
 
 import (
 	"encoding/json"
-	"go-averroes/internal/middleware"
-	"go-averroes/internal/session"
-	"go-averroes/internal/user_calendar"
 	"go-averroes/testutils"
 	"math/rand"
 	"net/http"
@@ -16,50 +13,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-func createTestRouter() *gin.Engine {
-	gin.SetMode(gin.TestMode)
-	router := gin.New()
-
-	// ===== ROUTES D'AUTHENTIFICATION (publiques) =====
-	authGroup := router.Group("/auth")
-	{
-		authGroup.POST("/login", func(c *gin.Context) { session.Session.Login(c) })
-		authGroup.POST("/refresh", func(c *gin.Context) { session.Session.RefreshToken(c) })
-	}
-
-	// ===== ROUTES DE GESTION DES LIAISONS USER-CALENDAR (admin uniquement) =====
-	userCalendarGroup := router.Group("/user-calendar")
-	userCalendarGroup.Use(middleware.AuthMiddleware(), middleware.AdminMiddleware())
-	{
-		userCalendarGroup.GET("/:user_id/:calendar_id",
-			middleware.UserExistsMiddleware("user_id"),
-			middleware.CalendarExistsMiddleware("calendar_id"),
-			func(c *gin.Context) { user_calendar.UserCalendar.Get(c) },
-		)
-		userCalendarGroup.GET("/:user_id",
-			middleware.UserExistsMiddleware("user_id"),
-			func(c *gin.Context) { user_calendar.UserCalendar.List(c) },
-		)
-		userCalendarGroup.POST("/:user_id/:calendar_id",
-			middleware.UserExistsMiddleware("user_id"),
-			middleware.CalendarExistsMiddleware("calendar_id"),
-			func(c *gin.Context) { user_calendar.UserCalendar.Add(c) },
-		)
-		userCalendarGroup.PUT("/:user_id/:calendar_id",
-			middleware.UserExistsMiddleware("user_id"),
-			middleware.CalendarExistsMiddleware("calendar_id"),
-			func(c *gin.Context) { user_calendar.UserCalendar.Update(c) },
-		)
-		userCalendarGroup.DELETE("/:user_id/:calendar_id",
-			middleware.UserExistsMiddleware("user_id"),
-			middleware.CalendarExistsMiddleware("calendar_id"),
-			func(c *gin.Context) { user_calendar.UserCalendar.Delete(c) },
-		)
-	}
-
-	return router
-}
 
 // TestMain configure l'environnement de test global
 func TestMain(m *testing.M) {
@@ -116,6 +69,10 @@ func TestRouteExample(t *testing.T) {
 
 // TestAddUserCalendar teste la création d'une liaison user-calendar
 func TestAddUserCalendar(t *testing.T) {
+	testutils.PurgeAllTestUsers()
+	router := testutils.CreateTestRouter()
+	gin.SetMode(gin.TestMode)
+
 	var TestCases = []struct {
 		CaseName         string
 		SetupDataWithIDs func(adminID, userID int) (string, int, int, func())
@@ -249,9 +206,6 @@ func TestAddUserCalendar(t *testing.T) {
 		},
 	}
 
-	router := createTestRouter()
-	gin.SetMode(gin.TestMode)
-
 	for _, testCase := range TestCases {
 		t.Run(testCase.CaseName, func(t *testing.T) {
 			testutils.PurgeAllTestUsers() // Purge avant chaque test
@@ -289,7 +243,7 @@ func TestAddUserCalendar(t *testing.T) {
 func TestGetUserCalendar(t *testing.T) {
 	testutils.PurgeAllTestUsers()
 	gin.SetMode(gin.TestMode)
-	router := createTestRouter()
+	router := testutils.CreateTestRouter()
 
 	var TestCases = []struct {
 		CaseName         string
