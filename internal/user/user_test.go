@@ -3,10 +3,12 @@ package user
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"go-averroes/internal/common"
 	"go-averroes/internal/middleware"
@@ -672,6 +674,318 @@ func TestUserGetAuthMe(t *testing.T) {
 			}
 
 			// On purge les données après avoir traité le cas.
+			if userEmail != "" {
+				if err := testutils.PurgeTestData(userEmail); err != nil {
+					t.Fatalf("Échec de la purge des données de test: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestUserAddErrors teste les cas d'erreur de la fonction Add
+func TestUserAddErrors(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		SetupData        func() (common.CreateUserRequest, string, error) // Retourne (request, emailToPurge, error)
+		ExpectedHttpCode int
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Email déjà utilisé",
+			SetupData: func() (common.CreateUserRequest, string, error) {
+				email := testutils.GenerateUniqueEmail("jean.dupont")
+				// Créer un premier utilisateur
+				_, err := testutils.CreateUserWithPassword("Dupont", "Jean", email, "password123")
+				if err != nil {
+					return common.CreateUserRequest{}, "", err
+				}
+				// Essayer de créer un deuxième utilisateur avec le même email
+				req := common.CreateUserRequest{
+					Lastname:  "Martin",
+					Firstname: "Pierre",
+					Email:     email,
+					Password:  "password456",
+				}
+				return req, email, nil
+			},
+			ExpectedHttpCode: http.StatusConflict,
+			ExpectedError:    common.ErrUserAlreadyExists,
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			router := createTestRouter()
+
+			// On prépare les données utiles au traitement de ce cas.
+			req, emailToPurge, err := testCase.SetupData()
+			require.NoError(t, err)
+
+			jsonData, err := json.Marshal(req)
+			require.NoError(t, err)
+
+			httpReq, err := http.NewRequest("POST", "/user", bytes.NewBuffer(jsonData))
+			require.NoError(t, err)
+			httpReq.Header.Set("Content-Type", "application/json")
+
+			w := httptest.NewRecorder()
+
+			// On traite les cas de test un par un.
+			router.ServeHTTP(w, httpReq)
+
+			// Vérifications
+			require.Equal(t, testCase.ExpectedHttpCode, w.Code)
+
+			if testCase.ExpectedError != "" {
+				var response common.JSONResponse
+				err = json.Unmarshal(w.Body.Bytes(), &response)
+				require.NoError(t, err)
+				require.Contains(t, response.Error, testCase.ExpectedError)
+			}
+
+			// On purge les données après avoir traité le cas.
+			if emailToPurge != "" {
+				if err := testutils.PurgeTestData(emailToPurge); err != nil {
+					t.Fatalf("Échec de la purge des données de test: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestUserUpdateErrors teste les cas d'erreur de la fonction Update
+func TestUserUpdateErrors(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		SetupAuth        func() (string, string, string, error) // Retourne (token, userEmail, emailToPurge, error)
+		RequestData      common.UpdateUserRequest
+		ExpectedHttpCode int
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Email déjà utilisé par un autre utilisateur",
+			SetupAuth: func() (string, string, string, error) {
+				// Créer un premier utilisateur
+				email1 := testutils.GenerateUniqueEmail("jean.dupont")
+				user1, _, err := testutils.CreateAuthenticatedUser(1, "Dupont", "Jean", email1)
+				if err != nil {
+					return "", "", "", err
+				}
+
+				// Créer un deuxième utilisateur
+				email2 := testutils.GenerateUniqueEmail("marie.martin")
+				user2, token, err := testutils.CreateAuthenticatedUser(2, "Martin", "Marie", email2)
+				if err != nil {
+					return "", "", "", err
+				}
+
+				// Essayer de mettre à jour le deuxième utilisateur avec l'email du premier
+				return "Bearer " + token, user2.Email, user1.Email, nil
+			},
+			RequestData: common.UpdateUserRequest{
+				Email: common.StringPtr(""), // Sera défini dynamiquement
+			},
+			ExpectedHttpCode: http.StatusConflict,
+			ExpectedError:    common.ErrUserAlreadyExists,
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			router := createTestRouter()
+
+			// On prépare les données utiles au traitement de ce cas.
+			token, userEmail, emailToPurge, err := testCase.SetupAuth()
+			require.NoError(t, err)
+
+			// Si c'est le cas d'email déjà utilisé, on utilise l'email du premier utilisateur
+			if testCase.RequestData.Email != nil && *testCase.RequestData.Email == "" {
+				testCase.RequestData.Email = common.StringPtr(emailToPurge)
+			}
+
+			jsonData, err := json.Marshal(testCase.RequestData)
+			require.NoError(t, err)
+
+			req, err := http.NewRequest("PUT", "/user/me", bytes.NewBuffer(jsonData))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			// Configurer l'authentification si nécessaire
+			if token != "" {
+				req.Header.Set("Authorization", token)
+			}
+
+			w := httptest.NewRecorder()
+
+			// On traite les cas de test un par un.
+			router.ServeHTTP(w, req)
+
+			// Vérifications
+			require.Equal(t, testCase.ExpectedHttpCode, w.Code)
+
+			if testCase.ExpectedError != "" {
+				var response common.JSONResponse
+				err = json.Unmarshal(w.Body.Bytes(), &response)
+				require.NoError(t, err)
+				require.Contains(t, response.Error, testCase.ExpectedError)
+			}
+
+			// On purge les données après avoir traité le cas.
+			if userEmail != "" {
+				if err := testutils.PurgeTestData(userEmail); err != nil {
+					t.Fatalf("Échec de la purge des données de test: %v", err)
+				}
+			}
+			if emailToPurge != "" {
+				if err := testutils.PurgeTestData(emailToPurge); err != nil {
+					t.Fatalf("Échec de la purge des données de test: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// TestUserAdminRoutes teste les routes admin pour la gestion des utilisateurs
+func TestUserAdminRoutes(t *testing.T) {
+	var TestCases = []struct {
+		CaseName         string
+		SetupAuth        func() (token string, userEmail string, url string, err error)
+		Method           string
+		RequestData      interface{}
+		ExpectedHttpCode int
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Admin récupère un utilisateur par ID",
+			SetupAuth: func() (string, string, string, error) {
+				adminID := int(time.Now().UnixNano() % 1000000)
+				adminEmail := testutils.GenerateUniqueEmail("admin")
+				_, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "User", adminEmail)
+				if err != nil {
+					return "", "", "", err
+				}
+				targetID := int(time.Now().UnixNano() % 1000000)
+				targetEmail := testutils.GenerateUniqueEmail("target")
+				targetUser, _, err := testutils.CreateAuthenticatedUser(targetID, "Target", "User", targetEmail)
+				if err != nil {
+					return "", "", "", err
+				}
+				url := "/user/" + fmt.Sprintf("%d", targetUser.UserID)
+				return "Bearer " + adminToken, targetUser.Email, url, nil
+			},
+			Method:           "GET",
+			RequestData:      nil,
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Admin met à jour un utilisateur par ID",
+			SetupAuth: func() (string, string, string, error) {
+				adminID := int(time.Now().UnixNano() % 1000000)
+				adminEmail := testutils.GenerateUniqueEmail("admin")
+				_, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "User", adminEmail)
+				if err != nil {
+					return "", "", "", err
+				}
+				targetID := int(time.Now().UnixNano() % 1000000)
+				targetEmail := testutils.GenerateUniqueEmail("target")
+				targetUser, _, err := testutils.CreateAuthenticatedUser(targetID, "Target", "User", targetEmail)
+				if err != nil {
+					return "", "", "", err
+				}
+				url := "/user/" + fmt.Sprintf("%d", targetUser.UserID)
+				return "Bearer " + adminToken, targetUser.Email, url, nil
+			},
+			Method: "PUT",
+			RequestData: common.UpdateUserRequest{
+				Lastname: common.StringPtr("Updated"),
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Admin supprime un utilisateur par ID",
+			SetupAuth: func() (string, string, string, error) {
+				adminID := int(time.Now().UnixNano() % 1000000)
+				adminEmail := testutils.GenerateUniqueEmail("admin")
+				_, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "User", adminEmail)
+				if err != nil {
+					return "", "", "", err
+				}
+				targetID := int(time.Now().UnixNano() % 1000000)
+				targetEmail := testutils.GenerateUniqueEmail("target")
+				targetUser, _, err := testutils.CreateAuthenticatedUser(targetID, "Target", "User", targetEmail)
+				if err != nil {
+					return "", "", "", err
+				}
+				url := "/user/" + fmt.Sprintf("%d", targetUser.UserID)
+				return "Bearer " + adminToken, targetUser.Email, url, nil
+			},
+			Method:           "DELETE",
+			RequestData:      nil,
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Admin récupère un utilisateur avec rôles par ID",
+			SetupAuth: func() (string, string, string, error) {
+				adminID := int(time.Now().UnixNano() % 1000000)
+				adminEmail := testutils.GenerateUniqueEmail("admin")
+				_, adminToken, err := testutils.CreateAdminUser(adminID, "Admin", "User", adminEmail)
+				if err != nil {
+					return "", "", "", err
+				}
+				targetID := int(time.Now().UnixNano() % 1000000)
+				targetEmail := testutils.GenerateUniqueEmail("target")
+				targetUser, _, err := testutils.CreateAuthenticatedUser(targetID, "Target", "User", targetEmail)
+				if err != nil {
+					return "", "", "", err
+				}
+				url := "/user/" + fmt.Sprintf("%d", targetUser.UserID) + "/with-roles"
+				return "Bearer " + adminToken, targetUser.Email, url, nil
+			},
+			Method:           "GET",
+			RequestData:      nil,
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedError:    "",
+		},
+	}
+
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			router := createTestRouter()
+			token, userEmail, url, err := testCase.SetupAuth()
+			require.NoError(t, err)
+			var req *http.Request
+			if testCase.RequestData != nil {
+				jsonData, err := json.Marshal(testCase.RequestData)
+				require.NoError(t, err)
+				req, err = http.NewRequest(testCase.Method, url, bytes.NewBuffer(jsonData))
+				require.NoError(t, err)
+				req.Header.Set("Content-Type", "application/json")
+			} else {
+				req, err = http.NewRequest(testCase.Method, url, nil)
+				require.NoError(t, err)
+			}
+			if token != "" {
+				req.Header.Set("Authorization", token)
+			}
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			require.Equal(t, testCase.ExpectedHttpCode, w.Code)
+			if testCase.ExpectedError != "" {
+				var response common.JSONResponse
+				err = json.Unmarshal(w.Body.Bytes(), &response)
+				require.NoError(t, err)
+				require.Contains(t, response.Error, testCase.ExpectedError)
+			}
 			if userEmail != "" {
 				if err := testutils.PurgeTestData(userEmail); err != nil {
 					t.Fatalf("Échec de la purge des données de test: %v", err)

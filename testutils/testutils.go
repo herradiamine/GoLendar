@@ -376,43 +376,163 @@ func generateToken() (string, error) {
 	return hex.EncodeToString(bytes), nil
 }
 
-// CreateUserWithPassword crée un utilisateur et son mot de passe hashé en base
+// CreateUserWithPassword crée un utilisateur avec un mot de passe hashé
 func CreateUserWithPassword(lastname, firstname, email, password string) (*common.User, error) {
-	uniqueUserID := int(time.Now().UnixNano() % 1000000)
-	user := common.User{
-		UserID:    uniqueUserID,
+	// Vérifier que la base de données est initialisée
+	if common.DB == nil {
+		return nil, fmt.Errorf("base de données non initialisée")
+	}
+
+	// Hasher le mot de passe
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors du hash du mot de passe: %v", err)
+	}
+
+	// Début de transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors du démarrage de la transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	// Insérer l'utilisateur
+	result, err := tx.Exec(`
+		INSERT INTO user (lastname, firstname, email, created_at) 
+		VALUES (?, ?, ?, NOW())
+	`, lastname, firstname, email)
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors de la création de l'utilisateur: %v", err)
+	}
+
+	userID, err := result.LastInsertId()
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors de la récupération de l'ID utilisateur: %v", err)
+	}
+
+	// Insérer le mot de passe
+	_, err = tx.Exec(`
+		INSERT INTO user_password (user_id, password_hash, created_at) 
+		VALUES (?, ?, NOW())
+	`, userID, string(hashedPassword))
+	if err != nil {
+		return nil, fmt.Errorf("erreur lors de la création du mot de passe: %v", err)
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("erreur lors de la validation de la transaction: %v", err)
+	}
+
+	// Créer l'objet utilisateur
+	user := &common.User{
+		UserID:    int(userID),
 		Lastname:  lastname,
 		Firstname: firstname,
 		Email:     email,
 		CreatedAt: time.Now(),
 	}
 
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, err
+	return user, nil
+}
+
+// CreateAdminUser crée un utilisateur avec le rôle admin
+func CreateAdminUser(userID int, lastname, firstname, email string) (*common.User, string, error) {
+	// Vérifier que la base de données est initialisée
+	if common.DB == nil {
+		return nil, "", fmt.Errorf("base de données non initialisée")
 	}
 
+	// Début de transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
-		return nil, err
+		return nil, "", fmt.Errorf("erreur lors du démarrage de la transaction: %v", err)
 	}
+	defer tx.Rollback()
 
-	_, err = tx.Exec(`INSERT INTO user (user_id, lastname, firstname, email, created_at) VALUES (?, ?, ?, ?, NOW())`, user.UserID, user.Lastname, user.Firstname, user.Email)
+	// Insérer l'utilisateur
+	result, err := tx.Exec(`
+		INSERT INTO user (user_id, lastname, firstname, email, created_at) 
+		VALUES (?, ?, ?, ?, NOW())
+	`, userID, lastname, firstname, email)
 	if err != nil {
-		tx.Rollback()
-		return nil, err
+		return nil, "", fmt.Errorf("erreur lors de la création de l'utilisateur: %v", err)
 	}
 
-	_, err = tx.Exec(`INSERT INTO user_password (user_id, password_hash, created_at) VALUES (?, ?, NOW())`, user.UserID, string(hash))
+	// Vérifier que l'utilisateur a été créé
+	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		return nil, "", fmt.Errorf("aucun utilisateur créé")
+	}
+
+	// Insérer un mot de passe par défaut
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
 	if err != nil {
-		tx.Rollback()
-		return nil, err
+		return nil, "", fmt.Errorf("erreur lors du hash du mot de passe: %v", err)
 	}
 
+	_, err = tx.Exec(`
+		INSERT INTO user_password (user_id, password_hash, created_at) 
+		VALUES (?, ?, NOW())
+	`, userID, string(hashedPassword))
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de la création du mot de passe: %v", err)
+	}
+
+	// Vérifier si le rôle admin existe, sinon le créer
+	var adminRoleID int
+	err = tx.QueryRow("SELECT role_id FROM roles WHERE name = 'admin' AND deleted_at IS NULL").Scan(&adminRoleID)
+	if err != nil {
+		// Le rôle admin n'existe pas, le créer
+		roleResult, err := tx.Exec(`
+			INSERT INTO roles (name, description, created_at) 
+			VALUES ('admin', 'Administrateur du système', NOW())
+		`)
+		if err != nil {
+			return nil, "", fmt.Errorf("erreur lors de la création du rôle admin: %v", err)
+		}
+		adminRoleID64, err := roleResult.LastInsertId()
+		if err != nil {
+			return nil, "", fmt.Errorf("erreur lors de la récupération de l'ID du rôle admin: %v", err)
+		}
+		adminRoleID = int(adminRoleID64)
+	}
+
+	// Assigner le rôle admin à l'utilisateur
+	_, err = tx.Exec(`
+		INSERT INTO user_roles (user_id, role_id, created_at) 
+		VALUES (?, ?, NOW())
+	`, userID, adminRoleID)
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de l'assignation du rôle admin: %v", err)
+	}
+
+	// Créer une session pour l'utilisateur
+	token, err := generateToken()
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de la génération du token: %v", err)
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO user_session (user_id, session_token, expires_at, is_active, created_at) 
+		VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR), TRUE, NOW())
+	`, userID, token)
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de la création de la session: %v", err)
+	}
+
+	// Valider la transaction
 	if err := tx.Commit(); err != nil {
-		tx.Rollback()
-		return nil, err
+		return nil, "", fmt.Errorf("erreur lors de la validation de la transaction: %v", err)
 	}
 
-	return &user, nil
+	// Créer l'objet utilisateur
+	user := &common.User{
+		UserID:    userID,
+		Lastname:  lastname,
+		Firstname: firstname,
+		Email:     email,
+		CreatedAt: time.Now(),
+	}
+
+	return user, token, nil
 }
