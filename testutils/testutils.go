@@ -526,9 +526,23 @@ func CreateUnauthenticatedUser(userID int, lastname, firstname, email string) co
 
 // CreateAuthenticatedUser crée un utilisateur avec une session valide pour les tests
 func CreateAuthenticatedUser(userID int, lastname, firstname, email string) (*common.User, string, error) {
-	uniqueUserID := int(time.Now().UnixNano() % 1000000)
+	// Vérifier que la base de données est initialisée
+	if common.DB == nil {
+		return nil, "", fmt.Errorf("base de données non initialisée")
+	}
+
+	// Vérifier qu'il n'existe pas déjà un utilisateur avec ce userID ou cet email
+	var count int
+	err := common.DB.QueryRow("SELECT COUNT(*) FROM user WHERE user_id = ? OR email = ?", userID, email).Scan(&count)
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de la vérification de l'existence de l'utilisateur: %v", err)
+	}
+	if count > 0 {
+		return nil, "", fmt.Errorf("un utilisateur avec cet ID ou cet email existe déjà")
+	}
+
 	user := common.User{
-		UserID:    uniqueUserID,
+		UserID:    userID,
 		Lastname:  lastname,
 		Firstname: firstname,
 		Email:     email,

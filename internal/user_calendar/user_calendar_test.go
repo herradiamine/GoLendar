@@ -178,9 +178,11 @@ func TestAddUserCalendar(t *testing.T) {
 		{
 			CaseName: "Accès non admin refusé",
 			SetupDataWithIDs: func(adminID, userID int) (string, int, int, func()) {
-				// Générer deux emails uniques et distincts
-				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano()))
-				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano())) + "-" + testutils.Itoa(rand.Intn(1000000))
+				// Générer deux emails et deux userID uniques
+				userID1 := int(time.Now().UnixNano() % 1000000000)
+				userID2 := userID1 + rand.Intn(1000000) + 1
+				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID1)
+				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID2)
 				user, err := testutils.CreateUserWithPassword("Test", "User", email1, "password123")
 				if err != nil {
 					panic("Erreur création user: " + err.Error())
@@ -189,7 +191,7 @@ func TestAddUserCalendar(t *testing.T) {
 				if err != nil {
 					panic(err)
 				}
-				_, token, err := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, email2)
+				_, token, err := testutils.CreateAuthenticatedUser(userID2, user.Lastname, user.Firstname, email2)
 				if err != nil {
 					panic("Erreur création session: " + err.Error())
 				}
@@ -309,8 +311,10 @@ func TestGetUserCalendar(t *testing.T) {
 		{
 			CaseName: "Utilisateur non admin (accès refusé)",
 			SetupData: func() (string, int, int, func()) {
-				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano()))
-				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano())) + "-" + testutils.Itoa(rand.Intn(1000000))
+				userID1 := int(time.Now().UnixNano() % 1000000000)
+				userID2 := userID1 + rand.Intn(1000000) + 1
+				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID1)
+				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID2)
 				user, err := testutils.CreateUserWithPassword("Test", "User", email1, "password123")
 				if err != nil {
 					panic("Erreur création user: " + err.Error())
@@ -319,7 +323,7 @@ func TestGetUserCalendar(t *testing.T) {
 				if err != nil {
 					panic(err)
 				}
-				_, token, err := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, email2)
+				_, token, err := testutils.CreateAuthenticatedUser(userID2, user.Lastname, user.Firstname, email2)
 				if err != nil {
 					panic("Erreur création session: " + err.Error())
 				}
@@ -449,8 +453,10 @@ func TestUpdateUserCalendar(t *testing.T) {
 		{
 			CaseName: "Utilisateur non admin (accès refusé)",
 			SetupData: func() (string, int, int, func()) {
-				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano()))
-				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano())) + "-" + testutils.Itoa(rand.Intn(1000000))
+				userID1 := int(time.Now().UnixNano() % 1000000000)
+				userID2 := userID1 + rand.Intn(1000000) + 1
+				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID1)
+				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID2)
 				user, err := testutils.CreateUserWithPassword("Test", "User", email1, "password123")
 				if err != nil {
 					panic("Erreur création user: " + err.Error())
@@ -459,10 +465,7 @@ func TestUpdateUserCalendar(t *testing.T) {
 				if err != nil {
 					panic(err)
 				}
-				if err := testutils.AddUserCalendarLink(user.UserID, calendarID); err != nil {
-					panic(err)
-				}
-				_, token, err := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, email2)
+				_, token, err := testutils.CreateAuthenticatedUser(userID2, user.Lastname, user.Firstname, email2)
 				if err != nil {
 					panic("Erreur création session: " + err.Error())
 				}
@@ -600,8 +603,10 @@ func TestDeleteUserCalendar(t *testing.T) {
 		{
 			CaseName: "Utilisateur non admin (accès refusé)",
 			SetupData: func() (string, int, int, func()) {
-				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano()))
-				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano())) + "-" + testutils.Itoa(rand.Intn(1000000))
+				userID1 := int(time.Now().UnixNano() % 1000000000)
+				userID2 := userID1 + rand.Intn(1000000) + 1
+				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID1)
+				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID2)
 				user, err := testutils.CreateUserWithPassword("Test", "User", email1, "password123")
 				if err != nil {
 					panic("Erreur création user: " + err.Error())
@@ -613,7 +618,7 @@ func TestDeleteUserCalendar(t *testing.T) {
 				if err := testutils.AddUserCalendarLink(user.UserID, calendarID); err != nil {
 					panic(err)
 				}
-				_, token, err := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, email2)
+				_, token, err := testutils.CreateAuthenticatedUser(userID2, user.Lastname, user.Firstname, email2)
 				if err != nil {
 					panic("Erreur création session: " + err.Error())
 				}
@@ -752,8 +757,10 @@ func TestListUserCalendars(t *testing.T) {
 		{
 			CaseName: "Utilisateur non admin (accès refusé)",
 			SetupData: func() (string, int, func()) {
-				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano()))
-				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano())) + "-" + testutils.Itoa(rand.Intn(1000000))
+				userID1 := int(time.Now().UnixNano() % 1000000000)
+				userID2 := userID1 + rand.Intn(1000000) + 1
+				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID1)
+				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID2)
 				user, err := testutils.CreateUserWithPassword("Test", "User", email1, "password123")
 				if err != nil {
 					panic("Erreur création user: " + err.Error())
@@ -765,7 +772,7 @@ func TestListUserCalendars(t *testing.T) {
 				if err := testutils.AddUserCalendarLink(user.UserID, calendarID); err != nil {
 					panic(err)
 				}
-				_, token, err := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, email2)
+				_, token, err := testutils.CreateAuthenticatedUser(userID2, user.Lastname, user.Firstname, email2)
 				if err != nil {
 					panic("Erreur création session: " + err.Error())
 				}
@@ -915,8 +922,10 @@ func TestGetUserCalendarsByUser(t *testing.T) {
 		{
 			CaseName: "Utilisateur non admin (accès refusé)",
 			SetupData: func() (string, int, func()) {
-				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano()))
-				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(int(time.Now().UnixNano())) + "-" + testutils.Itoa(rand.Intn(1000000))
+				userID1 := int(time.Now().UnixNano() % 1000000000)
+				userID2 := userID1 + rand.Intn(1000000) + 1
+				email1 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID1)
+				email2 := testutils.GenerateUniqueEmail("user") + "-" + testutils.Itoa(userID2)
 				user, err := testutils.CreateUserWithPassword("Test", "User", email1, "password123")
 				if err != nil {
 					panic("Erreur création user: " + err.Error())
@@ -928,7 +937,7 @@ func TestGetUserCalendarsByUser(t *testing.T) {
 				if err := testutils.AddUserCalendarLink(user.UserID, calendarID); err != nil {
 					panic(err)
 				}
-				_, token, err := testutils.CreateAuthenticatedUser(user.UserID, user.Lastname, user.Firstname, email2)
+				_, token, err := testutils.CreateAuthenticatedUser(userID2, user.Lastname, user.Firstname, email2)
 				if err != nil {
 					panic("Erreur création session: " + err.Error())
 				}
