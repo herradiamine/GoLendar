@@ -371,6 +371,22 @@ func TestUserUpdate(t *testing.T) {
 				req.Header.Set("Authorization", token)
 			}
 
+			// Log temporaire pour vérifier la session AVANT la requête
+			if token != "" {
+				tokenStr := token
+				if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
+					tokenStr = tokenStr[7:]
+				}
+				var isActive bool
+				var deletedAt sql.NullTime
+				err := common.DB.QueryRow("SELECT is_active, deleted_at FROM user_session WHERE session_token = ?", tokenStr).Scan(&isActive, &deletedAt)
+				if err != nil {
+					fmt.Printf("[DEBUG][TEST] Session non trouvée avant requête: %v\n", err)
+				} else {
+					fmt.Printf("[DEBUG][TEST] Session avant requête: is_active=%v, deleted_at.Valid=%v\n", isActive, deletedAt.Valid)
+				}
+			}
+
 			w := httptest.NewRecorder()
 
 			// On traite les cas de test un par un.
@@ -732,7 +748,7 @@ func TestUserUpdateErrors(t *testing.T) {
 				}
 
 				// Créer un deuxième utilisateur avec un autre userID unique
-				userID2 := int(time.Now().UnixNano()%1000000) + 1000000 + rand.Intn(1000000)
+				userID2 := userID1 + 1 + rand.Intn(1000000)
 				email2 := testutils.GenerateUniqueEmail("marie.martin")
 				user2, token, err := testutils.CreateAuthenticatedUser(userID2, "Martin", "Marie", email2)
 				if err != nil {
@@ -760,6 +776,22 @@ func TestUserUpdateErrors(t *testing.T) {
 			// Si c'est le cas d'email déjà utilisé, on utilise l'email du premier utilisateur
 			if testCase.RequestData.Email != nil && *testCase.RequestData.Email == "" {
 				testCase.RequestData.Email = common.StringPtr(emailToPurge)
+			}
+
+			// Log temporaire pour vérifier la session AVANT la requête
+			if token != "" {
+				tokenStr := token
+				if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
+					tokenStr = tokenStr[7:]
+				}
+				var isActive bool
+				var deletedAt sql.NullTime
+				err := common.DB.QueryRow("SELECT is_active, deleted_at FROM user_session WHERE session_token = ?", tokenStr).Scan(&isActive, &deletedAt)
+				if err != nil {
+					fmt.Printf("[DEBUG][TEST] Session non trouvée avant requête: %v\n", err)
+				} else {
+					fmt.Printf("[DEBUG][TEST] Session avant requête: is_active=%v, deleted_at.Valid=%v\n", isActive, deletedAt.Valid)
+				}
 			}
 
 			jsonData, err := json.Marshal(testCase.RequestData)
@@ -1121,7 +1153,7 @@ func TestUserUpdateDatabaseErrors(t *testing.T) {
 				}
 
 				// Créer un deuxième utilisateur avec un autre userID unique
-				userID2 := int(time.Now().UnixNano()%1000000) + 1000000 + rand.Intn(1000000)
+				userID2 := userID1 + 1 + rand.Intn(1000000)
 				email2 := testutils.GenerateUniqueEmail("marie.martin")
 				user2, token, err := testutils.CreateAuthenticatedUser(userID2, "Martin", "Marie", email2)
 				if err != nil {
@@ -1149,6 +1181,22 @@ func TestUserUpdateDatabaseErrors(t *testing.T) {
 			// Si c'est le cas d'email déjà utilisé, on utilise l'email du premier utilisateur
 			if testCase.RequestData.Email != nil && *testCase.RequestData.Email == "" {
 				testCase.RequestData.Email = common.StringPtr(emailToPurge)
+			}
+
+			// Log temporaire pour vérifier la session AVANT la requête
+			if token != "" {
+				tokenStr := token
+				if len(tokenStr) > 7 && tokenStr[:7] == "Bearer " {
+					tokenStr = tokenStr[7:]
+				}
+				var isActive bool
+				var deletedAt sql.NullTime
+				err := common.DB.QueryRow("SELECT is_active, deleted_at FROM user_session WHERE session_token = ?", tokenStr).Scan(&isActive, &deletedAt)
+				if err != nil {
+					fmt.Printf("[DEBUG][TEST] Session non trouvée avant requête: %v\n", err)
+				} else {
+					fmt.Printf("[DEBUG][TEST] Session avant requête: is_active=%v, deleted_at.Valid=%v\n", isActive, deletedAt.Valid)
+				}
 			}
 
 			jsonData, err := json.Marshal(testCase.RequestData)
