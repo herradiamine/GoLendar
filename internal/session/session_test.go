@@ -51,7 +51,7 @@ func TestLogin(t *testing.T) {
 			CaseUrl:  "/auth/login",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(false) // Sans session
+				user, _ := testutils.GenerateAuthenticatedUser(false, true) // Sans session
 				return map[string]interface{}{
 					"email":    user.User.Email,
 					"password": user.Password,
@@ -66,7 +66,7 @@ func TestLogin(t *testing.T) {
 			CaseUrl:  "/auth/login",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				admin, _ := testutils.GenerateAuthenticatedAdmin(false) // Sans session
+				admin, _ := testutils.GenerateAuthenticatedAdmin(false, true) // Sans session
 				return map[string]interface{}{
 					"email":    admin.User.Email,
 					"password": admin.Password,
@@ -170,7 +170,7 @@ func TestLogin(t *testing.T) {
 			CaseUrl:  "/auth/login",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(false) // Sans session
+				user, _ := testutils.GenerateAuthenticatedUser(false, true) // Sans session
 				return map[string]interface{}{
 					"email":    user.User.Email,
 					"password": "wrongpassword",
@@ -195,7 +195,7 @@ func TestLogin(t *testing.T) {
 			CaseUrl:  "/auth/login",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(false) // Sans session
+				user, _ := testutils.GenerateAuthenticatedUser(false, true) // Sans session
 				return map[string]interface{}{
 					"email":         user.User.Email,
 					"password":      user.Password,
@@ -290,7 +290,7 @@ func TestLogout(t *testing.T) {
 			CaseUrl:  "/auth/logout",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				return "Bearer " + user.SessionToken
 			},
 			ExpectedHttpCode: http.StatusOK,
@@ -352,7 +352,7 @@ func TestLogout(t *testing.T) {
 			CaseUrl:  "/auth/logout",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				// Supprimer la session en base
 				common.DB.Exec("UPDATE user_session SET is_active = FALSE WHERE session_token = ?", user.SessionToken)
 				return "Bearer " + user.SessionToken
@@ -422,7 +422,7 @@ func TestRefreshToken(t *testing.T) {
 			CaseUrl:  "/auth/refresh",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				return map[string]interface{}{
 					"refresh_token": user.RefreshToken,
 				}
@@ -470,7 +470,7 @@ func TestRefreshToken(t *testing.T) {
 			CaseUrl:  "/auth/refresh",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				// Expirer la session en base
 				common.DB.Exec("UPDATE user_session SET expires_at = DATE_SUB(NOW(), INTERVAL 1 HOUR) WHERE session_token = ?", user.SessionToken)
 				return map[string]interface{}{
@@ -486,7 +486,7 @@ func TestRefreshToken(t *testing.T) {
 			CaseUrl:  "/auth/refresh",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				// Désactiver la session en base
 				common.DB.Exec("UPDATE user_session SET is_active = FALSE WHERE session_token = ?", user.SessionToken)
 				return map[string]interface{}{
@@ -587,7 +587,7 @@ func TestGetUserSessions(t *testing.T) {
 			CaseUrl:  "/auth/sessions",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				return "Bearer " + user.SessionToken
 			},
 			ExpectedHttpCode: http.StatusOK,
@@ -619,7 +619,7 @@ func TestGetUserSessions(t *testing.T) {
 			CaseUrl:  "/auth/sessions",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Première session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Première session
 				// Créer une deuxième session pour le même utilisateur
 				_, _, _, _ = testutils.CreateUserSession(user.User.UserID, 24*time.Hour)
 				return "Bearer " + user.SessionToken
@@ -633,7 +633,7 @@ func TestGetUserSessions(t *testing.T) {
 			CaseUrl:  "/auth/sessions",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				// Supprimer toutes les sessions de l'utilisateur
 				common.DB.Exec("UPDATE user_session SET deleted_at = NOW() WHERE user_id = ?", user.User.UserID)
 				return "Bearer " + user.SessionToken
@@ -713,7 +713,7 @@ func TestDeleteSession(t *testing.T) {
 			CaseUrl:  "/auth/sessions/1",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				return "Bearer " + user.SessionToken
 			},
 			ExpectedHttpCode: http.StatusOK,
@@ -735,7 +735,7 @@ func TestDeleteSession(t *testing.T) {
 			CaseUrl:  "/auth/sessions/99999",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				return "Bearer " + user.SessionToken
 			},
 			ExpectedHttpCode: http.StatusNotFound,
@@ -747,7 +747,7 @@ func TestDeleteSession(t *testing.T) {
 			CaseUrl:  "/auth/sessions/abc",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				return "Bearer " + user.SessionToken
 			},
 			ExpectedHttpCode: http.StatusNotFound,
@@ -760,8 +760,8 @@ func TestDeleteSession(t *testing.T) {
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
 				// Créer deux utilisateurs
-				user1, _ := testutils.GenerateAuthenticatedUser(true)
-				user2, _ := testutils.GenerateAuthenticatedUser(true)
+				user1, _ := testutils.GenerateAuthenticatedUser(true, true)
+				user2, _ := testutils.GenerateAuthenticatedUser(true, true)
 				// Utiliser le token de user1 mais essayer de supprimer la session de user2
 				// Récupérer l'ID de session de user2 pour le test
 				var sessionID int
@@ -781,7 +781,7 @@ func TestDeleteSession(t *testing.T) {
 			CaseUrl:  "/auth/sessions/1",
 			SetupData: func() any {
 				testutils.PurgeAllTestUsers()
-				user, _ := testutils.GenerateAuthenticatedUser(true) // Avec session
+				user, _ := testutils.GenerateAuthenticatedUser(true, true) // Avec session
 				// Supprimer la session en base
 				common.DB.Exec("UPDATE user_session SET deleted_at = NOW() WHERE user_id = ?", user.User.UserID)
 				return "Bearer " + user.SessionToken

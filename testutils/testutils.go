@@ -292,45 +292,87 @@ type AuthenticatedUser struct {
 // GenerateAuthenticatedAdmin génère un admin avec option d'authentification
 // Si authenticated = true, crée une session active d'une durée de 1 jour
 // Si authenticated = false, crée seulement l'utilisateur admin sans session
-func GenerateAuthenticatedAdmin(authenticated bool) (*AuthenticatedUser, error) {
+// Si saveToDB = true, enregistre l'utilisateur et la session en base de données
+// Si saveToDB = false, crée seulement l'objet en mémoire sans persistance
+func GenerateAuthenticatedAdmin(authenticated, saveToDB bool) (*AuthenticatedUser, error) {
 	// Générer un email unique
 	email := GenerateUniqueEmail("admin")
 	password := "AdminPassword123!"
 
-	// Créer l'utilisateur admin
-	admin, err := createUserWithPassword("Admin", "User", email, password)
-	if err != nil {
-		return nil, fmt.Errorf("erreur lors de la création de l'admin: %v", err)
-	}
+	var admin *common.User
+	var roles []common.Role
+	var sessionToken, refreshToken string
+	var expiresAt time.Time
+	var err error
 
-	// Créer le rôle admin s'il n'existe pas
-	adminRoleID, err := ensureAdminRoleExists()
-	if err != nil {
-		return nil, fmt.Errorf("erreur lors de la création du rôle admin: %v", err)
-	}
-
-	// Assigner le rôle admin à l'utilisateur
-	err = assignRoleToUser(admin.UserID, adminRoleID)
-	if err != nil {
-		return nil, fmt.Errorf("erreur lors de l'attribution du rôle admin: %v", err)
-	}
-
-	// Récupérer les rôles de l'utilisateur
-	roles, err := session.GetUserRoles(admin.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("erreur lors de la récupération des rôles: %v", err)
-	}
-
-	// Initialiser les valeurs par défaut pour un utilisateur non authentifié
-	sessionToken := ""
-	refreshToken := ""
-	expiresAt := time.Time{}
-
-	// Si authentifié, créer une session active d'une durée de 1 jour
-	if authenticated {
-		sessionToken, refreshToken, expiresAt, err = CreateUserSession(admin.UserID, 24*time.Hour)
+	if saveToDB {
+		// Créer l'utilisateur admin en base
+		admin, err = createUserWithPassword("Admin", "User", email, password)
 		if err != nil {
-			return nil, fmt.Errorf("erreur lors de la création de la session: %v", err)
+			return nil, fmt.Errorf("erreur lors de la création de l'admin: %v", err)
+		}
+
+		// Créer le rôle admin s'il n'existe pas
+		adminRoleID, err := ensureAdminRoleExists()
+		if err != nil {
+			return nil, fmt.Errorf("erreur lors de la création du rôle admin: %v", err)
+		}
+
+		// Assigner le rôle admin à l'utilisateur
+		err = assignRoleToUser(admin.UserID, adminRoleID)
+		if err != nil {
+			return nil, fmt.Errorf("erreur lors de l'attribution du rôle admin: %v", err)
+		}
+
+		// Récupérer les rôles de l'utilisateur
+		roles, err = session.GetUserRoles(admin.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("erreur lors de la récupération des rôles: %v", err)
+		}
+
+		// Si authentifié, créer une session active d'une durée de 1 jour
+		if authenticated {
+			sessionToken, refreshToken, expiresAt, err = CreateUserSession(admin.UserID, 24*time.Hour)
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la création de la session: %v", err)
+			}
+		}
+	} else {
+		// Créer l'utilisateur admin en mémoire seulement
+		admin = &common.User{
+			UserID:    1, // ID fictif pour les tests
+			Lastname:  "Admin",
+			Firstname: "User",
+			Email:     email,
+			CreatedAt: time.Now(),
+			UpdatedAt: nil,
+			DeletedAt: nil,
+		}
+
+		// Créer le rôle admin en mémoire
+		adminRole := common.Role{
+			RoleID:      1,
+			Name:        "admin",
+			Description: common.StringPtr("Administrateur avec tous les droits"),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   nil,
+			DeletedAt:   nil,
+		}
+		roles = []common.Role{adminRole}
+
+		// Si authentifié, générer des tokens en mémoire
+		if authenticated {
+			sessionToken, err = generateToken()
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la génération du session token: %v", err)
+			}
+
+			refreshToken, err = generateToken()
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la génération du refresh token: %v", err)
+			}
+
+			expiresAt = time.Now().Add(24 * time.Hour)
 		}
 	}
 
@@ -347,33 +389,67 @@ func GenerateAuthenticatedAdmin(authenticated bool) (*AuthenticatedUser, error) 
 // GenerateAuthenticatedUser génère un utilisateur normal avec option d'authentification
 // Si authenticated = true, crée une session active d'une durée de 1 jour
 // Si authenticated = false, crée seulement l'utilisateur normal sans session
-func GenerateAuthenticatedUser(authenticated bool) (*AuthenticatedUser, error) {
+// Si saveToDB = true, enregistre l'utilisateur et la session en base de données
+// Si saveToDB = false, crée seulement l'objet en mémoire sans persistance
+func GenerateAuthenticatedUser(authenticated, saveToDB bool) (*AuthenticatedUser, error) {
 	// Générer un email unique
 	email := GenerateUniqueEmail("user")
 	password := "UserPassword123!"
 
-	// Créer l'utilisateur normal
-	user, err := createUserWithPassword("Normal", "User", email, password)
-	if err != nil {
-		return nil, fmt.Errorf("erreur lors de la création de l'utilisateur: %v", err)
-	}
+	var user *common.User
+	var roles []common.Role
+	var sessionToken, refreshToken string
+	var expiresAt time.Time
+	var err error
 
-	// Récupérer les rôles de l'utilisateur (normalement vide pour un utilisateur normal)
-	roles, err := session.GetUserRoles(user.UserID)
-	if err != nil {
-		return nil, fmt.Errorf("erreur lors de la récupération des rôles: %v", err)
-	}
-
-	// Initialiser les valeurs par défaut pour un utilisateur non authentifié
-	sessionToken := ""
-	refreshToken := ""
-	expiresAt := time.Time{}
-
-	// Si authentifié, créer une session active d'une durée de 1 jour
-	if authenticated {
-		sessionToken, refreshToken, expiresAt, err = CreateUserSession(user.UserID, 24*time.Hour)
+	if saveToDB {
+		// Créer l'utilisateur normal en base
+		user, err = createUserWithPassword("Normal", "User", email, password)
 		if err != nil {
-			return nil, fmt.Errorf("erreur lors de la création de la session: %v", err)
+			return nil, fmt.Errorf("erreur lors de la création de l'utilisateur: %v", err)
+		}
+
+		// Récupérer les rôles de l'utilisateur (normalement vide pour un utilisateur normal)
+		roles, err = session.GetUserRoles(user.UserID)
+		if err != nil {
+			return nil, fmt.Errorf("erreur lors de la récupération des rôles: %v", err)
+		}
+
+		// Si authentifié, créer une session active d'une durée de 1 jour
+		if authenticated {
+			sessionToken, refreshToken, expiresAt, err = CreateUserSession(user.UserID, 24*time.Hour)
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la création de la session: %v", err)
+			}
+		}
+	} else {
+		// Créer l'utilisateur normal en mémoire seulement
+		user = &common.User{
+			UserID:    2, // ID fictif pour les tests
+			Lastname:  "Normal",
+			Firstname: "User",
+			Email:     email,
+			CreatedAt: time.Now(),
+			UpdatedAt: nil,
+			DeletedAt: nil,
+		}
+
+		// Utilisateur normal sans rôles
+		roles = []common.Role{}
+
+		// Si authentifié, générer des tokens en mémoire
+		if authenticated {
+			sessionToken, err = generateToken()
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la génération du session token: %v", err)
+			}
+
+			refreshToken, err = generateToken()
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la génération du refresh token: %v", err)
+			}
+
+			expiresAt = time.Now().Add(24 * time.Hour)
 		}
 	}
 
