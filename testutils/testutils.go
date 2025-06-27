@@ -25,11 +25,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// init initialise le générateur de nombres aléatoires
-func init() {
-	mathrand.Seed(time.Now().UnixNano())
-}
-
 func CreateTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

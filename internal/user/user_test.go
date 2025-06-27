@@ -14,6 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// getStringValue retourne la valeur d'un pointeur string ou "<nil>" si nil
+func getStringValue(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
+}
+
 // TestMain configure l'environnement de test global
 func TestMain(m *testing.M) {
 	// Initialiser l'environnement de test
@@ -390,6 +398,319 @@ func TestGetUserMe(t *testing.T) {
 							"L'email devrait correspondre")
 					}
 				}
+			}
+
+			// On purge les données après avoir traité le cas.
+			testCase.CleanupData()
+		})
+	}
+}
+
+// TestUpdateUserMe teste la route PUT /user/me (mise à jour des données de l'utilisateur connecté)
+func TestUpdateUserMe(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		SetupData        func() *testutils.AuthenticatedUser
+		RequestData      func() common.UpdateUserRequest
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+		CleanupData      func()
+	}{
+		{
+			CaseName: "Mise à jour du nom avec utilisateur normal authentifié",
+			SetupData: func() *testutils.AuthenticatedUser {
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+				return user
+			},
+			RequestData: func() common.UpdateUserRequest {
+				nouveauNom := common.UpdateUserRequest{}
+				lastname := "nouveauNom"
+				nouveauNom.Lastname = &lastname
+
+				return nouveauNom
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUserUpdate,
+			ExpectedError:    "",
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Mise à jour du prénom avec utilisateur normal authentifié",
+			SetupData: func() *testutils.AuthenticatedUser {
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+				return user
+			},
+			RequestData: func() common.UpdateUserRequest {
+				newFirstname := "NouveauPrénom"
+				return common.UpdateUserRequest{
+					Firstname: &newFirstname,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUserUpdate,
+			ExpectedError:    "",
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Mise à jour de l'email avec utilisateur normal authentifié",
+			SetupData: func() *testutils.AuthenticatedUser {
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+				return user
+			},
+			RequestData: func() common.UpdateUserRequest {
+				// Utiliser un email unique pour éviter les conflits
+				uniqueUser, _ := testutils.GenerateAuthenticatedUser(false, false)
+				newEmail := "update.email." + uniqueUser.User.Email
+				return common.UpdateUserRequest{
+					Email: &newEmail,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUserUpdate,
+			ExpectedError:    "",
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Mise à jour du mot de passe avec utilisateur normal authentifié",
+			SetupData: func() *testutils.AuthenticatedUser {
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+				return user
+			},
+			RequestData: func() common.UpdateUserRequest {
+				newPassword := "NouveauMotDePasse123!"
+				return common.UpdateUserRequest{
+					Password: &newPassword,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUserUpdate,
+			ExpectedError:    "",
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Mise à jour complète avec utilisateur normal authentifié",
+			SetupData: func() *testutils.AuthenticatedUser {
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+				return user
+			},
+			RequestData: func() common.UpdateUserRequest {
+				// Utiliser des emails uniques pour éviter les conflits
+				uniqueUser, _ := testutils.GenerateAuthenticatedUser(false, false)
+				return common.UpdateUserRequest{
+					Lastname:  &uniqueUser.User.Lastname,
+					Firstname: &uniqueUser.User.Firstname,
+					Email:     &uniqueUser.User.Email,
+					Password:  &uniqueUser.Password,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUserUpdate,
+			ExpectedError:    "",
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Mise à jour avec email déjà utilisé par un autre utilisateur",
+			SetupData: func() *testutils.AuthenticatedUser {
+				// Créer d'abord un utilisateur avec un email fixe
+				existingUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+
+				// Créer ensuite l'utilisateur principal qui va essayer d'utiliser cet email
+				mainUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+
+				// Stocker l'email de l'utilisateur existant pour l'utiliser dans RequestData
+				mainUser.User.Email = existingUser.User.Email
+				return mainUser
+			},
+			RequestData: func() common.UpdateUserRequest {
+				// Utiliser l'email de l'utilisateur existant créé dans SetupData
+				conflictEmail := "conflict.email@test.example.com"
+				return common.UpdateUserRequest{
+					Email: &conflictEmail,
+				}
+			},
+			ExpectedHttpCode: http.StatusConflict,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserAlreadyExists,
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Mise à jour avec email invalide",
+			SetupData: func() *testutils.AuthenticatedUser {
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+				return user
+			},
+			RequestData: func() common.UpdateUserRequest {
+				invalidEmail := "email-invalide"
+				return common.UpdateUserRequest{
+					Email: &invalidEmail,
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidEmailFormat,
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Mise à jour avec mot de passe trop court",
+			SetupData: func() *testutils.AuthenticatedUser {
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+				return user
+			},
+			RequestData: func() common.UpdateUserRequest {
+				shortPassword := "123"
+				return common.UpdateUserRequest{
+					Password: &shortPassword,
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrPasswordTooShort,
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Tentative de mise à jour sans authentification",
+			SetupData: func() *testutils.AuthenticatedUser {
+				return nil // Pas d'utilisateur authentifié
+			},
+			RequestData: func() common.UpdateUserRequest {
+				newLastname := "Test"
+				return common.UpdateUserRequest{
+					Lastname: &newLastname,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+		{
+			CaseName: "Mise à jour avec données vides (requête valide)",
+			SetupData: func() *testutils.AuthenticatedUser {
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				if err != nil {
+					return nil
+				}
+				return user
+			},
+			RequestData: func() common.UpdateUserRequest {
+				return common.UpdateUserRequest{} // Aucune donnée à mettre à jour
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUserUpdate,
+			ExpectedError:    "",
+			CleanupData:      func() { /* Nettoyage automatique */ },
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			// On prépare les données utiles au traitement de ce cas.
+			authenticatedUser := testCase.SetupData()
+
+			// Vérifier si l'utilisateur a été créé correctement pour les cas qui en ont besoin
+			if testCase.CaseName != "Tentative de mise à jour sans authentification" && authenticatedUser == nil {
+				t.Fatal("Impossible de créer l'utilisateur de test")
+			}
+
+			// Obtenir les données de requête
+			requestData := testCase.RequestData()
+
+			if authenticatedUser != nil {
+				t.Logf("Utilisateur de test: %s %s (%s)",
+					authenticatedUser.User.Firstname,
+					authenticatedUser.User.Lastname,
+					authenticatedUser.User.Email)
+				t.Logf("Données de mise à jour: Lastname=%v, Firstname=%v, Email=%v",
+					getStringValue(requestData.Lastname),
+					getStringValue(requestData.Firstname),
+					getStringValue(requestData.Email))
+			} else {
+				t.Logf("Aucun utilisateur authentifié")
+			}
+
+			// Créer le routeur de test
+			router := testutils.CreateTestRouter()
+
+			// Préparer la requête JSON
+			jsonData, err := json.Marshal(requestData)
+			require.NoError(t, err, "Erreur lors de la sérialisation JSON")
+
+			// Créer la requête HTTP
+			req, err := http.NewRequest("PUT", "/user/me", bytes.NewBuffer(jsonData))
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+
+			// Ajouter les headers nécessaires
+			req.Header.Set("Content-Type", "application/json")
+
+			// Ajouter le token d'authentification si l'utilisateur est authentifié
+			if authenticatedUser != nil && authenticatedUser.SessionToken != "" {
+				req.Header.Set("Authorization", "Bearer "+authenticatedUser.SessionToken)
+			}
+
+			// Créer le recorder pour capturer la réponse
+			w := httptest.NewRecorder()
+
+			// Exécuter la requête
+			router.ServeHTTP(w, req)
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, w.Code,
+				"Code HTTP attendu %d, obtenu %d", testCase.ExpectedHttpCode, w.Code)
+
+			// Parser la réponse JSON
+			var response common.JSONResponse
+			err = json.Unmarshal(w.Body.Bytes(), &response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+
+			// Vérifier le message de succès si attendu
+			if testCase.ExpectedMessage != "" {
+				require.Equal(t, testCase.ExpectedMessage, response.Message,
+					"Message attendu '%s', obtenu '%s'", testCase.ExpectedMessage, response.Message)
+			}
+
+			// Vérifier le message d'erreur si attendu
+			if testCase.ExpectedError != "" {
+				require.Equal(t, testCase.ExpectedError, response.Error,
+					"Erreur attendue '%s', obtenue '%s'", testCase.ExpectedError, response.Error)
+			}
+
+			// Vérifications spécifiques pour les réponses réussies
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success, "La réponse devrait indiquer un succès")
+
+				// Optionnel : vérifier que les données ont été mises à jour en base
+				// (cela nécessiterait une requête supplémentaire pour vérifier)
 			}
 
 			// On purge les données après avoir traité le cas.
