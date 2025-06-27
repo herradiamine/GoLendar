@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	mathrand "math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -23,6 +24,11 @@ import (
 	_ "github.com/go-sql-driver/mysql" // Driver MySQL
 	"golang.org/x/crypto/bcrypt"
 )
+
+// init initialise le générateur de nombres aléatoires
+func init() {
+	mathrand.Seed(time.Now().UnixNano())
+}
 
 func CreateTestRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
@@ -254,10 +260,52 @@ func TeardownTestEnvironment() error {
 	return nil
 }
 
-// GenerateUniqueEmail génère un email unique pour les tests
-// Utilise un timestamp nanoseconde pour garantir l'unicité
+// GenerateUniqueEmail génère un email unique avec des lettres aléatoires
+// La longueur totale de l'email ne dépasse pas 320 caractères
 func GenerateUniqueEmail(baseName string) string {
-	return fmt.Sprintf("%s.%d@test.example.com", baseName, time.Now().UnixNano())
+	// Constantes pour la génération
+	const (
+		domain    = "@test.example.com"
+		separator = "."
+		maxLength = 320
+		randomLen = 8 // Longueur de la partie aléatoire
+	)
+
+	// Calculer la longueur maximale disponible pour baseName
+	maxBaseNameLength := maxLength - len(domain) - len(separator) - randomLen
+
+	// Tronquer baseName si nécessaire
+	if len(baseName) > maxBaseNameLength {
+		baseName = baseName[:maxBaseNameLength]
+	}
+
+	// Générer des lettres aléatoires
+	randomPart := generateRandomLetters(randomLen)
+
+	// Construire l'email
+	email := baseName + separator + randomPart + domain
+
+	// Vérification de sécurité (ne devrait jamais dépasser 320)
+	if len(email) > maxLength {
+		// En cas de dépassement, tronquer davantage
+		excess := len(email) - maxLength
+		if len(baseName) > excess {
+			baseName = baseName[:len(baseName)-excess]
+		}
+		email = baseName + separator + randomPart + domain
+	}
+
+	return email
+}
+
+// generateRandomLetters génère une chaîne de lettres aléatoires
+func generateRandomLetters(length int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+	result := make([]byte, length)
+	for i := range result {
+		result[i] = letters[mathrand.Intn(len(letters))]
+	}
+	return string(result)
 }
 
 // Itoa convertit un int en string
