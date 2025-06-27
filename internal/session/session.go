@@ -60,6 +60,7 @@ func (SessionStruct) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidCredentials,
+			Data:    req,
 		})
 		return
 	}
@@ -71,6 +72,7 @@ func (SessionStruct) Login(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrInvalidCredentials,
+			Data:    req,
 		})
 		return
 	}
@@ -393,8 +395,9 @@ func (SessionStruct) DeleteSession(c *gin.Context) {
 // ValidateSession valide un token de session (utilisé par le middleware)
 func (SessionStruct) ValidateSession(token string) (*common.User, error) {
 	var user common.User
+	var expiresAt time.Time
 	err := common.DB.QueryRow(`
-		SELECT u.user_id, u.lastname, u.firstname, u.email, u.created_at, u.updated_at, u.deleted_at
+		SELECT u.user_id, u.lastname, u.firstname, u.email, u.created_at, u.updated_at, u.deleted_at, us.expires_at
 		FROM user u
 		INNER JOIN user_session us ON u.user_id = us.user_id
 		WHERE us.session_token = ? AND us.is_active = TRUE AND us.deleted_at IS NULL AND u.deleted_at IS NULL
@@ -406,16 +409,10 @@ func (SessionStruct) ValidateSession(token string) (*common.User, error) {
 		&user.CreatedAt,
 		&user.UpdatedAt,
 		&user.DeletedAt,
+		&expiresAt,
 	)
 
 	if err == sql.ErrNoRows {
-		return nil, errors.New(common.ErrSessionNotFound)
-	}
-
-	// Vérifier l'expiration
-	var expiresAt time.Time
-	err = common.DB.QueryRow("SELECT expires_at FROM user_session WHERE session_token = ? AND is_active = TRUE", token).Scan(&expiresAt)
-	if err != nil {
 		return nil, errors.New(common.ErrSessionNotFound)
 	}
 

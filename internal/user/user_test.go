@@ -2,6 +2,7 @@ package user_test
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"math/rand"
