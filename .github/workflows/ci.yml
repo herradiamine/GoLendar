@@ -45,12 +45,12 @@ jobs:
           export DB_USER=root
           export DB_PASSWORD=password
           export DB_NAME=calendar
-          go test -v ./...
+          go test -v ./... -
       
       - name: Run tests with coverage
         run: |
-          go test -coverprofile=reports/coverage.out -covermode=atomic ./...
-          go test -json ./... > reports/test-report.json
+          go test ./... -coverprofile=reports/coverage.out -covermode=atomic
+          go test ./... -json > reports/test-report.json
   
       - name: SonarCloud Scan
         uses: SonarSource/sonarcloud-github-action@master
