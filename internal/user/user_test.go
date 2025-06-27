@@ -529,7 +529,7 @@ func TestUpdateUserMe(t *testing.T) {
 			CaseName: "Mise à jour avec email déjà utilisé par un autre utilisateur",
 			SetupData: func() *testutils.AuthenticatedUser {
 				// Créer d'abord un utilisateur avec un email fixe
-				existingUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				_, err := testutils.GenerateAuthenticatedUser(true, true)
 				if err != nil {
 					return nil
 				}
@@ -539,9 +539,6 @@ func TestUpdateUserMe(t *testing.T) {
 				if err != nil {
 					return nil
 				}
-
-				// Stocker l'email de l'utilisateur existant pour l'utiliser dans RequestData
-				mainUser.User.Email = existingUser.User.Email
 				return mainUser
 			},
 			RequestData: func() common.UpdateUserRequest {
