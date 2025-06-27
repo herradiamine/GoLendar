@@ -1,4 +1,4 @@
-package calendar_test
+package calendar_event_test
 
 import (
 	"go-averroes/testutils"

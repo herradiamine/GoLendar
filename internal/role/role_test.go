@@ -1,4 +1,4 @@
-package calendar_test
+package role_test
 
 import (
 	"go-averroes/testutils"
