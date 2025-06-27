@@ -669,12 +669,21 @@ func CreateAdminUser(userID int, lastname, firstname, email string) (*common.Use
 		return nil, "", fmt.Errorf("base de données non initialisée")
 	}
 
+	// Vérifier qu'il n'existe pas déjà un utilisateur avec ce userID ou cet email
+	var count int
+	err := common.DB.QueryRow("SELECT COUNT(*) FROM user WHERE user_id = ? OR email = ?", userID, email).Scan(&count)
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de la vérification de l'existence de l'utilisateur: %v", err)
+	}
+	if count > 0 {
+		return nil, "", fmt.Errorf("un utilisateur avec cet ID ou cet email existe déjà")
+	}
+
 	// Début de transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
 		return nil, "", fmt.Errorf("erreur lors du démarrage de la transaction: %v", err)
 	}
-	defer tx.Rollback()
 
 	// Insérer l'utilisateur
 	result, err := tx.Exec(`
@@ -682,17 +691,20 @@ func CreateAdminUser(userID int, lastname, firstname, email string) (*common.Use
 		VALUES (?, ?, ?, ?, NOW())
 	`, userID, lastname, firstname, email)
 	if err != nil {
+		tx.Rollback()
 		return nil, "", fmt.Errorf("erreur lors de la création de l'utilisateur: %v", err)
 	}
 
 	// Vérifier que l'utilisateur a été créé
 	if rowsAffected, _ := result.RowsAffected(); rowsAffected == 0 {
+		tx.Rollback()
 		return nil, "", fmt.Errorf("aucun utilisateur créé")
 	}
 
 	// Insérer un mot de passe par défaut
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
 	if err != nil {
+		tx.Rollback()
 		return nil, "", fmt.Errorf("erreur lors du hash du mot de passe: %v", err)
 	}
 
@@ -701,6 +713,7 @@ func CreateAdminUser(userID int, lastname, firstname, email string) (*common.Use
 		VALUES (?, ?, NOW())
 	`, userID, string(hashedPassword))
 	if err != nil {
+		tx.Rollback()
 		return nil, "", fmt.Errorf("erreur lors de la création du mot de passe: %v", err)
 	}
 
@@ -714,10 +727,12 @@ func CreateAdminUser(userID int, lastname, firstname, email string) (*common.Use
 			VALUES ('admin', 'Administrateur du système', NOW())
 		`)
 		if err != nil {
+			tx.Rollback()
 			return nil, "", fmt.Errorf("erreur lors de la création du rôle admin: %v", err)
 		}
 		adminRoleID64, err := roleResult.LastInsertId()
 		if err != nil {
+			tx.Rollback()
 			return nil, "", fmt.Errorf("erreur lors de la récupération de l'ID du rôle admin: %v", err)
 		}
 		adminRoleID = int(adminRoleID64)
@@ -729,25 +744,38 @@ func CreateAdminUser(userID int, lastname, firstname, email string) (*common.Use
 		VALUES (?, ?, NOW())
 	`, userID, adminRoleID)
 	if err != nil {
+		tx.Rollback()
 		return nil, "", fmt.Errorf("erreur lors de l'assignation du rôle admin: %v", err)
 	}
 
-	// Créer une session pour l'utilisateur
-	token, err := generateToken()
+	// Créer une session complète pour l'utilisateur admin
+	sessionToken, err := generateToken()
 	if err != nil {
+		tx.Rollback()
 		return nil, "", fmt.Errorf("erreur lors de la génération du token: %v", err)
 	}
 
-	_, err = tx.Exec(`
-		INSERT INTO user_session (user_id, session_token, expires_at, is_active, created_at) 
-		VALUES (?, ?, DATE_ADD(NOW(), INTERVAL 24 HOUR), TRUE, NOW())
-	`, userID, token)
+	refreshToken, err := generateToken()
 	if err != nil {
+		tx.Rollback()
+		return nil, "", fmt.Errorf("erreur lors de la génération du refresh token: %v", err)
+	}
+
+	// Calculer l'expiration dans un jour
+	expiresAt := time.Now().Add(24 * time.Hour)
+
+	_, err = tx.Exec(`
+		INSERT INTO user_session (user_id, session_token, refresh_token, expires_at, device_info, ip_address, is_active, created_at) 
+		VALUES (?, ?, ?, ?, ?, ?, TRUE, NOW())
+	`, userID, sessionToken, refreshToken, expiresAt, "admin-device", "127.0.0.1")
+	if err != nil {
+		tx.Rollback()
 		return nil, "", fmt.Errorf("erreur lors de la création de la session: %v", err)
 	}
 
 	// Valider la transaction
 	if err := tx.Commit(); err != nil {
+		tx.Rollback()
 		return nil, "", fmt.Errorf("erreur lors de la validation de la transaction: %v", err)
 	}
 
@@ -760,7 +788,7 @@ func CreateAdminUser(userID int, lastname, firstname, email string) (*common.Use
 		CreatedAt: time.Now(),
 	}
 
-	return user, token, nil
+	return user, sessionToken, nil
 }
 
 // GetSessionIDForUser récupère le session_token de la session active d'un utilisateur
@@ -895,4 +923,91 @@ func PurgeAllTestUsers() {
 	common.DB.Exec("TRUNCATE TABLE user_password")
 	common.DB.Exec("TRUNCATE TABLE user")
 	common.DB.Exec("SET FOREIGN_KEY_CHECKS=1;")
+}
+
+// CreateAuthenticatedUserWithPassword crée un utilisateur authentifié avec mot de passe et session valide
+func CreateAuthenticatedUserWithPassword(userID int, lastname, firstname, email, password string) (*common.User, string, error) {
+	// Vérifier que la base de données est initialisée
+	if common.DB == nil {
+		return nil, "", fmt.Errorf("base de données non initialisée")
+	}
+
+	// Vérifier qu'il n'existe pas déjà un utilisateur avec ce userID ou cet email
+	var count int
+	err := common.DB.QueryRow("SELECT COUNT(*) FROM user WHERE user_id = ? OR email = ?", userID, email).Scan(&count)
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de la vérification de l'existence de l'utilisateur: %v", err)
+	}
+	if count > 0 {
+		return nil, "", fmt.Errorf("un utilisateur avec cet ID ou cet email existe déjà")
+	}
+
+	// Hasher le mot de passe
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors du hash du mot de passe: %v", err)
+	}
+
+	user := common.User{
+		UserID:    userID,
+		Lastname:  lastname,
+		Firstname: firstname,
+		Email:     email,
+		CreatedAt: time.Now(),
+	}
+
+	sessionToken, err := generateToken()
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de la génération du token: %v", err)
+	}
+
+	refreshToken, err := generateToken()
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors de la génération du refresh token: %v", err)
+	}
+
+	// Calculer l'expiration dans un jour
+	expiresAt := time.Now().Add(24 * time.Hour)
+
+	tx, err := common.DB.Begin()
+	if err != nil {
+		return nil, "", fmt.Errorf("erreur lors du démarrage de la transaction: %v", err)
+	}
+
+	// Insérer l'utilisateur
+	_, err = tx.Exec(`
+		INSERT INTO user (user_id, lastname, firstname, email, created_at) 
+		VALUES (?, ?, ?, ?, NOW())
+	`, user.UserID, user.Lastname, user.Firstname, user.Email)
+	if err != nil {
+		tx.Rollback()
+		return nil, "", fmt.Errorf("erreur lors de la création de l'utilisateur: %v", err)
+	}
+
+	// Insérer le mot de passe
+	_, err = tx.Exec(`
+		INSERT INTO user_password (user_id, password_hash, created_at) 
+		VALUES (?, ?, NOW())
+	`, user.UserID, string(hashedPassword))
+	if err != nil {
+		tx.Rollback()
+		return nil, "", fmt.Errorf("erreur lors de la création du mot de passe: %v", err)
+	}
+
+	// Insérer la session avec expiration dans un jour
+	_, err = tx.Exec(`
+		INSERT INTO user_session (user_id, session_token, refresh_token, expires_at, device_info, ip_address, is_active, created_at) 
+		VALUES (?, ?, ?, ?, ?, ?, TRUE, NOW())
+	`, user.UserID, sessionToken, refreshToken, expiresAt, "test-device", "127.0.0.1")
+	if err != nil {
+		tx.Rollback()
+		return nil, "", fmt.Errorf("erreur lors de la création de la session: %v", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		tx.Rollback()
+		return nil, "", fmt.Errorf("erreur lors du commit de la transaction: %v", err)
+	}
+
+	return &user, sessionToken, nil
 }
