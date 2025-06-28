@@ -31,8 +31,8 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// TestRouteExample teste la route d'exemple avec plusieurs cas
-func TestRouteExample(t *testing.T) {
+// TestRouteExample teste la route POST/PUT d'exemple avec plusieurs cas
+func TestRoutePostPutExample(t *testing.T) {
 	// TestCases contient les cas qui seront testés
 	var TestCases = []struct {
 		CaseName         string
@@ -44,10 +44,51 @@ func TestRouteExample(t *testing.T) {
 		ExpectedError    string
 	}{
 		{
-			CaseName:         "Case name",
-			CaseUrl:          "Url",
-			SetupData:        func() map[string]interface{} { return map[string]interface{}{} },
-			RequestData:      func() map[string]interface{} { return map[string]interface{}{} },
+			CaseName: "Case name",
+			CaseUrl:  "Url",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "Success message",
+			ExpectedError:    "Error message",
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			// On prépare les données utiles au traitement de ce cas.
+			// On traite les cas de test un par un.
+			require.Equal(t, testCase.CaseUrl, "Url")
+			require.Equal(t, testCase.ExpectedHttpCode, http.StatusOK)
+			require.Equal(t, testCase.ExpectedMessage, "Success message")
+			require.Equal(t, testCase.ExpectedError, "Error message")
+			// On purge les données après avoir traité le cas.
+		})
+	}
+}
+
+// TestRouteExample teste la route GET/DELETE d'exemple avec plusieurs cas
+func TestRouteGetDeleteExample(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		SetupData        func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Case name",
+			CaseUrl:  "Url",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				return map[string]interface{}{}
+			},
 			ExpectedHttpCode: http.StatusOK,
 			ExpectedMessage:  "Success message",
 			ExpectedError:    "Error message",
