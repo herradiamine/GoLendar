@@ -2215,3 +2215,360 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 		})
 	}
 }
+
+// TestDeleteUserByIDRoute teste la route DELETE de suppression d'un utilisateur par ID (admin) avec plusieurs cas
+func TestDeleteUserByIDRoute(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		SetupData        func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Suppression réussie d'un utilisateur par ID par un admin",
+			CaseUrl:  "/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur admin authentifié avec session active en base
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible à supprimer
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec les utilisateurs et les headers
+				return map[string]interface{}{
+					"adminUser":  adminUser,  // Pour le nettoyage après le test
+					"targetUser": targetUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + adminUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUserDelete,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de suppression sans header Authorization",
+			CaseUrl:  "/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur cible à supprimer
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"targetUser": targetUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Content-Type": "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de suppression avec header Authorization vide",
+			CaseUrl:  "/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur cible à supprimer
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"targetUser": targetUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "",
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de suppression avec token invalide",
+			CaseUrl:  "/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur cible à supprimer
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"targetUser": targetUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer invalid_token_12345",
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression sans rôle admin",
+			CaseUrl:  "/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur normal (non-admin) authentifié avec session active en base
+				normalUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible à supprimer
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec les utilisateurs et les headers
+				return map[string]interface{}{
+					"normalUser": normalUser, // Pour le nettoyage après le test
+					"targetUser": targetUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + normalUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInsufficientPermissions,
+		},
+		{
+			CaseName: "Échec de suppression avec user_id inexistant",
+			CaseUrl:  "/user/99999",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur admin authentifié avec session active en base
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"adminUser": adminUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + adminUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": "99999", // ID inexistant
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotFound,
+		},
+		{
+			CaseName: "Échec de suppression avec user_id invalide (non numérique)",
+			CaseUrl:  "/user/invalid",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur admin authentifié avec session active en base
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"adminUser": adminUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + adminUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": "invalid", // ID invalide
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
+		{
+			CaseName: "Échec de suppression avec token expiré",
+			CaseUrl:  "/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur admin avec session expirée en base
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(false, true)
+				require.NoError(t, err)
+
+				// Créer une session expirée manuellement
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(adminUser.User.UserID, -1*time.Hour) // Expirée depuis 1 heure
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible à supprimer
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec les utilisateurs et les headers
+				return map[string]interface{}{
+					"adminUser":  adminUser,  // Pour le nettoyage après le test
+					"targetUser": targetUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + expiredSessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec session désactivée",
+			CaseUrl:  "/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur admin avec session active en base
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				require.NoError(t, err)
+
+				// Désactiver la session manuellement
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE, updated_at = NOW() 
+					WHERE session_token = ?
+				`, adminUser.SessionToken)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible à supprimer
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec les utilisateurs et les headers
+				return map[string]interface{}{
+					"adminUser":  adminUser,  // Pour le nettoyage après le test
+					"targetUser": targetUser, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + adminUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// Préparer les données de test
+			setupData := testCase.SetupData()
+
+			// Extraire les headers et paramètres URL si présents
+			var headers map[string]string
+			var urlParams map[string]string
+			if headersData, ok := setupData["_headers"]; ok {
+				headers = headersData.(map[string]string)
+				delete(setupData, "_headers") // Supprimer les headers des données de setup
+			}
+			if urlParamsData, ok := setupData["_urlParams"]; ok {
+				urlParams = urlParamsData.(map[string]string)
+				delete(setupData, "_urlParams") // Supprimer les paramètres URL des données de setup
+			}
+
+			// Construire l'URL avec les paramètres
+			url := testCase.CaseUrl
+			if userID, ok := urlParams["user_id"]; ok {
+				url = "/user/" + userID
+			}
+
+			// Créer la requête HTTP
+			req, err := http.NewRequest("DELETE", testServer.URL+url, nil)
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+
+			// Ajouter les headers nécessaires
+			for key, value := range headers {
+				req.Header.Set(key, value)
+			}
+
+			// Exécuter la requête
+			resp, err := testClient.Do(req)
+			require.NoError(t, err, "Erreur lors de l'exécution de la requête")
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode, "Code de statut HTTP incorrect")
+
+			// Lire et parser la réponse JSON
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+
+			// Vérifier la réponse selon le cas de test
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success, "La réponse devrait être un succès")
+				require.Equal(t, testCase.ExpectedMessage, response.Message, "Message de succès incorrect")
+				require.Empty(t, response.Error, "Pas d'erreur attendue")
+
+				// Vérifier que l'utilisateur a bien été supprimé (soft delete) en base
+				if adminUser, ok := setupData["adminUser"].(*testutils.AuthenticatedUser); ok {
+					// Vérifier que l'utilisateur admin est maintenant supprimé (deleted_at IS NOT NULL)
+					var deletedAt *time.Time
+					err := common.DB.QueryRow(`
+						SELECT deleted_at 
+						FROM user 
+						WHERE user_id = ?
+					`, adminUser.User.UserID).Scan(&deletedAt)
+					require.NoError(t, err, "Erreur lors de la vérification de la suppression de l'utilisateur")
+					require.NotNil(t, deletedAt, "L'utilisateur devrait être supprimé (deleted_at IS NOT NULL)")
+
+					// Vérifier que le mot de passe est également supprimé
+					err = common.DB.QueryRow(`
+						SELECT deleted_at 
+						FROM user_password 
+						WHERE user_id = ?
+					`, adminUser.User.UserID).Scan(&deletedAt)
+					require.NoError(t, err, "Erreur lors de la vérification de la suppression du mot de passe")
+					require.NotNil(t, deletedAt, "Le mot de passe devrait être supprimé (deleted_at IS NOT NULL)")
+
+					// Note: Les sessions ne sont pas automatiquement supprimées lors de la suppression d'un utilisateur
+					// car elles peuvent être gérées séparément (déconnexion, expiration, etc.)
+				}
+			} else {
+				require.False(t, response.Success, "La réponse devrait être un échec")
+				require.Equal(t, testCase.ExpectedError, response.Error, "Message d'erreur incorrect")
+				require.Empty(t, response.Message, "Pas de message de succès attendu")
+			}
+
+			// Nettoyer les données de test
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
