@@ -37,19 +37,15 @@ jobs:
 
       - name: Build & déploiement Docker (stack complète)
         run: ./scripts/build.sh
-
-      - name: Lancer les tests Go (intégration)
+      
+      - name: Run tests with coverage
         run: |
           export DB_HOST=localhost
           export DB_PORT=3306
           export DB_USER=root
           export DB_PASSWORD=password
           export DB_NAME=calendar
-          go test -p=1 -v ./...
-      
-      - name: Run tests with coverage
-        run: |
-          go test -p=1 ./... -coverprofile=reports/coverage.out -covermode=atomic
+          go test -p=1 -coverprofile=reports/coverage.out -v ./...
           go test -p=1 ./... -json > reports/test-report.json
   
       - name: SonarCloud Scan
