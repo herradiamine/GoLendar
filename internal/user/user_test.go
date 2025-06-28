@@ -38,7 +38,6 @@ func TestRoutePostPutExample(t *testing.T) {
 	var TestCases = []struct {
 		CaseName         string
 		CaseUrl          string
-		SetupData        func() map[string]interface{}
 		RequestData      func() map[string]interface{}
 		ExpectedHttpCode int
 		ExpectedMessage  string
@@ -68,6 +67,7 @@ func TestRoutePostPutExample(t *testing.T) {
 			require.Equal(t, testCase.ExpectedMessage, "Success message")
 			require.Equal(t, testCase.ExpectedError, "Error message")
 			// On purge les données après avoir traité le cas.
+			testutils.PurgeAllTestUsers()
 		})
 	}
 }
@@ -107,6 +107,7 @@ func TestRouteGetDeleteExample(t *testing.T) {
 			require.Equal(t, testCase.ExpectedMessage, "Success message")
 			require.Equal(t, testCase.ExpectedError, "Error message")
 			// On purge les données après avoir traité le cas.
+			testutils.PurgeAllTestUsers()
 		})
 	}
 }
