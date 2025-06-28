@@ -2572,3 +2572,277 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 		})
 	}
 }
+
+// TestGetUserByIDWithRolesRoute teste la route GET de récupération d'un utilisateur par ID avec ses rôles (admin) avec plusieurs cas
+func TestGetUserByIDWithRolesRoute(t *testing.T) {
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		SetupData        func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Récupération réussie d'un utilisateur avec ses rôles par un admin",
+			CaseUrl:  "/user/1/with-roles", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				require.NoError(t, err)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"adminUser":  adminUser,
+					"targetUser": targetUser,
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + adminUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec sans header Authorization",
+			CaseUrl:  "/user/1/with-roles",
+			SetupData: func() map[string]interface{} {
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"targetUser": targetUser,
+					"_headers": map[string]string{
+						"Content-Type": "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec avec header Authorization vide",
+			CaseUrl:  "/user/1/with-roles",
+			SetupData: func() map[string]interface{} {
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"targetUser": targetUser,
+					"_headers": map[string]string{
+						"Authorization": "",
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec avec token invalide",
+			CaseUrl:  "/user/1/with-roles",
+			SetupData: func() map[string]interface{} {
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"targetUser": targetUser,
+					"_headers": map[string]string{
+						"Authorization": "Bearer invalid_token_12345",
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec sans rôle admin",
+			CaseUrl:  "/user/1/with-roles",
+			SetupData: func() map[string]interface{} {
+				normalUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"normalUser": normalUser,
+					"targetUser": targetUser,
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + normalUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInsufficientPermissions,
+		},
+		{
+			CaseName: "Échec avec user_id inexistant",
+			CaseUrl:  "/user/99999/with-roles",
+			SetupData: func() map[string]interface{} {
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"adminUser": adminUser,
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + adminUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": "99999",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotFound,
+		},
+		{
+			CaseName: "Échec avec user_id invalide (non numérique)",
+			CaseUrl:  "/user/invalid/with-roles",
+			SetupData: func() map[string]interface{} {
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"adminUser": adminUser,
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + adminUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": "invalid",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
+		{
+			CaseName: "Échec avec token expiré",
+			CaseUrl:  "/user/1/with-roles",
+			SetupData: func() map[string]interface{} {
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(false, true)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(adminUser.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"adminUser":  adminUser,
+					"targetUser": targetUser,
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + expiredSessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec avec session désactivée",
+			CaseUrl:  "/user/1/with-roles",
+			SetupData: func() map[string]interface{} {
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				require.NoError(t, err)
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE, updated_at = NOW() 
+					WHERE session_token = ?
+				`, adminUser.SessionToken)
+				require.NoError(t, err)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"adminUser":  adminUser,
+					"targetUser": targetUser,
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + adminUser.SessionToken,
+						"Content-Type":  "application/json",
+					},
+					"_urlParams": map[string]string{
+						"user_id": strconv.Itoa(targetUser.User.UserID),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+	}
+
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			setupData := testCase.SetupData()
+			var headers map[string]string
+			var urlParams map[string]string
+			if headersData, ok := setupData["_headers"]; ok {
+				headers = headersData.(map[string]string)
+				delete(setupData, "_headers")
+			}
+			if urlParamsData, ok := setupData["_urlParams"]; ok {
+				urlParams = urlParamsData.(map[string]string)
+				delete(setupData, "_urlParams")
+			}
+			url := testCase.CaseUrl
+			if userID, ok := urlParams["user_id"]; ok {
+				url = "/user/" + userID + "/with-roles"
+			}
+			req, err := http.NewRequest("GET", testServer.URL+url, nil)
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+			for key, value := range headers {
+				req.Header.Set(key, value)
+			}
+			resp, err := testClient.Do(req)
+			require.NoError(t, err, "Erreur lors de l'exécution de la requête")
+			defer resp.Body.Close()
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode, "Code de statut HTTP incorrect")
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success, "La réponse devrait être un succès")
+				require.Empty(t, response.Error, "Pas d'erreur attendue")
+				// Vérifier la structure des données utilisateur + rôles
+				userData, ok := response.Data.(map[string]interface{})
+				require.True(t, ok, "Les données devraient être un objet utilisateur")
+				require.Contains(t, userData, "user_id")
+				require.Contains(t, userData, "lastname")
+				require.Contains(t, userData, "firstname")
+				require.Contains(t, userData, "email")
+				require.Contains(t, userData, "created_at")
+				require.Contains(t, userData, "roles")
+				// Vérifier que les rôles sont bien un tableau
+				_, ok = userData["roles"].([]interface{})
+				require.True(t, ok, "Les rôles doivent être un tableau")
+			} else {
+				require.False(t, response.Success, "La réponse devrait être un échec")
+				require.Equal(t, testCase.ExpectedError, response.Error, "Message d'erreur incorrect")
+				require.Empty(t, response.Message, "Pas de message de succès attendu")
+			}
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
