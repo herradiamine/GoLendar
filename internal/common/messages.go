@@ -2,7 +2,9 @@ package common
 
 const (
 	MsgSuccessCreateUser         = "Utilisateur créé avec succès"
+	MsgSuccessGetUser            = "Utilisateur récupéré avec succès"
 	MsgSuccessUpdateUser         = "Utilisateur mis à jour avec succès"
+	MsgSuccessDeleteUser         = "Utilisateur supprimé avec succès"
 	MsgSuccessCreateCalendar     = "Calendrier créé avec succès"
 	MsgSuccessGetCalendar        = "Calendrier récupéré avec succès"
 	MsgSuccessUpdateCalendar     = "Calendrier mis à jour avec succès"
