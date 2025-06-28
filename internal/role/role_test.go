@@ -3,28 +3,31 @@ package role_test
 import (
 	"go-averroes/testutils"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
 
+	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
+var testGinRouter *gin.Engine // Routeur de test global
+var testServer *httptest.Server
+var testClient *http.Client
+
 // TestMain configure l'environnement de test global
 func TestMain(m *testing.M) {
-	// Initialiser l'environnement de test
 	if err := testutils.SetupTestEnvironment(); err != nil {
 		panic("Impossible d'initialiser l'environnement de test: " + err.Error())
 	}
-
-	// Exécuter les tests
+	testGinRouter = testutils.CreateTestRouter()
+	testServer = httptest.NewServer(testGinRouter)
+	testClient = testServer.Client()
 	code := m.Run()
-
-	// Nettoyer l'environnement de test
 	if err := testutils.TeardownTestEnvironment(); err != nil {
 		panic("Impossible de nettoyer l'environnement de test: " + err.Error())
 	}
-
-	// Retourner le code de sortie
+	testServer.Close()
 	os.Exit(code)
 }
 
@@ -34,7 +37,8 @@ func TestRouteExample(t *testing.T) {
 	var TestCases = []struct {
 		CaseName         string
 		CaseUrl          string
-		SetupData        func() string
+		SetupData        func() map[string]interface{}
+		RequestData      func() map[string]interface{}
 		ExpectedHttpCode int
 		ExpectedMessage  string
 		ExpectedError    string
@@ -42,7 +46,8 @@ func TestRouteExample(t *testing.T) {
 		{
 			CaseName:         "Case name",
 			CaseUrl:          "Url",
-			SetupData:        func() string { return "de la donnée qui a été set" },
+			SetupData:        func() map[string]interface{} { return map[string]interface{}{} },
+			RequestData:      func() map[string]interface{} { return map[string]interface{}{} },
 			ExpectedHttpCode: http.StatusOK,
 			ExpectedMessage:  "Success message",
 			ExpectedError:    "Error message",

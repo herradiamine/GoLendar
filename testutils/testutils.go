@@ -228,6 +228,7 @@ func InitTestDBWithConfig(config common.DBConfig) error {
 
 // CleanupTestDB ferme la connexion à la base de données de test
 func CleanupTestDB() error {
+	PurgeAllTestUsers()
 	if common.DB != nil {
 		return common.DB.Close()
 	}
@@ -656,4 +657,12 @@ func generateToken() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil
+}
+
+// GetStringValue retourne la valeur d'un pointeur string ou "<nil>" si nil
+func GetStringValue(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
 }
