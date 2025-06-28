@@ -55,7 +55,7 @@ func TestLoginRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur de test en base
-				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de requête avec les credentials de l'utilisateur créé
@@ -90,7 +90,7 @@ func TestLoginRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur de test en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de requête avec un mot de passe incorrect
@@ -250,7 +250,7 @@ func TestRefreshTokenRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de requête avec le refresh token de l'utilisateur créé
@@ -283,7 +283,7 @@ func TestRefreshTokenRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur avec session expirée en base
-				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session expirée manuellement
@@ -332,7 +332,7 @@ func TestRefreshTokenRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Désactiver la session manuellement
@@ -442,7 +442,7 @@ func TestLogoutRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de requête avec l'utilisateur et les headers nécessaires
@@ -531,7 +531,7 @@ func TestLogoutRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur avec session expirée en base
-				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session expirée manuellement
@@ -557,7 +557,7 @@ func TestLogoutRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Désactiver la session manuellement
@@ -656,7 +656,7 @@ func TestGetUserSessionsRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec plusieurs sessions actives en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer des sessions supplémentaires pour cet utilisateur
@@ -684,7 +684,7 @@ func TestGetUserSessionsRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur sans session active en base
-				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session active pour l'authentification
@@ -777,7 +777,7 @@ func TestGetUserSessionsRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session expirée en base
-				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session expirée manuellement
@@ -803,7 +803,7 @@ func TestGetUserSessionsRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Désactiver la session manuellement
@@ -929,7 +929,7 @@ func TestDeleteSessionRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec plusieurs sessions actives en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer des sessions supplémentaires pour cet utilisateur
@@ -1030,7 +1030,7 @@ func TestDeleteSessionRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session expirée en base
-				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session expirée manuellement
@@ -1056,7 +1056,7 @@ func TestDeleteSessionRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Désactiver la session manuellement
@@ -1086,7 +1086,7 @@ func TestDeleteSessionRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				user.User.UserID = 0
@@ -1111,7 +1111,7 @@ func TestDeleteSessionRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1133,10 +1133,10 @@ func TestDeleteSessionRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer deux utilisateurs avec sessions actives
-				user1, err := testutils.GenerateAuthenticatedUser(true, true)
+				user1, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
-				user2, err := testutils.GenerateAuthenticatedUser(true, true)
+				user2, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session pour le deuxième utilisateur
@@ -1169,7 +1169,7 @@ func TestDeleteSessionRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers

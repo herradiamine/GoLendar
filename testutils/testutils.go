@@ -315,7 +315,10 @@ func PurgeAllTestUsers() {
 		return
 	}
 	common.DB.Exec("SET FOREIGN_KEY_CHECKS=0;")
+	common.DB.Exec("TRUNCATE TABLE calendar_event")
+	common.DB.Exec("TRUNCATE TABLE event")
 	common.DB.Exec("TRUNCATE TABLE user_calendar")
+	common.DB.Exec("TRUNCATE TABLE calendar")
 	common.DB.Exec("TRUNCATE TABLE user_roles")
 	common.DB.Exec("TRUNCATE TABLE user_session")
 	common.DB.Exec("TRUNCATE TABLE user_password")
@@ -338,7 +341,9 @@ type AuthenticatedUser struct {
 // Si authenticated = false, crée seulement l'utilisateur admin sans session
 // Si saveToDB = true, enregistre l'utilisateur et la session en base de données
 // Si saveToDB = false, crée seulement l'objet en mémoire sans persistance
-func GenerateAuthenticatedAdmin(authenticated, saveToDB bool) (*AuthenticatedUser, error) {
+// Si hasCalendar = true, crée un calendrier associé à l'utilisateur
+// Si hasEvent = true, crée un événement dans le calendrier (nécessite hasCalendar = true)
+func GenerateAuthenticatedAdmin(authenticated, saveToDB, hasCalendar, hasEvent bool) (*AuthenticatedUser, error) {
 	// Générer un email unique
 	email := GenerateUniqueEmail("admin")
 	password := "AdminPassword123!"
@@ -379,6 +384,22 @@ func GenerateAuthenticatedAdmin(authenticated, saveToDB bool) (*AuthenticatedUse
 			sessionToken, refreshToken, expiresAt, err = CreateUserSession(admin.UserID, 24*time.Hour)
 			if err != nil {
 				return nil, fmt.Errorf("erreur lors de la création de la session: %v", err)
+			}
+		}
+
+		// Créer un calendrier si demandé
+		if hasCalendar {
+			_, err = createCalendarForUser(admin.UserID, "Calendrier Admin", "Calendrier de test pour admin")
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la création du calendrier: %v", err)
+			}
+		}
+
+		// Créer un événement si demandé (nécessite un calendrier)
+		if hasEvent && hasCalendar {
+			_, err = createEventForUser(admin.UserID, "Événement Admin", "Événement de test pour admin")
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la création de l'événement: %v", err)
 			}
 		}
 	} else {
@@ -435,7 +456,9 @@ func GenerateAuthenticatedAdmin(authenticated, saveToDB bool) (*AuthenticatedUse
 // Si authenticated = false, crée seulement l'utilisateur normal sans session
 // Si saveToDB = true, enregistre l'utilisateur et la session en base de données
 // Si saveToDB = false, crée seulement l'objet en mémoire sans persistance
-func GenerateAuthenticatedUser(authenticated, saveToDB bool) (*AuthenticatedUser, error) {
+// Si hasCalendar = true, crée un calendrier associé à l'utilisateur
+// Si hasEvent = true, crée un événement dans le calendrier (nécessite hasCalendar = true)
+func GenerateAuthenticatedUser(authenticated, saveToDB, hasCalendar, hasEvent bool) (*AuthenticatedUser, error) {
 	// Générer un email unique
 	email := GenerateUniqueEmail("user")
 	password := "UserPassword123!"
@@ -464,6 +487,22 @@ func GenerateAuthenticatedUser(authenticated, saveToDB bool) (*AuthenticatedUser
 			sessionToken, refreshToken, expiresAt, err = CreateUserSession(user.UserID, 24*time.Hour)
 			if err != nil {
 				return nil, fmt.Errorf("erreur lors de la création de la session: %v", err)
+			}
+		}
+
+		// Créer un calendrier si demandé
+		if hasCalendar {
+			_, err = createCalendarForUser(user.UserID, "Calendrier Utilisateur", "Calendrier de test pour utilisateur")
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la création du calendrier: %v", err)
+			}
+		}
+
+		// Créer un événement si demandé (nécessite un calendrier)
+		if hasEvent && hasCalendar {
+			_, err = createEventForUser(user.UserID, "Événement Utilisateur", "Événement de test pour utilisateur")
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la création de l'événement: %v", err)
 			}
 		}
 	} else {
@@ -665,4 +704,99 @@ func GetStringValue(s *string) string {
 		return "<nil>"
 	}
 	return *s
+}
+
+// createCalendarForUser crée un calendrier et l'associe à un utilisateur
+func createCalendarForUser(userID int, title, description string) (int, error) {
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors du démarrage de la transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	// Créer le calendrier
+	result, err := tx.Exec(`
+		INSERT INTO calendar (title, description, created_at) 
+		VALUES (?, ?, NOW())
+	`, title, description)
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors de la création du calendrier: %v", err)
+	}
+
+	calendarID, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors de la récupération de l'ID du calendrier: %v", err)
+	}
+
+	// Associer le calendrier à l'utilisateur
+	_, err = tx.Exec(`
+		INSERT INTO user_calendar (user_id, calendar_id, created_at) 
+		VALUES (?, ?, NOW())
+	`, userID, calendarID)
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors de la création de la liaison user_calendar: %v", err)
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("erreur lors du commit de la transaction: %v", err)
+	}
+
+	return int(calendarID), nil
+}
+
+// createEventForUser crée un événement dans le premier calendrier de l'utilisateur
+func createEventForUser(userID int, title, description string) (int, error) {
+	// Démarrer une transaction
+	tx, err := common.DB.Begin()
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors du démarrage de la transaction: %v", err)
+	}
+	defer tx.Rollback()
+
+	// Récupérer le premier calendrier de l'utilisateur
+	var calendarID int
+	err = tx.QueryRow(`
+		SELECT uc.calendar_id 
+		FROM user_calendar uc
+		INNER JOIN calendar c ON uc.calendar_id = c.calendar_id
+		WHERE uc.user_id = ? AND uc.deleted_at IS NULL AND c.deleted_at IS NULL
+		ORDER BY uc.created_at ASC
+		LIMIT 1
+	`, userID).Scan(&calendarID)
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors de la récupération du calendrier: %v", err)
+	}
+
+	// Créer l'événement
+	startTime := time.Now().Add(1 * time.Hour) // Événement dans 1 heure
+	result, err := tx.Exec(`
+		INSERT INTO event (title, description, start, duration, canceled, created_at) 
+		VALUES (?, ?, ?, ?, ?, NOW())
+	`, title, description, startTime, 60, false) // Durée de 60 minutes
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors de la création de l'événement: %v", err)
+	}
+
+	eventID, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors de la récupération de l'ID de l'événement: %v", err)
+	}
+
+	// Associer l'événement au calendrier
+	_, err = tx.Exec(`
+		INSERT INTO calendar_event (calendar_id, event_id, created_at) 
+		VALUES (?, ?, NOW())
+	`, calendarID, eventID)
+	if err != nil {
+		return 0, fmt.Errorf("erreur lors de la création de la liaison calendar_event: %v", err)
+	}
+
+	// Valider la transaction
+	if err := tx.Commit(); err != nil {
+		return 0, fmt.Errorf("erreur lors du commit de la transaction: %v", err)
+	}
+
+	return int(eventID), nil
 }

@@ -37,86 +37,6 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-// TestRouteExample teste la route POST/PUT d'exemple avec plusieurs cas
-func TestRoutePostPutExample(t *testing.T) {
-	// TestCases contient les cas qui seront testés
-	var TestCases = []struct {
-		CaseName         string
-		CaseUrl          string
-		RequestData      func() map[string]interface{}
-		ExpectedHttpCode int
-		ExpectedMessage  string
-		ExpectedError    string
-	}{
-		{
-			CaseName: "Case name",
-			CaseUrl:  "Url",
-			RequestData: func() map[string]interface{} {
-				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
-				return map[string]interface{}{}
-			},
-			ExpectedHttpCode: http.StatusOK,
-			ExpectedMessage:  "Success message",
-			ExpectedError:    "Error message",
-		},
-	}
-
-	// On boucle sur les cas de test contenu dans TestCases
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			// On isole le cas avant de le traiter.
-			// On prépare les données utiles au traitement de ce cas.
-			// On traite les cas de test un par un.
-			require.Equal(t, testCase.CaseUrl, "Url")
-			require.Equal(t, testCase.ExpectedHttpCode, http.StatusOK)
-			require.Equal(t, testCase.ExpectedMessage, "Success message")
-			require.Equal(t, testCase.ExpectedError, "Error message")
-			// On purge les données après avoir traité le cas.
-			testutils.PurgeAllTestUsers()
-		})
-	}
-}
-
-// TestRouteExample teste la route GET/DELETE d'exemple avec plusieurs cas
-func TestRouteGetDeleteExample(t *testing.T) {
-	// TestCases contient les cas qui seront testés
-	var TestCases = []struct {
-		CaseName         string
-		CaseUrl          string
-		SetupData        func() map[string]interface{}
-		ExpectedHttpCode int
-		ExpectedMessage  string
-		ExpectedError    string
-	}{
-		{
-			CaseName: "Case name",
-			CaseUrl:  "Url",
-			SetupData: func() map[string]interface{} {
-				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
-				return map[string]interface{}{}
-			},
-			ExpectedHttpCode: http.StatusOK,
-			ExpectedMessage:  "Success message",
-			ExpectedError:    "Error message",
-		},
-	}
-
-	// On boucle sur les cas de test contenu dans TestCases
-	for _, testCase := range TestCases {
-		t.Run(testCase.CaseName, func(t *testing.T) {
-			// On isole le cas avant de le traiter.
-			// On prépare les données utiles au traitement de ce cas.
-			// On traite les cas de test un par un.
-			require.Equal(t, testCase.CaseUrl, "Url")
-			require.Equal(t, testCase.ExpectedHttpCode, http.StatusOK)
-			require.Equal(t, testCase.ExpectedMessage, "Success message")
-			require.Equal(t, testCase.ExpectedError, "Error message")
-			// On purge les données après avoir traité le cas.
-			testutils.PurgeAllTestUsers()
-		})
-	}
-}
-
 // TestAddUserRoute teste la route POST de création d'utilisateur avec plusieurs cas
 func TestAddUserRoute(t *testing.T) {
 	// TestCases contient les cas qui seront testés
@@ -249,7 +169,7 @@ func TestAddUserRoute(t *testing.T) {
 			RequestData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
 				// Créer un utilisateur existant en base pour tester le conflit
-				existingUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				existingUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de requête avec l'email existant
@@ -395,7 +315,7 @@ func TestGetUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -484,7 +404,7 @@ func TestGetUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session expirée en base
-				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session expirée manuellement
@@ -510,7 +430,7 @@ func TestGetUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Désactiver la session manuellement
@@ -633,7 +553,7 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -661,7 +581,7 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -689,7 +609,7 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -717,7 +637,7 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -748,7 +668,7 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -821,7 +741,7 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -849,7 +769,7 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -877,11 +797,11 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer deux utilisateurs cibles
-				user2, err := testutils.GenerateAuthenticatedUser(true, true)
+				user2, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -908,7 +828,7 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1041,7 +961,7 @@ func TestDeleteUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur authentifié avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1130,7 +1050,7 @@ func TestDeleteUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session expirée en base
-				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session expirée manuellement
@@ -1156,7 +1076,7 @@ func TestDeleteUserMeRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur avec session active en base
-				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Désactiver la session manuellement
@@ -1276,11 +1196,11 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à récupérer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1306,7 +1226,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur cible à récupérer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1330,7 +1250,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur cible à récupérer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1355,7 +1275,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur cible à récupérer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1380,11 +1300,11 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur normal (non-admin) authentifié avec session active en base
-				normalUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				normalUser, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à récupérer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1410,7 +1330,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1435,7 +1355,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1460,7 +1380,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin avec session expirée en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(false, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session expirée manuellement
@@ -1468,7 +1388,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à récupérer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1494,7 +1414,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Désactiver la session manuellement
@@ -1506,7 +1426,7 @@ func TestGetUserByIDRoute(t *testing.T) {
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à récupérer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1636,11 +1556,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1672,11 +1592,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1708,11 +1628,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1744,11 +1664,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1782,11 +1702,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1840,7 +1760,7 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1871,11 +1791,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur normal (non-admin) authentifié avec session active en base
-				normalUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				normalUser, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -1907,7 +1827,7 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1938,7 +1858,7 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -1969,11 +1889,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -2005,11 +1925,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -2041,14 +1961,14 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer deux utilisateurs cibles
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
-				existingUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				existingUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -2079,11 +1999,11 @@ func TestUpdateUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à modifier
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -2233,11 +2153,11 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à supprimer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -2263,7 +2183,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur cible à supprimer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -2287,7 +2207,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur cible à supprimer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -2312,7 +2232,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur cible à supprimer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -2337,11 +2257,11 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur normal (non-admin) authentifié avec session active en base
-				normalUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				normalUser, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à supprimer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -2367,7 +2287,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -2392,7 +2312,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin authentifié avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec l'utilisateur et les headers
@@ -2417,7 +2337,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin avec session expirée en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(false, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(false, true, false, false)
 				require.NoError(t, err)
 
 				// Créer une session expirée manuellement
@@ -2425,7 +2345,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à supprimer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -2451,7 +2371,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 			SetupData: func() map[string]interface{} {
 				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
 				// Créer un utilisateur admin avec session active en base
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 
 				// Désactiver la session manuellement
@@ -2463,7 +2383,7 @@ func TestDeleteUserByIDRoute(t *testing.T) {
 				require.NoError(t, err)
 
 				// Créer un utilisateur cible à supprimer
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 
 				// Retourner les données de préparation avec les utilisateurs et les headers
@@ -2587,9 +2507,9 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Récupération réussie d'un utilisateur avec ses rôles par un admin",
 			CaseUrl:  "/user/1/with-roles", // Sera remplacé par l'ID réel
 			SetupData: func() map[string]interface{} {
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"adminUser":  adminUser,
@@ -2611,7 +2531,7 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Échec sans header Authorization",
 			CaseUrl:  "/user/1/with-roles",
 			SetupData: func() map[string]interface{} {
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"targetUser": targetUser,
@@ -2631,7 +2551,7 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Échec avec header Authorization vide",
 			CaseUrl:  "/user/1/with-roles",
 			SetupData: func() map[string]interface{} {
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"targetUser": targetUser,
@@ -2652,7 +2572,7 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Échec avec token invalide",
 			CaseUrl:  "/user/1/with-roles",
 			SetupData: func() map[string]interface{} {
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"targetUser": targetUser,
@@ -2673,9 +2593,9 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Échec sans rôle admin",
 			CaseUrl:  "/user/1/with-roles",
 			SetupData: func() map[string]interface{} {
-				normalUser, err := testutils.GenerateAuthenticatedUser(true, true)
+				normalUser, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
 				require.NoError(t, err)
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"normalUser": normalUser,
@@ -2697,7 +2617,7 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Échec avec user_id inexistant",
 			CaseUrl:  "/user/99999/with-roles",
 			SetupData: func() map[string]interface{} {
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"adminUser": adminUser,
@@ -2718,7 +2638,7 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Échec avec user_id invalide (non numérique)",
 			CaseUrl:  "/user/invalid/with-roles",
 			SetupData: func() map[string]interface{} {
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"adminUser": adminUser,
@@ -2739,11 +2659,11 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Échec avec token expiré",
 			CaseUrl:  "/user/1/with-roles",
 			SetupData: func() map[string]interface{} {
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(false, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(false, true, false, false)
 				require.NoError(t, err)
 				expiredSessionToken, _, _, err := testutils.CreateUserSession(adminUser.User.UserID, -1*time.Hour)
 				require.NoError(t, err)
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"adminUser":  adminUser,
@@ -2765,7 +2685,7 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 			CaseName: "Échec avec session désactivée",
 			CaseUrl:  "/user/1/with-roles",
 			SetupData: func() map[string]interface{} {
-				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true)
+				adminUser, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
 				require.NoError(t, err)
 				_, err = common.DB.Exec(`
 					UPDATE user_session 
@@ -2773,7 +2693,7 @@ func TestGetUserByIDWithRolesRoute(t *testing.T) {
 					WHERE session_token = ?
 				`, adminUser.SessionToken)
 				require.NoError(t, err)
-				targetUser, err := testutils.GenerateAuthenticatedUser(false, true)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
 				require.NoError(t, err)
 				return map[string]interface{}{
 					"adminUser":  adminUser,
