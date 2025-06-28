@@ -45,6 +45,7 @@ jobs:
           export DB_USER=root
           export DB_PASSWORD=password
           export DB_NAME=calendar
+          touch reports/coverage.out
           go test -p=1 -coverprofile=reports/coverage.out -v ./...
           go test -p=1 ./... -json > reports/test-report.json
   
