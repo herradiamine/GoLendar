@@ -553,10 +553,8 @@ func TestGetUserMeRoute(t *testing.T) {
 			require.NoError(t, err, "Erreur lors de la création de la requête")
 
 			// Ajouter les headers nécessaires
-			if headers != nil {
-				for key, value := range headers {
-					req.Header.Set(key, value)
-				}
+			for key, value := range headers {
+				req.Header.Set(key, value)
 			}
 
 			// Exécuter la requête
@@ -956,10 +954,8 @@ func TestUpdateUserMeRoute(t *testing.T) {
 			require.NoError(t, err, "Erreur lors de la création de la requête")
 
 			// Ajouter les headers nécessaires
-			if headers != nil {
-				for key, value := range headers {
-					req.Header.Set(key, value)
-				}
+			for key, value := range headers {
+				req.Header.Set(key, value)
 			}
 
 			// Exécuter la requête
@@ -1013,6 +1009,243 @@ func TestUpdateUserMeRoute(t *testing.T) {
 
 					// Vérifier que updated_at a été mis à jour
 					require.NotNil(t, updatedUser.UpdatedAt, "Le champ updated_at devrait être mis à jour")
+				}
+			} else {
+				require.False(t, response.Success, "La réponse devrait être un échec")
+				require.Equal(t, testCase.ExpectedError, response.Error, "Message d'erreur incorrect")
+				require.Empty(t, response.Message, "Pas de message de succès attendu")
+			}
+
+			// Nettoyer les données de test
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
+
+// TestDeleteUserMeRoute teste la route DELETE de suppression du compte utilisateur connecté avec plusieurs cas
+func TestDeleteUserMeRoute(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		SetupData        func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Suppression réussie du compte utilisateur",
+			CaseUrl:  "/user/me",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUserDelete,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de suppression sans header Authorization",
+			CaseUrl:  "/user/me",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Aucune préparation nécessaire, on teste l'absence de header
+				return map[string]interface{}{
+					"_headers": map[string]string{
+						"Content-Type": "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de suppression avec header Authorization vide",
+			CaseUrl:  "/user/me",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Aucune préparation nécessaire, on teste le header vide
+				return map[string]interface{}{
+					"_headers": map[string]string{
+						"Authorization": "",
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de suppression avec format de token invalide",
+			CaseUrl:  "/user/me",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Aucune préparation nécessaire, on teste le format invalide
+				return map[string]interface{}{
+					"_headers": map[string]string{
+						"Authorization": "InvalidFormat token123",
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec token inexistant",
+			CaseUrl:  "/user/me",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Aucune préparation nécessaire, on teste avec un token qui n'existe pas
+				return map[string]interface{}{
+					"_headers": map[string]string{
+						"Authorization": "Bearer invalid_token_12345",
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec token expiré",
+			CaseUrl:  "/user/me",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur avec session expirée en base
+				user, err := testutils.GenerateAuthenticatedUser(false, true)
+				require.NoError(t, err)
+
+				// Créer une session expirée manuellement
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(user.User.UserID, -1*time.Hour) // Expirée depuis 1 heure
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + expiredSessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec session désactivée",
+			CaseUrl:  "/user/me",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Désactiver la session manuellement
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE, updated_at = NOW() 
+					WHERE session_token = ?
+				`, user.SessionToken)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// Préparer les données de test
+			setupData := testCase.SetupData()
+
+			// Extraire les headers si présents
+			var headers map[string]string
+			if headersData, ok := setupData["_headers"]; ok {
+				headers = headersData.(map[string]string)
+				delete(setupData, "_headers") // Supprimer les headers des données de setup
+			}
+
+			// Créer la requête HTTP
+			req, err := http.NewRequest("DELETE", testServer.URL+testCase.CaseUrl, nil)
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+
+			// Ajouter les headers nécessaires
+			if headers != nil {
+				for key, value := range headers {
+					req.Header.Set(key, value)
+				}
+			}
+
+			// Exécuter la requête
+			resp, err := testClient.Do(req)
+			require.NoError(t, err, "Erreur lors de l'exécution de la requête")
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode, "Code de statut HTTP incorrect")
+
+			// Lire et parser la réponse JSON
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+
+			// Vérifier la réponse selon le cas de test
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success, "La réponse devrait être un succès")
+				require.Equal(t, testCase.ExpectedMessage, response.Message, "Message de succès incorrect")
+				require.Empty(t, response.Error, "Pas d'erreur attendue")
+
+				// Vérifier que l'utilisateur a bien été supprimé (soft delete) en base
+				if user, ok := setupData["user"].(*testutils.AuthenticatedUser); ok {
+					// Vérifier que l'utilisateur est maintenant supprimé (deleted_at IS NOT NULL)
+					var deletedAt *time.Time
+					err := common.DB.QueryRow(`
+						SELECT deleted_at 
+						FROM user 
+						WHERE user_id = ?
+					`, user.User.UserID).Scan(&deletedAt)
+					require.NoError(t, err, "Erreur lors de la vérification de la suppression de l'utilisateur")
+					require.NotNil(t, deletedAt, "L'utilisateur devrait être supprimé (deleted_at IS NOT NULL)")
+
+					// Vérifier que le mot de passe est également supprimé
+					err = common.DB.QueryRow(`
+						SELECT deleted_at 
+						FROM user_password 
+						WHERE user_id = ?
+					`, user.User.UserID).Scan(&deletedAt)
+					require.NoError(t, err, "Erreur lors de la vérification de la suppression du mot de passe")
+					require.NotNil(t, deletedAt, "Le mot de passe devrait être supprimé (deleted_at IS NOT NULL)")
+
+					// Note: Les sessions ne sont pas automatiquement supprimées lors de la suppression d'un utilisateur
+					// car elles peuvent être gérées séparément (déconnexion, expiration, etc.)
 				}
 			} else {
 				require.False(t, response.Success, "La réponse devrait être un échec")
