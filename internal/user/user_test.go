@@ -609,3 +609,419 @@ func TestGetUserMeRoute(t *testing.T) {
 		})
 	}
 }
+
+// TestUpdateUserMeRoute teste la route PUT de modification des données de l'utilisateur connecté avec plusieurs cas
+func TestUpdateUserMeRoute(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		RequestData      func() map[string]interface{}
+		SetupData        func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Modification réussie du lastname",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"lastname": "NouveauNom",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateUser,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Modification réussie du firstname",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"firstname": "NouveauPrénom",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateUser,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Modification réussie de l'email",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"email": "nouveau.email@example.com",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateUser,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Modification réussie du mot de passe",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"password": "nouveaumotdepasse123",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateUser,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Modification réussie de plusieurs champs",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"lastname":  "NouveauNom",
+					"firstname": "NouveauPrénom",
+					"email":     "nouveau.email@example.com",
+					"password":  "nouveaumotdepasse123",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateUser,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de modification sans header Authorization",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"lastname": "NouveauNom",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Aucune préparation nécessaire, on teste l'absence de header
+				return map[string]interface{}{
+					"_headers": map[string]string{
+						"Content-Type": "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de modification avec token invalide",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"lastname": "NouveauNom",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Aucune préparation nécessaire, on teste le token invalide
+				return map[string]interface{}{
+					"_headers": map[string]string{
+						"Authorization": "Bearer invalid_token_12345",
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de modification avec email invalide",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"email": "email-invalide",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidEmailFormat,
+		},
+		{
+			CaseName: "Échec de modification avec password trop court",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"password": "123",
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrPasswordTooShort,
+		},
+		{
+			CaseName: "Échec de modification avec email déjà existant",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"email": "email.existant@example.com", // Sera remplacé par l'email de l'utilisateur existant
+				}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer deux utilisateurs authentifiés
+				user1, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				user2, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec les utilisateurs et les headers
+				return map[string]interface{}{
+					"user1": user1, // Utilisateur qui fait la modification
+					"user2": user2, // Utilisateur avec l'email existant
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user1.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusConflict,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserAlreadyExists,
+		},
+		{
+			CaseName: "Modification réussie avec données JSON vides (aucune modification)",
+			CaseUrl:  "/user/me",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{}
+			},
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true)
+				require.NoError(t, err)
+
+				// Retourner les données de préparation avec l'utilisateur et les headers
+				return map[string]interface{}{
+					"user": user, // Pour le nettoyage après le test
+					"_headers": map[string]string{
+						"Authorization": "Bearer " + user.SessionToken,
+						"Content-Type":  "application/json",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateUser,
+			ExpectedError:    "",
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// Préparer les données de test
+			setupData := testCase.SetupData()
+			requestData := testCase.RequestData()
+
+			// Extraire les headers si présents
+			var headers map[string]string
+			if headersData, ok := setupData["_headers"]; ok {
+				headers = headersData.(map[string]string)
+				delete(setupData, "_headers") // Supprimer les headers des données de setup
+			}
+
+			// Gérer le cas spécial de l'email déjà existant
+			if testCase.CaseName == "Échec de modification avec email déjà existant" {
+				if user2, ok := setupData["user2"].(*testutils.AuthenticatedUser); ok {
+					requestData["email"] = user2.User.Email
+				}
+			}
+
+			// Convertir les données en JSON
+			jsonData, err := json.Marshal(requestData)
+			require.NoError(t, err, "Erreur lors de la sérialisation JSON")
+
+			// Créer la requête HTTP
+			req, err := http.NewRequest("PUT", testServer.URL+testCase.CaseUrl, bytes.NewBuffer(jsonData))
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+
+			// Ajouter les headers nécessaires
+			if headers != nil {
+				for key, value := range headers {
+					req.Header.Set(key, value)
+				}
+			}
+
+			// Exécuter la requête
+			resp, err := testClient.Do(req)
+			require.NoError(t, err, "Erreur lors de l'exécution de la requête")
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode, "Code de statut HTTP incorrect")
+
+			// Lire et parser la réponse JSON
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+
+			// Vérifier la réponse selon le cas de test
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success, "La réponse devrait être un succès")
+				require.Equal(t, testCase.ExpectedMessage, response.Message, "Message de succès incorrect")
+				require.Empty(t, response.Error, "Pas d'erreur attendue")
+
+				// Vérifier que les modifications ont bien été appliquées en base
+				if user, ok := setupData["user"].(*testutils.AuthenticatedUser); ok {
+					// Récupérer les données mises à jour depuis la base
+					var updatedUser common.User
+					err := common.DB.QueryRow(`
+						SELECT user_id, lastname, firstname, email, created_at, updated_at, deleted_at
+						FROM user 
+						WHERE user_id = ? AND deleted_at IS NULL
+					`, user.User.UserID).Scan(
+						&updatedUser.UserID,
+						&updatedUser.Lastname,
+						&updatedUser.Firstname,
+						&updatedUser.Email,
+						&updatedUser.CreatedAt,
+						&updatedUser.UpdatedAt,
+						&updatedUser.DeletedAt,
+					)
+					require.NoError(t, err, "Erreur lors de la récupération de l'utilisateur mis à jour")
+
+					// Vérifier les champs modifiés
+					if newLastname, ok := requestData["lastname"].(string); ok {
+						require.Equal(t, newLastname, updatedUser.Lastname, "Le lastname devrait être mis à jour")
+					}
+					if newFirstname, ok := requestData["firstname"].(string); ok {
+						require.Equal(t, newFirstname, updatedUser.Firstname, "Le firstname devrait être mis à jour")
+					}
+					if newEmail, ok := requestData["email"].(string); ok {
+						require.Equal(t, newEmail, updatedUser.Email, "L'email devrait être mis à jour")
+					}
+
+					// Vérifier que updated_at a été mis à jour
+					require.NotNil(t, updatedUser.UpdatedAt, "Le champ updated_at devrait être mis à jour")
+				}
+			} else {
+				require.False(t, response.Success, "La réponse devrait être un échec")
+				require.Equal(t, testCase.ExpectedError, response.Error, "Message d'erreur incorrect")
+				require.Empty(t, response.Message, "Pas de message de succès attendu")
+			}
+
+			// Nettoyer les données de test
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
