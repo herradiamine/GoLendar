@@ -1064,3 +1064,635 @@ func TestAddEventRoute(t *testing.T) {
 		})
 	}
 }
+
+// TestUpdateEventRoute teste la route PUT de mise à jour d'un événement avec plusieurs cas
+func TestUpdateEventRoute(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		RequestData      func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Mise à jour réussie du titre",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre d'événement",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateEvent,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Mise à jour réussie de la description",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"description": "Nouvelle description de l'événement",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateEvent,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Mise à jour réussie de la date de début",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"start": time.Now().Add(2 * time.Hour).Format(time.RFC3339),
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateEvent,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Mise à jour réussie de la durée",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"duration": 90,
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateEvent,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Mise à jour réussie du statut annulé",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"canceled": true,
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateEvent,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Mise à jour réussie de plusieurs champs",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title":       "Événement mis à jour",
+						"description": "Description mise à jour",
+						"start":       time.Now().Add(3 * time.Hour).Format(time.RFC3339),
+						"duration":    120,
+						"canceled":    false,
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateEvent,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Mise à jour réussie par un utilisateur partagé",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur propriétaire du calendrier et de l'événement
+				owner, err := testutils.GenerateAuthenticatedUser(false, true, true, true)
+				require.NoError(t, err)
+
+				// Créer un utilisateur qui aura accès au calendrier
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+
+				// Partager le calendrier avec l'utilisateur
+				_, err = common.DB.Exec(`
+					INSERT INTO user_calendar (user_id, calendar_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, user.User.UserID, 1) // Le premier calendrier créé aura l'ID 1
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user":  user,
+					"owner": owner,
+					"requestBody": map[string]interface{}{
+						"title": "Événement modifié par utilisateur partagé",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateEvent,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Mise à jour réussie avec données JSON vides (aucune modification)",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user":        user,
+					"requestBody": map[string]interface{}{},
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  common.MsgSuccessUpdateEvent,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de mise à jour sans header Authorization",
+			CaseUrl:  "/calendar-event/1/1",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un calendrier et un événement sans utilisateur authentifié
+				_, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO event (title, description, start, duration, canceled, created_at) 
+					VALUES (?, ?, ?, ?, ?, NOW())
+				`, "Événement Test", "Description événement", time.Now().Add(1*time.Hour), 60, false)
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO calendar_event (calendar_id, event_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, 1, 1)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de mise à jour avec header Authorization vide",
+			CaseUrl:  "/calendar-event/1/1",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un calendrier et un événement
+				_, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO event (title, description, start, duration, canceled, created_at) 
+					VALUES (?, ?, ?, ?, ?, NOW())
+				`, "Événement Test", "Description événement", time.Now().Add(1*time.Hour), 60, false)
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO calendar_event (calendar_id, event_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, 1, 1)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"authHeader": "",
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de mise à jour avec token invalide",
+			CaseUrl:  "/calendar-event/1/1",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un calendrier et un événement
+				_, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO event (title, description, start, duration, canceled, created_at) 
+					VALUES (?, ?, ?, ?, ?, NOW())
+				`, "Événement Test", "Description événement", time.Now().Add(1*time.Hour), 60, false)
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO calendar_event (calendar_id, event_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, 1, 1)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de mise à jour avec session expirée",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur avec session expirée en base
+				user, err := testutils.GenerateAuthenticatedUser(false, true, true, true)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(user.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user":         user,
+					"sessionToken": expiredSessionToken,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de mise à jour avec session désactivée",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				// Désactiver la session
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE 
+					WHERE session_token = ?
+				`, user.SessionToken)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de mise à jour avec calendar_id inexistant",
+			CaseUrl:  "/calendar-event/99999/1",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de mise à jour avec calendar_id invalide (non numérique)",
+			CaseUrl:  "/calendar-event/invalid/1",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidCalendarID,
+		},
+		{
+			CaseName: "Échec de mise à jour avec event_id inexistant",
+			CaseUrl:  "/calendar-event/1/99999", // Sera remplacé par l'ID du calendrier réel
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, false)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrEventNotFound,
+		},
+		{
+			CaseName: "Échec de mise à jour avec event_id invalide (non numérique)",
+			CaseUrl:  "/calendar-event/1/invalid", // Sera remplacé par l'ID du calendrier réel
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, false)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidEventID,
+		},
+		{
+			CaseName: "Échec de mise à jour sans accès au calendrier",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur propriétaire du calendrier et de l'événement
+				owner, err := testutils.GenerateAuthenticatedUser(false, true, true, true)
+				require.NoError(t, err)
+
+				// Créer un autre utilisateur sans accès au calendrier
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user":  user,
+					"owner": owner,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrNoAccessToCalendar,
+		},
+		{
+			CaseName: "Échec de mise à jour avec date de début invalide",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"start": "date-invalide",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidData,
+		},
+		{
+			CaseName: "Échec de mise à jour avec durée invalide (zéro)",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"duration": 0,
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidData,
+		},
+		{
+			CaseName: "Échec de mise à jour avec durée invalide (négative)",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"duration": -30,
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidData,
+		},
+		{
+			CaseName: "Échec de mise à jour d'un événement supprimé",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+
+				// Supprimer l'événement (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE event 
+					SET deleted_at = NOW() 
+					WHERE event_id = 1
+				`)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrEventNotFound,
+		},
+		{
+			CaseName: "Échec de mise à jour d'un événement d'un calendrier supprimé",
+			CaseUrl:  "/calendar-event/1/1", // Sera remplacé par les IDs réels
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+
+				// Supprimer le calendrier (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE calendar 
+					SET deleted_at = NOW() 
+					WHERE calendar_id = 1
+				`)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"title": "Nouveau titre",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			// On prépare les données utiles au traitement de ce cas.
+			requestData := testCase.RequestData()
+
+			// Remplacer les IDs dans l'URL si nécessaire
+			url := testCase.CaseUrl
+			if user, ok := requestData["user"].(*testutils.AuthenticatedUser); ok {
+				// Récupérer l'ID du calendrier et de l'événement de l'utilisateur
+				var calendarID, eventID int
+				err := common.DB.QueryRow(`
+					SELECT c.calendar_id, e.event_id 
+					FROM calendar c
+					INNER JOIN user_calendar uc ON c.calendar_id = uc.calendar_id
+					INNER JOIN calendar_event ce ON c.calendar_id = ce.calendar_id
+					INNER JOIN event e ON ce.event_id = e.event_id
+					WHERE uc.user_id = ? AND c.deleted_at IS NULL AND uc.deleted_at IS NULL 
+					  AND e.deleted_at IS NULL AND ce.deleted_at IS NULL
+					ORDER BY c.created_at DESC, e.created_at DESC
+					LIMIT 1
+				`, user.User.UserID).Scan(&calendarID, &eventID)
+				if err == nil {
+					url = "/calendar-event/" + strconv.Itoa(calendarID) + "/" + strconv.Itoa(eventID)
+				}
+			}
+
+			// Extraire les données de requête
+			requestBody, ok := requestData["requestBody"].(map[string]interface{})
+			require.True(t, ok, "Le corps de la requête doit être présent")
+
+			// Préparer la requête JSON
+			jsonData, err := json.Marshal(requestBody)
+			require.NoError(t, err, "Erreur lors de la sérialisation JSON")
+
+			// Créer la requête HTTP
+			req, err := http.NewRequest("PUT", testServer.URL+url, bytes.NewBuffer(jsonData))
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+			req.Header.Set("Content-Type", "application/json")
+
+			// Ajouter le header d'authentification si disponible
+			if user, ok := requestData["user"].(*testutils.AuthenticatedUser); ok {
+				req.Header.Set("Authorization", "Bearer "+user.SessionToken)
+			} else if sessionToken, ok := requestData["sessionToken"].(string); ok {
+				req.Header.Set("Authorization", "Bearer "+sessionToken)
+			} else if authHeader, ok := requestData["authHeader"].(string); ok {
+				if authHeader != "" {
+					req.Header.Set("Authorization", authHeader)
+				}
+			}
+
+			// On traite les cas de test un par un.
+			resp, err := testClient.Do(req)
+			require.NoError(t, err, "Erreur lors de l'exécution de la requête")
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode, "Code de statut HTTP incorrect")
+
+			// Parser la réponse JSON
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+
+			// Vérifier le message de succès
+			if testCase.ExpectedMessage != "" {
+				require.Equal(t, testCase.ExpectedMessage, response.Message, "Message de succès incorrect")
+			}
+
+			// Vérifier le message d'erreur
+			if testCase.ExpectedError != "" {
+				require.Contains(t, response.Error, testCase.ExpectedError, "Message d'erreur incorrect")
+			}
+
+			// Vérifications spécifiques pour les cas de succès
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success, "La réponse devrait indiquer un succès")
+			}
+
+			// On purge les données après avoir traité le cas.
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
