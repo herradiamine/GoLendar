@@ -1,0 +1,542 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>user: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">go-averroes/internal/user/user.go (56.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">not covered</span>
+				<span class="cov8">covered</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">// Package user internal/user/user.go
+package user
+
+import (
+        "database/sql"
+        "fmt"
+        "go-averroes/internal/common"
+        "log/slog"
+        "net/http"
+        "regexp"
+
+        "github.com/gin-gonic/gin"
+        "golang.org/x/crypto/bcrypt"
+)
+
+type UserStruct struct{}
+
+var User = UserStruct{}
+
+// Get récupère un utilisateur par son ID
+func (UserStruct) Get(c *gin.Context) <span class="cov8" title="1">{
+        slog.Info(common.LogUserGet)
+        userData, ok := common.GetUserFromContext(c)
+        if !ok </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserGet + " - utilisateur non trouvé dans le contexte")
+                c.JSON(http.StatusUnauthorized, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserNotAuthenticated,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">slog.Info(common.LogUserGet + " - succès")
+        c.JSON(http.StatusOK, common.JSONResponse{
+                Success: true,
+                Data:    userData,
+        })</span>
+}
+
+// Add crée un nouvel utilisateur
+func (UserStruct) Add(c *gin.Context) <span class="cov8" title="1">{
+        slog.Info(common.LogUserAdd)
+        var req common.CreateUserRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov8" title="1">{
+                slog.Error(common.LogUserAdd + " - données invalides : " + err.Error())
+                c.JSON(http.StatusBadRequest, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrInvalidData,
+                })
+                return
+        }</span>
+
+        // Vérifier si l'email existe déjà
+        <span class="cov8" title="1">var existingID int
+        err := common.DB.QueryRow("SELECT user_id FROM user WHERE email = ? AND deleted_at IS NULL", req.Email).Scan(&amp;existingID)
+        if err != sql.ErrNoRows </span><span class="cov8" title="1">{
+                slog.Error(common.LogUserAdd + " - utilisateur déjà existant")
+                c.JSON(http.StatusConflict, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserAlreadyExists,
+                })
+                return
+        }</span>
+
+        // Hasher le mot de passe
+        <span class="cov8" title="1">hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserAdd + " - erreur lors du hash du mot de passe : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrPasswordHashing,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">tx, err := common.DB.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserAdd + " - erreur lors du démarrage de la transaction : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrTransactionStart,
+                })
+                return
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        result, err := tx.Exec(`
+                INSERT INTO user (lastname, firstname, email, created_at) 
+                VALUES (?, ?, ?, NOW())
+        `, req.Lastname, req.Firstname, req.Email)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserAdd + " - erreur lors de la création de l'utilisateur : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserCreation,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">userID, _ := result.LastInsertId()
+
+        _, err = tx.Exec(`
+                INSERT INTO user_password (user_id, password_hash, created_at) 
+                VALUES (?, ?, NOW())
+        `, userID, string(hashedPassword))
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserAdd + " - erreur lors de la création du mot de passe : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrPasswordCreation,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserAdd + " - erreur lors du commit de la transaction : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrTransactionCommit,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">slog.Info(common.LogUserAdd + " - succès")
+        c.JSON(http.StatusCreated, common.JSONResponse{
+                Success: true,
+                Message: common.MsgSuccessCreateUser,
+                Data:    gin.H{"user_id": userID},
+        })</span>
+}
+
+// Update met à jour un utilisateur
+func (UserStruct) Update(c *gin.Context) <span class="cov8" title="1">{
+        slog.Info(common.LogUserUpdate)
+        userData, ok := common.GetUserFromContext(c)
+        if !ok </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserUpdate + " - utilisateur non trouvé dans le contexte")
+                c.JSON(http.StatusUnauthorized, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserNotAuthenticated,
+                })
+                return
+        }</span>
+        <span class="cov8" title="1">userID := userData.UserID
+
+        var req common.UpdateUserRequest
+        if err := c.ShouldBindJSON(&amp;req); err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserUpdate + " - données invalides : " + err.Error())
+                c.JSON(http.StatusBadRequest, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrInvalidData,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">if req.Email != nil </span><span class="cov8" title="1">{
+                emailRegex := regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+                if !emailRegex.MatchString(*req.Email) </span><span class="cov8" title="1">{
+                        slog.Error(common.LogUserUpdate + " - format email invalide")
+                        c.JSON(http.StatusBadRequest, common.JSONResponse{
+                                Success: false,
+                                Error:   common.ErrInvalidEmailFormat,
+                        })
+                        return
+                }</span>
+        }
+
+        <span class="cov8" title="1">if req.Password != nil </span><span class="cov8" title="1">{
+                if len(*req.Password) &lt; 6 </span><span class="cov8" title="1">{
+                        slog.Error(common.LogUserUpdate + " - mot de passe trop court")
+                        c.JSON(http.StatusBadRequest, common.JSONResponse{
+                                Success: false,
+                                Error:   common.ErrPasswordTooShort,
+                        })
+                        return
+                }</span>
+        }
+
+        <span class="cov8" title="1">tx, err := common.DB.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserUpdate + " - erreur lors du démarrage de la transaction : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrTransactionStart,
+                })
+                return
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        query := "UPDATE user SET updated_at = NOW()"
+        var args []interface{}
+
+        if req.Lastname != nil </span><span class="cov8" title="1">{
+                query += ", lastname = ?"
+                args = append(args, *req.Lastname)
+        }</span>
+        <span class="cov8" title="1">if req.Firstname != nil </span><span class="cov8" title="1">{
+                query += ", firstname = ?"
+                args = append(args, *req.Firstname)
+        }</span>
+        <span class="cov8" title="1">if req.Email != nil </span><span class="cov8" title="1">{
+                var existingID int
+                err = tx.QueryRow("SELECT user_id FROM user WHERE email = ? AND user_id != ? AND deleted_at IS NULL", *req.Email, userID).Scan(&amp;existingID)
+                if err != sql.ErrNoRows </span><span class="cov8" title="1">{
+                        slog.Error(common.LogUserUpdate + " - email déjà utilisé")
+                        c.JSON(http.StatusConflict, common.JSONResponse{
+                                Success: false,
+                                Error:   common.ErrUserAlreadyExists,
+                        })
+                        return
+                }</span>
+                <span class="cov8" title="1">query += ", email = ?"
+                args = append(args, *req.Email)</span>
+        }
+
+        <span class="cov8" title="1">query += " WHERE user_id = ?"
+        args = append(args, userID)
+
+        _, err = tx.Exec(query, args...)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserUpdate + " - erreur lors de la mise à jour de l'utilisateur : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserUpdate,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">if req.Password != nil </span><span class="cov8" title="1">{
+                hashedPassword, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+                if err != nil </span><span class="cov0" title="0">{
+                        slog.Error(common.LogUserUpdate + " - erreur lors du hash du mot de passe : " + err.Error())
+                        c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                                Success: false,
+                                Error:   common.ErrPasswordHashing,
+                        })
+                        return
+                }</span>
+
+                <span class="cov8" title="1">_, err = tx.Exec(`
+                        UPDATE user_password 
+                        SET password_hash = ?, updated_at = NOW() 
+                        WHERE user_id = ?
+                `, string(hashedPassword), userID)
+                if err != nil </span><span class="cov0" title="0">{
+                        slog.Error(common.LogUserUpdate + " - erreur lors de la mise à jour du mot de passe : " + err.Error())
+                        c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                                Success: false,
+                                Error:   common.ErrPasswordUpdate,
+                        })
+                        return
+                }</span>
+        }
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserUpdate + " - erreur lors du commit de la transaction : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrTransactionCommit,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">slog.Info(common.LogUserUpdate + " - succès")
+        c.JSON(http.StatusOK, common.JSONResponse{
+                Success: true,
+                Message: common.MsgSuccessUserUpdate,
+        })</span>
+}
+
+// Delete supprime un utilisateur (soft delete)
+func (UserStruct) Delete(c *gin.Context) <span class="cov8" title="1">{
+        slog.Info(common.LogUserDelete)
+        userData, ok := common.GetUserFromContext(c)
+        if !ok </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserDelete + " - utilisateur non trouvé dans le contexte")
+                c.JSON(http.StatusUnauthorized, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserNotAuthenticated,
+                })
+                return
+        }</span>
+        <span class="cov8" title="1">userID := userData.UserID
+
+        tx, err := common.DB.Begin()
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserDelete + " - erreur lors du démarrage de la transaction : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrTransactionStart,
+                })
+                return
+        }</span>
+        <span class="cov8" title="1">defer tx.Rollback()
+
+        _, err = tx.Exec("UPDATE user SET deleted_at = NOW() WHERE user_id = ?", userID)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserDelete + " - erreur lors de la suppression de l'utilisateur : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserDelete,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">_, err = tx.Exec("UPDATE user_password SET deleted_at = NOW() WHERE user_id = ?", userID)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserDelete + " - erreur lors de la suppression du mot de passe : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrPasswordDelete,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">if err := tx.Commit(); err != nil </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserDelete + " - erreur lors du commit de la transaction : " + err.Error())
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrTransactionCommit,
+                })
+                return
+        }</span>
+
+        <span class="cov8" title="1">slog.Info(common.LogUserDelete + " - succès")
+        c.JSON(http.StatusOK, common.JSONResponse{
+                Success: true,
+                Message: common.MsgSuccessUserDelete,
+        })</span>
+}
+
+// GetUserWithRoles récupère un utilisateur avec ses rôles
+func (UserStruct) GetUserWithRoles(c *gin.Context) <span class="cov8" title="1">{
+        slog.Info("Récupération d'un utilisateur avec ses rôles")
+        userData, ok := common.GetUserFromContext(c)
+        if !ok </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserNotFoundInContext)
+                c.JSON(http.StatusUnauthorized, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserNotAuthenticated,
+                })
+                return
+        }</span>
+
+        // Récupérer les rôles de l'utilisateur
+        <span class="cov8" title="1">rows, err := common.DB.Query(`
+                SELECT r.role_id, r.name, r.description, r.created_at, r.updated_at, r.deleted_at
+                FROM roles r
+                INNER JOIN user_roles ur ON r.role_id = ur.role_id
+                WHERE ur.user_id = ? AND ur.deleted_at IS NULL AND r.deleted_at IS NULL
+                ORDER BY r.name
+        `, userData.UserID)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(fmt.Sprintf(common.LogRolesRetrievalError, err.Error()))
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrRoleNotFound,
+                })
+                return
+        }</span>
+        <span class="cov8" title="1">defer rows.Close()
+
+        var roles []common.Role
+        for rows.Next() </span><span class="cov8" title="1">{
+                var role common.Role
+                err := rows.Scan(&amp;role.RoleID, &amp;role.Name, &amp;role.Description, &amp;role.CreatedAt, &amp;role.UpdatedAt, &amp;role.DeletedAt)
+                if err != nil </span><span class="cov0" title="0">{
+                        slog.Error("Erreur lors de la lecture du rôle: " + err.Error())
+                        continue</span>
+                }
+                <span class="cov8" title="1">roles = append(roles, role)</span>
+        }
+
+        <span class="cov8" title="1">userWithRoles := common.UserWithRoles{
+                User:  userData,
+                Roles: roles,
+        }
+
+        slog.Info(common.LogUserGetWithRolesSuccess)
+        c.JSON(http.StatusOK, common.JSONResponse{
+                Success: true,
+                Data:    userWithRoles,
+        })</span>
+}
+
+// GetAuthMe récupère les informations de l'utilisateur authentifié avec ses rôles
+func (UserStruct) GetAuthMe(c *gin.Context) <span class="cov0" title="0">{
+        slog.Info(common.LogUserGetWithRoles)
+
+        userData, ok := common.GetUserFromContext(c)
+        if !ok </span><span class="cov0" title="0">{
+                slog.Error(common.LogUserNotFoundInContext)
+                c.JSON(http.StatusUnauthorized, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrUserNotAuthenticated,
+                })
+                return
+        }</span>
+
+        // Récupérer les rôles de l'utilisateur
+        <span class="cov0" title="0">rows, err := common.DB.Query(`
+                SELECT r.role_id, r.name, r.description, r.created_at, r.updated_at, r.deleted_at
+                FROM roles r
+                INNER JOIN user_roles ur ON r.role_id = ur.role_id
+                WHERE ur.user_id = ? AND ur.deleted_at IS NULL AND r.deleted_at IS NULL
+                ORDER BY r.name
+        `, userData.UserID)
+        if err != nil </span><span class="cov0" title="0">{
+                slog.Error(fmt.Sprintf(common.LogRolesRetrievalError, err.Error()))
+                c.JSON(http.StatusInternalServerError, common.JSONResponse{
+                        Success: false,
+                        Error:   common.ErrRoleNotFound,
+                })
+                return
+        }</span>
+        <span class="cov0" title="0">defer rows.Close()
+
+        var roles []common.Role
+        for rows.Next() </span><span class="cov0" title="0">{
+                var role common.Role
+                err := rows.Scan(&amp;role.RoleID, &amp;role.Name, &amp;role.Description, &amp;role.CreatedAt, &amp;role.UpdatedAt, &amp;role.DeletedAt)
+                if err != nil </span><span class="cov0" title="0">{
+                        slog.Error("Erreur lors de la lecture du rôle: " + err.Error())
+                        continue</span>
+                }
+                <span class="cov0" title="0">roles = append(roles, role)</span>
+        }
+
+        <span class="cov0" title="0">userWithRoles := common.UserWithRoles{
+                User:  userData,
+                Roles: roles,
+        }
+
+        slog.Info("Utilisateur avec rôles récupéré avec succès")
+        c.JSON(http.StatusOK, common.JSONResponse{
+                Success: true,
+                Data:    userWithRoles,
+        })</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
