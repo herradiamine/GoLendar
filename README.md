@@ -295,18 +295,6 @@ go test ./internal/user/
 go test -race ./...
 ```
 
-### Couverture actuelle
-
-| Package | Couverture |
-|---------|------------|
-| `calendar` | 59.8% |
-| `calendar_event` | 44.9% |
-| `middleware` | 47.0% |
-| `role` | 62.1% |
-| `session` | 45.3% |
-| `user` | 34.7% |
-| `user_calendar` | 49.2% |
-
 ### Amélioration de la couverture
 
 Pour améliorer la couverture de tests :
