@@ -2568,3 +2568,468 @@ func TestGetEventsByMonthRoute(t *testing.T) {
 		})
 	}
 }
+
+// TestGetEventsByWeekRoute teste la route GET de récupération d'événements par semaine avec plusieurs cas
+func TestGetEventsByWeekRoute(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		SetupData        func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Récupération réussie d'événements par semaine avec événements",
+			CaseUrl:  "/calendar-event/1/week/2024/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+
+				// Créer des événements pour la semaine 1 de 2024 (1er janvier 2024)
+				result, err := common.DB.Exec(`
+					INSERT INTO event (title, description, start, duration, canceled, created_at) 
+					VALUES (?, ?, ?, ?, ?, NOW())
+				`, "Événement 1 Semaine 1", "Description événement 1", time.Date(2024, 1, 2, 10, 0, 0, 0, time.UTC), 60, false)
+				require.NoError(t, err)
+				eventID1, err := result.LastInsertId()
+				require.NoError(t, err)
+
+				result, err = common.DB.Exec(`
+					INSERT INTO event (title, description, start, duration, canceled, created_at) 
+					VALUES (?, ?, ?, ?, ?, NOW())
+				`, "Événement 2 Semaine 1", "Description événement 2", time.Date(2024, 1, 5, 14, 30, 0, 0, time.UTC), 90, false)
+				require.NoError(t, err)
+				eventID2, err := result.LastInsertId()
+				require.NoError(t, err)
+
+				// Associer les événements au calendrier
+				_, err = common.DB.Exec(`
+					INSERT INTO calendar_event (calendar_id, event_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, 1, eventID1)
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO calendar_event (calendar_id, event_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, 1, eventID2)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Récupération réussie d'événements par semaine sans événements",
+			CaseUrl:  "/calendar-event/1/week/2024/2", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Récupération réussie d'événements par semaine par un utilisateur partagé",
+			CaseUrl:  "/calendar-event/1/week/2024/3", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur propriétaire du calendrier
+				owner, err := testutils.GenerateAuthenticatedUser(false, true, true, true)
+				require.NoError(t, err)
+
+				// Créer un utilisateur qui aura accès au calendrier
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+
+				// Partager le calendrier avec l'utilisateur
+				_, err = common.DB.Exec(`
+					INSERT INTO user_calendar (user_id, calendar_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, user.User.UserID, 1) // Le premier calendrier créé aura l'ID 1
+				require.NoError(t, err)
+
+				// Créer un événement pour la semaine 3 de 2024
+				result, err := common.DB.Exec(`
+					INSERT INTO event (title, description, start, duration, canceled, created_at) 
+					VALUES (?, ?, ?, ?, ?, NOW())
+				`, "Événement partagé Semaine 3", "Description événement partagé", time.Date(2024, 1, 16, 16, 0, 0, 0, time.UTC), 120, false)
+				require.NoError(t, err)
+				eventID, err := result.LastInsertId()
+				require.NoError(t, err)
+
+				// Associer l'événement au calendrier
+				_, err = common.DB.Exec(`
+					INSERT INTO calendar_event (calendar_id, event_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, 1, eventID)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user":  user,
+					"owner": owner,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de récupération sans header Authorization",
+			CaseUrl:  "/calendar-event/1/week/2024/1",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un calendrier sans utilisateur authentifié
+				_, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+
+				return map[string]interface{}{}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de récupération avec header Authorization vide",
+			CaseUrl:  "/calendar-event/1/week/2024/1",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un calendrier
+				_, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"authHeader": "",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de récupération avec token invalide",
+			CaseUrl:  "/calendar-event/1/week/2024/1",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un calendrier
+				_, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec session expirée",
+			CaseUrl:  "/calendar-event/1/week/2024/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur avec session expirée en base
+				user, err := testutils.GenerateAuthenticatedUser(false, true, true, true)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(user.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user":         user,
+					"sessionToken": expiredSessionToken,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec session désactivée",
+			CaseUrl:  "/calendar-event/1/week/2024/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				// Désactiver la session
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE 
+					WHERE session_token = ?
+				`, user.SessionToken)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec calendar_id inexistant",
+			CaseUrl:  "/calendar-event/99999/week/2024/1",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de récupération avec calendar_id invalide (non numérique)",
+			CaseUrl:  "/calendar-event/invalid/week/2024/1",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidCalendarID,
+		},
+		{
+			CaseName: "Échec de récupération avec année invalide (non numérique)",
+			CaseUrl:  "/calendar-event/1/week/invalid/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidYear,
+		},
+		{
+			CaseName: "Échec de récupération avec semaine invalide (non numérique)",
+			CaseUrl:  "/calendar-event/1/week/2024/invalid", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidWeekNumber,
+		},
+		{
+			CaseName: "Échec de récupération avec semaine invalide (hors limites)",
+			CaseUrl:  "/calendar-event/1/week/2024/54", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidWeekNumber,
+		},
+		{
+			CaseName: "Échec de récupération avec semaine invalide (zéro)",
+			CaseUrl:  "/calendar-event/1/week/2024/0", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidWeekNumber,
+		},
+		{
+			CaseName: "Échec de récupération sans accès au calendrier",
+			CaseUrl:  "/calendar-event/1/week/2024/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur propriétaire du calendrier
+				owner, err := testutils.GenerateAuthenticatedUser(false, true, true, true)
+				require.NoError(t, err)
+
+				// Créer un autre utilisateur sans accès au calendrier
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user":  user,
+					"owner": owner,
+				}
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrNoAccessToCalendar,
+		},
+		{
+			CaseName: "Échec de récupération d'événements d'un calendrier supprimé",
+			CaseUrl:  "/calendar-event/1/week/2024/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+
+				// Supprimer le calendrier (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE calendar 
+					SET deleted_at = NOW() 
+					WHERE calendar_id = 1
+				`)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			// On prépare les données utiles au traitement de ce cas.
+			setupData := testCase.SetupData()
+
+			// Remplacer les IDs dans l'URL si nécessaire
+			url := testCase.CaseUrl
+			if user, ok := setupData["user"].(*testutils.AuthenticatedUser); ok {
+				// Récupérer l'ID du calendrier de l'utilisateur
+				var calendarID int
+				err := common.DB.QueryRow(`
+					SELECT c.calendar_id 
+					FROM calendar c
+					INNER JOIN user_calendar uc ON c.calendar_id = uc.calendar_id
+					WHERE uc.user_id = ? AND c.deleted_at IS NULL AND uc.deleted_at IS NULL
+					ORDER BY c.created_at DESC
+					LIMIT 1
+				`, user.User.UserID).Scan(&calendarID)
+				if err == nil {
+					// Préserver les paramètres year et week de l'URL originale pour les cas de validation
+					if strings.Contains(testCase.CaseName, "invalide") {
+						// Pour les cas de validation, garder les paramètres invalides
+						urlParts := strings.Split(testCase.CaseUrl, "/")
+						if len(urlParts) >= 6 {
+							url = "/calendar-event/" + strconv.Itoa(calendarID) + "/week/" + urlParts[4] + "/" + urlParts[5]
+						}
+					} else {
+						// Pour les autres cas, utiliser les paramètres par défaut
+						url = "/calendar-event/" + strconv.Itoa(calendarID) + "/week/2024/1"
+					}
+				}
+			}
+
+			// Créer la requête HTTP
+			req, err := http.NewRequest("GET", testServer.URL+url, nil)
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+
+			// Ajouter le header d'authentification si disponible
+			if user, ok := setupData["user"].(*testutils.AuthenticatedUser); ok {
+				req.Header.Set("Authorization", "Bearer "+user.SessionToken)
+			} else if sessionToken, ok := setupData["sessionToken"].(string); ok {
+				req.Header.Set("Authorization", "Bearer "+sessionToken)
+			} else if authHeader, ok := setupData["authHeader"].(string); ok {
+				if authHeader != "" {
+					req.Header.Set("Authorization", authHeader)
+				}
+			}
+
+			// On traite les cas de test un par un.
+			resp, err := testClient.Do(req)
+			require.NoError(t, err, "Erreur lors de l'exécution de la requête")
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode, "Code de statut HTTP incorrect")
+
+			// Parser la réponse JSON
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+
+			// Vérifier le message de succès
+			if testCase.ExpectedMessage != "" {
+				require.Equal(t, testCase.ExpectedMessage, response.Message, "Message de succès incorrect")
+			}
+
+			// Vérifier le message d'erreur
+			if testCase.ExpectedError != "" {
+				require.Contains(t, response.Error, testCase.ExpectedError, "Message d'erreur incorrect")
+			}
+
+			// Vérifications spécifiques pour les cas de succès
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success, "La réponse devrait indiquer un succès")
+
+				// Vérifier que les données sont présentes (peuvent être nulles pour un tableau vide)
+				if response.Data != nil {
+					// Vérifier que les données sont un tableau d'événements
+					eventsData, ok := response.Data.([]interface{})
+					require.True(t, ok, "Les données devraient être un tableau d'événements")
+
+					// Pour les cas avec événements, vérifier qu'il y en a
+					if strings.Contains(testCase.CaseName, "avec événements") {
+						require.Greater(t, len(eventsData), 0, "Il devrait y avoir au moins un événement")
+					}
+				} else {
+					// Pour les cas sans événements, les données peuvent être nulles
+					if strings.Contains(testCase.CaseName, "sans événements") {
+						// C'est normal que les données soient nulles pour un tableau vide
+					}
+				}
+			}
+
+			// On purge les données après avoir traité le cas.
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
