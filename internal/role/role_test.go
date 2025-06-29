@@ -2499,3 +2499,353 @@ func TestRevokeRoleRoute(t *testing.T) {
 		})
 	}
 }
+
+// TestGetUserRolesRoute teste la route GET de récupération des rôles d'un utilisateur avec plusieurs cas
+func TestGetUserRolesRoute(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		SetupData        func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Récupération réussie des rôles d'un utilisateur avec rôles",
+			CaseUrl:  "/roles/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur normal
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				// Créer des rôles de test
+				result1, err := common.DB.Exec(`
+					INSERT INTO roles (name, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "TestRole1", "Premier rôle de test")
+				require.NoError(t, err)
+				roleID1, err := result1.LastInsertId()
+				require.NoError(t, err)
+
+				result2, err := common.DB.Exec(`
+					INSERT INTO roles (name, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "TestRole2", "Deuxième rôle de test")
+				require.NoError(t, err)
+				roleID2, err := result2.LastInsertId()
+				require.NoError(t, err)
+
+				// Attribuer les rôles à l'utilisateur
+				_, err = common.DB.Exec(`
+					INSERT INTO user_roles (user_id, role_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, user.User.UserID, roleID1)
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO user_roles (user_id, role_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, user.User.UserID, roleID2)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"user":  user,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Récupération réussie des rôles d'un utilisateur sans rôles",
+			CaseUrl:  "/roles/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur normal sans rôles
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"user":  user,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de récupération sans header Authorization",
+			CaseUrl:  "/roles/user/1",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur normal sans authentification
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user": user,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec header Authorization vide",
+			CaseUrl:  "/roles/user/1",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur normal
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"authHeader": "",
+					"user":       user,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec token invalide",
+			CaseUrl:  "/roles/user/1",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur normal
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+					"user":       user,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec session expirée",
+			CaseUrl:  "/roles/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session expirée
+				admin, err := testutils.GenerateAuthenticatedAdmin(false, true, false, false)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(admin.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+
+				// Créer un utilisateur normal
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin":        admin,
+					"sessionToken": expiredSessionToken,
+					"user":         user,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération par un utilisateur non admin",
+			CaseUrl:  "/roles/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur normal (non admin) authentifié
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un autre utilisateur
+				otherUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user":      user,
+					"otherUser": otherUser,
+				}
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInsufficientPermissions,
+		},
+		{
+			CaseName: "Échec de récupération avec user_id inexistant",
+			CaseUrl:  "/roles/user/99999",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotFound,
+		},
+		{
+			CaseName: "Récupération réussie avec rôles supprimés (soft delete)",
+			CaseUrl:  "/roles/user/1", // Sera remplacé par l'ID réel
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur normal
+				user, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				// Créer des rôles de test
+				result1, err := common.DB.Exec(`
+					INSERT INTO roles (name, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "TestRole1", "Premier rôle de test")
+				require.NoError(t, err)
+				roleID1, err := result1.LastInsertId()
+				require.NoError(t, err)
+
+				result2, err := common.DB.Exec(`
+					INSERT INTO roles (name, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "TestRole2", "Deuxième rôle de test")
+				require.NoError(t, err)
+				roleID2, err := result2.LastInsertId()
+				require.NoError(t, err)
+
+				// Attribuer les rôles à l'utilisateur
+				_, err = common.DB.Exec(`
+					INSERT INTO user_roles (user_id, role_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, user.User.UserID, roleID1)
+				require.NoError(t, err)
+
+				_, err = common.DB.Exec(`
+					INSERT INTO user_roles (user_id, role_id, created_at) 
+					VALUES (?, ?, NOW())
+				`, user.User.UserID, roleID2)
+				require.NoError(t, err)
+
+				// Supprimer un rôle (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE roles 
+					SET deleted_at = NOW() 
+					WHERE role_id = ?
+				`, roleID1)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"user":  user,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			// On prépare les données utiles au traitement de ce cas.
+			setupData := testCase.SetupData()
+
+			// Remplacer les IDs dans l'URL si nécessaire
+			url := testCase.CaseUrl
+			if user, ok := setupData["user"].(*testutils.AuthenticatedUser); ok {
+				url = "/roles/user/" + strconv.Itoa(user.User.UserID)
+			} else if otherUser, ok := setupData["otherUser"].(*testutils.AuthenticatedUser); ok {
+				url = "/roles/user/" + strconv.Itoa(otherUser.User.UserID)
+			}
+
+			// Créer la requête HTTP
+			req, err := http.NewRequest("GET", testServer.URL+url, nil)
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+
+			// Ajouter le header d'authentification si disponible
+			if admin, ok := setupData["admin"].(*testutils.AuthenticatedUser); ok {
+				req.Header.Set("Authorization", "Bearer "+admin.SessionToken)
+			} else if user, ok := setupData["user"].(*testutils.AuthenticatedUser); ok {
+				req.Header.Set("Authorization", "Bearer "+user.SessionToken)
+			} else if sessionToken, ok := setupData["sessionToken"].(string); ok {
+				req.Header.Set("Authorization", "Bearer "+sessionToken)
+			} else if authHeader, ok := setupData["authHeader"].(string); ok {
+				if authHeader != "" {
+					req.Header.Set("Authorization", authHeader)
+				}
+			}
+
+			// On traite les cas de test un par un.
+			resp, err := testClient.Do(req)
+			require.NoError(t, err, "Erreur lors de l'exécution de la requête")
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode, "Code de statut HTTP incorrect")
+
+			// Parser la réponse JSON
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+
+			// Vérifier le message de succès
+			if testCase.ExpectedMessage != "" {
+				require.Equal(t, testCase.ExpectedMessage, response.Message, "Message de succès incorrect")
+			}
+
+			// Vérifier le message d'erreur
+			if testCase.ExpectedError != "" {
+				require.Contains(t, response.Error, testCase.ExpectedError, "Message d'erreur incorrect")
+			}
+
+			// Vérifications spécifiques pour les cas de succès
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success, "La réponse devrait indiquer un succès")
+
+				// Vérifier que les données sont présentes
+				if response.Data != nil {
+					// Vérifier que les données sont un tableau de rôles
+					rolesData, ok := response.Data.([]interface{})
+					require.True(t, ok, "Les données devraient être un tableau de rôles")
+
+					// Pour les cas avec rôles, vérifier qu'il y en a
+					if strings.Contains(testCase.CaseName, "avec rôles") {
+						require.Greater(t, len(rolesData), 0, "Il devrait y avoir au moins un rôle")
+					}
+
+					// Pour les cas sans rôles, vérifier qu'il n'y en a pas
+					if strings.Contains(testCase.CaseName, "sans rôles") {
+						require.Equal(t, 0, len(rolesData), "Il ne devrait y avoir aucun rôle")
+					}
+
+					// Pour les cas avec rôles supprimés, vérifier qu'il n'y a que les rôles actifs
+					if strings.Contains(testCase.CaseName, "supprimés") {
+						require.Equal(t, 1, len(rolesData), "Il devrait y avoir un seul rôle actif")
+					}
+				} else {
+					// Pour les cas sans rôles, les données peuvent être nulles
+					if strings.Contains(testCase.CaseName, "sans rôles") {
+						// C'est normal que les données soient nulles pour un tableau vide
+					} else {
+						require.NotNil(t, response.Data, "Les données de réponse ne devraient pas être nulles")
+					}
+				}
+			}
+
+			// On purge les données après avoir traité le cas.
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
