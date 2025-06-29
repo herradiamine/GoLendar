@@ -7,7 +7,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -289,63 +288,6 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 		Success: true,
 		Message: common.MsgSuccessDeleteEvent,
 	})
-}
-
-// parseDateFilter parse la date selon le type de filtre et retourne les bornes temporelles
-func parseDateFilter(filterType, dateStr string) (time.Time, time.Time, error) {
-	switch filterType {
-	case "day":
-		// Format: "2024-01-15"
-		date, err := time.Parse("2006-01-02", dateStr)
-		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidDayFormat)
-		}
-		startDate := date
-		endDate := date.Add(24 * time.Hour)
-		return startDate, endDate, nil
-
-	case "week":
-		// Format: "2024-W01" (année-semaine ISO)
-		parts := strings.Split(dateStr, "-W")
-		if len(parts) != 2 {
-			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidWeekFormat)
-		}
-		year, err := strconv.Atoi(parts[0])
-		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidYear)
-		}
-		week, err := strconv.Atoi(parts[1])
-		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidWeekNumber)
-		}
-
-		// Calculer le premier jour de la semaine ISO (lundi de la semaine 1)
-		// La semaine 1 est celle qui contient le 4 janvier
-		jan4 := time.Date(year, 1, 4, 0, 0, 0, 0, time.UTC)
-		weekday := int(jan4.Weekday())
-		if weekday == 0 {
-			weekday = 7 // Dimanche = 7
-		}
-		// Le lundi de la semaine 1
-		week1Monday := jan4.AddDate(0, 0, 1-weekday)
-		// Le lundi de la semaine demandée
-		startDate := week1Monday.AddDate(0, 0, (week-1)*7)
-		endDate := startDate.AddDate(0, 0, 7)
-		return startDate, endDate, nil
-
-	case "month":
-		// Format: "2024-01"
-		date, err := time.Parse("2006-01", dateStr)
-		if err != nil {
-			return time.Time{}, time.Time{}, fmt.Errorf(common.ErrInvalidMonthFormat)
-		}
-		startDate := date
-		endDate := date.AddDate(0, 1, 0)
-		return startDate, endDate, nil
-
-	default:
-		return time.Time{}, time.Time{}, fmt.Errorf(common.ErrUnsupportedFilterType)
-	}
 }
 
 // ListByMonth récupère les événements d'un calendrier pour un mois donné
