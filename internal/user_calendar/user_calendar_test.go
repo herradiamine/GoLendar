@@ -1148,3 +1148,229 @@ func TestPutUserCalendarRoute(t *testing.T) {
 		})
 	}
 }
+
+// TestDeleteUserCalendarRoute teste la route DELETE /user-calendar/:user_id/:calendar_id avec plusieurs cas
+func TestDeleteUserCalendarRoute(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		SetupData        func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Suppression réussie d'une liaison user-calendar existante",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier (liaison existante)
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				// Construire l'URL avec les vrais IDs
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"calendarID": targetUser.Calendar.CalendarID,
+					"userID":     targetUser.User.UserID,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusOK,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de suppression avec utilisateur inexistant",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/99999/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotFound,
+		},
+		{
+			CaseName: "Échec de suppression avec calendrier inexistant",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        fmt.Sprintf("/user-calendar/%d/99999", targetUser.User.UserID),
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de suppression avec liaison user-calendar inexistante",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible sans calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un calendrier séparé sans liaison avec l'utilisateur
+				result, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+				calendarID, _ := result.LastInsertId()
+
+				// Ne pas créer la liaison user-calendar pour tester le cas d'erreur
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"calendarID": calendarID,
+					"userID":     targetUser.User.UserID,
+					"url":        fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, calendarID),
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de suppression sans authentification",
+			SetupData: func() map[string]interface{} {
+				// Aucune préparation nécessaire, on teste l'accès non authentifié
+				return map[string]interface{}{
+					"url": "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de suppression sans droits admin",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur normal (non admin) pour tester l'accès refusé
+				user, err := testutils.GenerateAuthenticatedUser(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"user": user,
+					"url":  "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInsufficientPermissions,
+		},
+		{
+			CaseName: "Échec de suppression quand un admin tente de supprimer une liaison d'un autre admin",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour se connecter (sans calendrier)
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un autre utilisateur admin avec calendrier
+				otherAdmin, err := testutils.GenerateAuthenticatedAdmin(false, true, true, false)
+				require.NoError(t, err)
+
+				// Construire l'URL avec l'ID de l'autre admin et son calendrier
+				url := fmt.Sprintf("/user-calendar/%d/%d", otherAdmin.User.UserID, otherAdmin.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"otherAdmin": otherAdmin,
+					"userID":     otherAdmin.User.UserID,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInsufficientPermissions,
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			// On prépare les données utiles au traitement de ce cas.
+			setupData := testCase.SetupData()
+
+			// On traite les cas de test un par un.
+			var req *http.Request
+			var err error
+
+			// Préparer la requête HTTP
+			if admin, exists := setupData["admin"]; exists {
+				// Cas avec authentification admin
+				adminUser := admin.(*testutils.AuthenticatedUser)
+				req, err = http.NewRequest("DELETE", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+			} else if user, exists := setupData["user"]; exists {
+				// Cas avec authentification utilisateur normal
+				normalUser := user.(*testutils.AuthenticatedUser)
+				req, err = http.NewRequest("DELETE", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+				req.Header.Set("Authorization", "Bearer "+normalUser.SessionToken)
+			} else {
+				// Cas sans authentification
+				req, err = http.NewRequest("DELETE", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+			}
+
+			// Exécuter la requête
+			resp, err := testClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode)
+
+			// Parser la réponse JSON
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err)
+
+			// Vérifier le message d'erreur si attendu
+			if testCase.ExpectedError != "" {
+				require.Equal(t, testCase.ExpectedError, response.Error)
+			}
+
+			// Vérifier le message de succès si attendu
+			if testCase.ExpectedMessage != "" {
+				require.Equal(t, testCase.ExpectedMessage, response.Message)
+			}
+
+			// Vérifier la structure de la réponse pour le cas de succès
+			if testCase.ExpectedHttpCode == http.StatusOK {
+				require.True(t, response.Success)
+				// La fonction Delete ne retourne pas de données, seulement un message de succès
+			}
+
+			// On purge les données après avoir traité le cas.
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
