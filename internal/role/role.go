@@ -7,6 +7,7 @@ import (
 	"go-averroes/internal/common"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
@@ -21,6 +22,16 @@ func (RoleStruct) GetRole(c *gin.Context) {
 
 	roleID := c.Param("id")
 	if roleID == "" {
+		slog.Error(common.ErrMissingRoleID)
+		c.JSON(http.StatusBadRequest, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrMissingRoleID,
+		})
+		return
+	}
+
+	// Vérifier si l'ID est numérique
+	if _, err := strconv.Atoi(roleID); err != nil {
 		slog.Error(common.ErrMissingRoleID)
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
@@ -237,19 +248,39 @@ func (RoleStruct) DeleteRole(c *gin.Context) {
 		slog.Error(common.ErrMissingRoleID)
 		c.JSON(http.StatusBadRequest, common.JSONResponse{
 			Success: false,
-			Error:   common.ErrInvalidData,
+			Error:   common.ErrMissingRoleID,
+		})
+		return
+	}
+
+	// Vérifier si l'ID est numérique
+	if _, err := strconv.Atoi(roleID); err != nil {
+		slog.Error(common.ErrMissingRoleID)
+		c.JSON(http.StatusBadRequest, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrMissingRoleID,
 		})
 		return
 	}
 
 	// Vérifier si le rôle existe
 	var existingRole common.Role
-	err := common.DB.QueryRow("SELECT role_id FROM roles WHERE role_id = ? AND deleted_at IS NULL", roleID).Scan(&existingRole.RoleID)
+	err := common.DB.QueryRow("SELECT role_id, name FROM roles WHERE role_id = ? AND deleted_at IS NULL", roleID).Scan(&existingRole.RoleID, &existingRole.Name)
 	if err == sql.ErrNoRows {
 		slog.Error(common.ErrRoleNotFound)
 		c.JSON(http.StatusNotFound, common.JSONResponse{
 			Success: false,
 			Error:   common.ErrRoleNotFound,
+		})
+		return
+	}
+
+	// Empêcher la suppression du rôle admin
+	if existingRole.Name == "admin" {
+		slog.Error("Tentative de suppression du rôle admin")
+		c.JSON(http.StatusForbidden, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrInsufficientPermissions,
 		})
 		return
 	}
