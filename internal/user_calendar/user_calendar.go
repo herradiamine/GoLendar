@@ -277,11 +277,10 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 // List récupère toutes les liaisons user calendar pour un utilisateur
 func (UserCalendarStruct) List(c *gin.Context) {
 	slog.Info(common.LogUserCalendarList)
-	userData, ok := common.GetUserFromContext(c)
+	userID, ok := checkUserAccess(c)
 	if !ok {
 		return
 	}
-	userID := userData.UserID
 
 	rows, err := common.DB.Query(`
 		SELECT uc.user_calendar_id, uc.user_id, uc.calendar_id, uc.created_at, uc.updated_at, uc.deleted_at,
