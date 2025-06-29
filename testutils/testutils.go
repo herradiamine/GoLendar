@@ -323,6 +323,7 @@ func PurgeAllTestUsers() {
 	common.DB.Exec("TRUNCATE TABLE user_session")
 	common.DB.Exec("TRUNCATE TABLE user_password")
 	common.DB.Exec("TRUNCATE TABLE user")
+	common.DB.Exec("TRUNCATE TABLE roles")
 	common.DB.Exec("SET FOREIGN_KEY_CHECKS=1;")
 }
 
