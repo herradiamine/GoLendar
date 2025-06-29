@@ -335,6 +335,8 @@ type AuthenticatedUser struct {
 	RefreshToken string
 	ExpiresAt    time.Time
 	Roles        []common.Role
+	Calendar     *common.Calendar
+	Event        *common.Event
 }
 
 // GenerateAuthenticatedAdmin génère un admin avec option d'authentification
@@ -353,6 +355,8 @@ func GenerateAuthenticatedAdmin(authenticated, saveToDB, hasCalendar, hasEvent b
 	var roles []common.Role
 	var sessionToken, refreshToken string
 	var expiresAt time.Time
+	var calendar *common.Calendar
+	var event *common.Event
 	var err error
 
 	if saveToDB {
@@ -390,17 +394,39 @@ func GenerateAuthenticatedAdmin(authenticated, saveToDB, hasCalendar, hasEvent b
 
 		// Créer un calendrier si demandé
 		if hasCalendar {
-			_, err = createCalendarForUser(admin.UserID, "Calendrier Admin", "Calendrier de test pour admin")
+			calendarID, err := CreateCalendarForUser(admin.UserID, "Calendrier Admin", "Calendrier de test pour admin")
 			if err != nil {
 				return nil, fmt.Errorf("erreur lors de la création du calendrier: %v", err)
+			}
+
+			// Récupérer les informations du calendrier créé
+			calendar = &common.Calendar{}
+			err = common.DB.QueryRow(`
+				SELECT calendar_id, title, description, created_at, updated_at, deleted_at 
+				FROM calendar 
+				WHERE calendar_id = ?
+			`, calendarID).Scan(&calendar.CalendarID, &calendar.Title, &calendar.Description, &calendar.CreatedAt, &calendar.UpdatedAt, &calendar.DeletedAt)
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la récupération du calendrier: %v", err)
 			}
 		}
 
 		// Créer un événement si demandé (nécessite un calendrier)
 		if hasEvent && hasCalendar {
-			_, err = createEventForUser(admin.UserID, "Événement Admin", "Événement de test pour admin")
+			eventID, err := createEventForUser(admin.UserID, "Événement Admin", "Événement de test pour admin")
 			if err != nil {
 				return nil, fmt.Errorf("erreur lors de la création de l'événement: %v", err)
+			}
+
+			// Récupérer les informations de l'événement créé
+			event = &common.Event{}
+			err = common.DB.QueryRow(`
+				SELECT event_id, title, description, start, duration, canceled, created_at, updated_at, deleted_at 
+				FROM event 
+				WHERE event_id = ?
+			`, eventID).Scan(&event.EventID, &event.Title, &event.Description, &event.Start, &event.Duration, &event.Canceled, &event.CreatedAt, &event.UpdatedAt, &event.DeletedAt)
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la récupération de l'événement: %v", err)
 			}
 		}
 	} else {
@@ -440,6 +466,33 @@ func GenerateAuthenticatedAdmin(authenticated, saveToDB, hasCalendar, hasEvent b
 
 			expiresAt = time.Now().Add(24 * time.Hour)
 		}
+
+		// Créer un calendrier en mémoire si demandé
+		if hasCalendar {
+			calendar = &common.Calendar{
+				CalendarID:  1,
+				Title:       "Calendrier Admin",
+				Description: common.StringPtr("Calendrier de test pour admin"),
+				CreatedAt:   time.Now(),
+				UpdatedAt:   nil,
+				DeletedAt:   nil,
+			}
+		}
+
+		// Créer un événement en mémoire si demandé
+		if hasEvent && hasCalendar {
+			event = &common.Event{
+				EventID:     1,
+				Title:       "Événement Admin",
+				Description: common.StringPtr("Événement de test pour admin"),
+				Start:       time.Now().Add(1 * time.Hour),
+				Duration:    60,
+				Canceled:    false,
+				CreatedAt:   time.Now(),
+				UpdatedAt:   nil,
+				DeletedAt:   nil,
+			}
+		}
 	}
 
 	return &AuthenticatedUser{
@@ -449,6 +502,8 @@ func GenerateAuthenticatedAdmin(authenticated, saveToDB, hasCalendar, hasEvent b
 		RefreshToken: refreshToken,
 		ExpiresAt:    expiresAt,
 		Roles:        roles,
+		Calendar:     calendar,
+		Event:        event,
 	}, nil
 }
 
@@ -468,6 +523,8 @@ func GenerateAuthenticatedUser(authenticated, saveToDB, hasCalendar, hasEvent bo
 	var roles []common.Role
 	var sessionToken, refreshToken string
 	var expiresAt time.Time
+	var calendar *common.Calendar
+	var event *common.Event
 	var err error
 
 	if saveToDB {
@@ -493,17 +550,39 @@ func GenerateAuthenticatedUser(authenticated, saveToDB, hasCalendar, hasEvent bo
 
 		// Créer un calendrier si demandé
 		if hasCalendar {
-			_, err = createCalendarForUser(user.UserID, "Calendrier Utilisateur", "Calendrier de test pour utilisateur")
+			calendarID, err := CreateCalendarForUser(user.UserID, "Calendrier Utilisateur", "Calendrier de test pour utilisateur")
 			if err != nil {
 				return nil, fmt.Errorf("erreur lors de la création du calendrier: %v", err)
+			}
+
+			// Récupérer les informations du calendrier créé
+			calendar = &common.Calendar{}
+			err = common.DB.QueryRow(`
+				SELECT calendar_id, title, description, created_at, updated_at, deleted_at 
+				FROM calendar 
+				WHERE calendar_id = ?
+			`, calendarID).Scan(&calendar.CalendarID, &calendar.Title, &calendar.Description, &calendar.CreatedAt, &calendar.UpdatedAt, &calendar.DeletedAt)
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la récupération du calendrier: %v", err)
 			}
 		}
 
 		// Créer un événement si demandé (nécessite un calendrier)
 		if hasEvent && hasCalendar {
-			_, err = createEventForUser(user.UserID, "Événement Utilisateur", "Événement de test pour utilisateur")
+			eventID, err := createEventForUser(user.UserID, "Événement Utilisateur", "Événement de test pour utilisateur")
 			if err != nil {
 				return nil, fmt.Errorf("erreur lors de la création de l'événement: %v", err)
+			}
+
+			// Récupérer les informations de l'événement créé
+			event = &common.Event{}
+			err = common.DB.QueryRow(`
+				SELECT event_id, title, description, start, duration, canceled, created_at, updated_at, deleted_at 
+				FROM event 
+				WHERE event_id = ?
+			`, eventID).Scan(&event.EventID, &event.Title, &event.Description, &event.Start, &event.Duration, &event.Canceled, &event.CreatedAt, &event.UpdatedAt, &event.DeletedAt)
+			if err != nil {
+				return nil, fmt.Errorf("erreur lors de la récupération de l'événement: %v", err)
 			}
 		}
 	} else {
@@ -535,6 +614,33 @@ func GenerateAuthenticatedUser(authenticated, saveToDB, hasCalendar, hasEvent bo
 
 			expiresAt = time.Now().Add(24 * time.Hour)
 		}
+
+		// Créer un calendrier en mémoire si demandé
+		if hasCalendar {
+			calendar = &common.Calendar{
+				CalendarID:  2,
+				Title:       "Calendrier Utilisateur",
+				Description: common.StringPtr("Calendrier de test pour utilisateur"),
+				CreatedAt:   time.Now(),
+				UpdatedAt:   nil,
+				DeletedAt:   nil,
+			}
+		}
+
+		// Créer un événement en mémoire si demandé
+		if hasEvent && hasCalendar {
+			event = &common.Event{
+				EventID:     2,
+				Title:       "Événement Utilisateur",
+				Description: common.StringPtr("Événement de test pour utilisateur"),
+				Start:       time.Now().Add(1 * time.Hour),
+				Duration:    60,
+				Canceled:    false,
+				CreatedAt:   time.Now(),
+				UpdatedAt:   nil,
+				DeletedAt:   nil,
+			}
+		}
 	}
 
 	return &AuthenticatedUser{
@@ -544,6 +650,8 @@ func GenerateAuthenticatedUser(authenticated, saveToDB, hasCalendar, hasEvent bo
 		RefreshToken: refreshToken,
 		ExpiresAt:    expiresAt,
 		Roles:        roles,
+		Calendar:     calendar,
+		Event:        event,
 	}, nil
 }
 
@@ -708,7 +816,7 @@ func GetStringValue(s *string) string {
 }
 
 // createCalendarForUser crée un calendrier et l'associe à un utilisateur
-func createCalendarForUser(userID int, title, description string) (int, error) {
+func CreateCalendarForUser(userID int, title, description string) (int, error) {
 	// Démarrer une transaction
 	tx, err := common.DB.Begin()
 	if err != nil {
