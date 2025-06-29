@@ -5,6 +5,11 @@ set -e
 
 echo "🚀 Démarrage de l'analyse SonarCloud pour GoLendar..."
 
+# Configuration Git pour éviter le shallow clone
+echo "🔧 Configuration Git pour l'analyse SonarCloud..."
+git config --global fetch.unshallow true
+git fetch --unshallow || echo "⚠️  Le dépôt n'est pas un shallow clone ou l'historique complet est déjà disponible"
+
 # Vérifier si le token SonarCloud est défini
 if [ -z "$SONAR_TOKEN" ]; then
     echo "❌ Variable d'environnement SONAR_TOKEN non définie"
