@@ -1468,9 +1468,9 @@ func TestUpdateEventRoute(t *testing.T) {
 					},
 				}
 			},
-			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedHttpCode: http.StatusNotFound,
 			ExpectedMessage:  "",
-			ExpectedError:    common.ErrInvalidEventID,
+			ExpectedError:    common.ErrEventNotFound,
 		},
 		{
 			CaseName: "Échec de mise à jour sans accès au calendrier",
