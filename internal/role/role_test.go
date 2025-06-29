@@ -1,6 +1,7 @@
 package role_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"go-averroes/internal/common"
 	"go-averroes/testutils"
@@ -618,6 +619,336 @@ func TestGetRoleRoute(t *testing.T) {
 				require.Contains(t, roleData, "role_id", "Le rôle devrait avoir un ID")
 				require.Contains(t, roleData, "name", "Le rôle devrait avoir un nom")
 				require.Contains(t, roleData, "description", "Le rôle devrait avoir une description")
+			}
+
+			// On purge les données après avoir traité le cas.
+			testutils.PurgeAllTestUsers()
+		})
+	}
+}
+
+// TestCreateRoleRoute teste la route POST de création d'un rôle avec plusieurs cas
+func TestCreateRoleRoute(t *testing.T) {
+	// TestCases contient les cas qui seront testés
+	var TestCases = []struct {
+		CaseName         string
+		CaseUrl          string
+		RequestData      func() map[string]interface{}
+		ExpectedHttpCode int
+		ExpectedMessage  string
+		ExpectedError    string
+	}{
+		{
+			CaseName: "Création réussie d'un rôle avec toutes les données",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"admin": admin,
+					"requestBody": map[string]interface{}{
+						"name":        "Moderator",
+						"description": "Rôle modérateur avec permissions limitées",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusCreated,
+			ExpectedMessage:  common.MsgSuccessCreateRole,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Création réussie d'un rôle avec description vide",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"admin": admin,
+					"requestBody": map[string]interface{}{
+						"name":        "Editor",
+						"description": "",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusCreated,
+			ExpectedMessage:  common.MsgSuccessCreateRole,
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de création sans header Authorization",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"requestBody": map[string]interface{}{
+						"name":        "TestRole",
+						"description": "Rôle de test",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de création avec header Authorization vide",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"authHeader": "",
+					"requestBody": map[string]interface{}{
+						"name":        "TestRole",
+						"description": "Rôle de test",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de création avec token invalide",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+					"requestBody": map[string]interface{}{
+						"name":        "TestRole",
+						"description": "Rôle de test",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de création avec session expirée",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur admin avec session expirée en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(false, true, true, true)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(admin.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"admin":        admin,
+					"sessionToken": expiredSessionToken,
+					"requestBody": map[string]interface{}{
+						"name":        "TestRole",
+						"description": "Rôle de test",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de création avec session désactivée",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur admin avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, true, true)
+				require.NoError(t, err)
+				// Désactiver la session
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE 
+					WHERE session_token = ?
+				`, admin.SessionToken)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"admin": admin,
+					"requestBody": map[string]interface{}{
+						"name":        "TestRole",
+						"description": "Rôle de test",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de création par un utilisateur non admin",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur normal (non admin) authentifié avec session active en base
+				user, err := testutils.GenerateAuthenticatedUser(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"user": user,
+					"requestBody": map[string]interface{}{
+						"name":        "TestRole",
+						"description": "Rôle de test",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusForbidden,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInsufficientPermissions,
+		},
+		{
+			CaseName: "Échec de création avec nom manquant",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"admin": admin,
+					"requestBody": map[string]interface{}{
+						"description": "Rôle de test",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidData,
+		},
+		{
+			CaseName: "Échec de création avec nom vide",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"admin": admin,
+					"requestBody": map[string]interface{}{
+						"name":        "",
+						"description": "Rôle de test",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidData,
+		},
+		{
+			CaseName: "Échec de création avec nom déjà existant",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, true, true)
+				require.NoError(t, err)
+
+				// Créer un rôle avec le même nom
+				_, err = common.DB.Exec(`
+					INSERT INTO roles (name, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "DuplicateRole", "Rôle existant")
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"requestBody": map[string]interface{}{
+						"name":        "DuplicateRole",
+						"description": "Rôle en doublon",
+					},
+				}
+			},
+			ExpectedHttpCode: http.StatusConflict,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrRoleAlreadyExists,
+		},
+		{
+			CaseName: "Échec de création avec données JSON vides",
+			CaseUrl:  "/roles",
+			RequestData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION DE LA REQUEST POST/PUT
+				// Créer un utilisateur admin authentifié avec session active en base
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, true, true)
+				require.NoError(t, err)
+				return map[string]interface{}{
+					"admin":       admin,
+					"requestBody": map[string]interface{}{},
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidData,
+		},
+	}
+
+	// On boucle sur les cas de test contenu dans TestCases
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// On isole le cas avant de le traiter.
+			// On prépare les données utiles au traitement de ce cas.
+			requestData := testCase.RequestData()
+
+			// Extraire les données de requête
+			requestBody, ok := requestData["requestBody"].(map[string]interface{})
+			require.True(t, ok, "Le corps de la requête doit être présent")
+
+			// Préparer la requête JSON
+			jsonData, err := json.Marshal(requestBody)
+			require.NoError(t, err, "Erreur lors de la sérialisation JSON")
+
+			// Créer la requête HTTP
+			req, err := http.NewRequest("POST", testServer.URL+testCase.CaseUrl, bytes.NewBuffer(jsonData))
+			require.NoError(t, err, "Erreur lors de la création de la requête")
+			req.Header.Set("Content-Type", "application/json")
+
+			// Ajouter le header d'authentification si disponible
+			if admin, ok := requestData["admin"].(*testutils.AuthenticatedUser); ok {
+				req.Header.Set("Authorization", "Bearer "+admin.SessionToken)
+			} else if user, ok := requestData["user"].(*testutils.AuthenticatedUser); ok {
+				req.Header.Set("Authorization", "Bearer "+user.SessionToken)
+			} else if sessionToken, ok := requestData["sessionToken"].(string); ok {
+				req.Header.Set("Authorization", "Bearer "+sessionToken)
+			} else if authHeader, ok := requestData["authHeader"].(string); ok {
+				if authHeader != "" {
+					req.Header.Set("Authorization", authHeader)
+				}
+			}
+
+			// On traite les cas de test un par un.
+			resp, err := testClient.Do(req)
+			require.NoError(t, err, "Erreur lors de l'exécution de la requête")
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut HTTP
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode, "Code de statut HTTP incorrect")
+
+			// Parser la réponse JSON
+			var response common.JSONResponse
+			err = json.NewDecoder(resp.Body).Decode(&response)
+			require.NoError(t, err, "Erreur lors du parsing de la réponse JSON")
+
+			// Vérifier le message de succès
+			if testCase.ExpectedMessage != "" {
+				require.Equal(t, testCase.ExpectedMessage, response.Message, "Message de succès incorrect")
+			}
+
+			// Vérifier le message d'erreur
+			if testCase.ExpectedError != "" {
+				require.Contains(t, response.Error, testCase.ExpectedError, "Message d'erreur incorrect")
+			}
+
+			// Vérifications spécifiques pour les cas de succès
+			if testCase.ExpectedHttpCode == http.StatusCreated {
+				require.True(t, response.Success, "La réponse devrait indiquer un succès")
+				require.NotNil(t, response.Data, "Les données de réponse ne devraient pas être nulles")
+
+				// Vérifier que les données du rôle créé sont présentes
+				roleData, ok := response.Data.(map[string]interface{})
+				require.True(t, ok, "Les données devraient être un objet rôle")
+				require.Contains(t, roleData, "role_id", "Le rôle devrait avoir un ID")
 			}
 
 			// On purge les données après avoir traité le cas.
