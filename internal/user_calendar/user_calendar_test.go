@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -174,6 +175,227 @@ func TestGetUserCalendarRoute(t *testing.T) {
 			ExpectedMessage:  "",
 			ExpectedError:    common.ErrInsufficientPermissions,
 		},
+		{
+			CaseName: "Échec de récupération avec user_id manquant dans l'URL",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar//1",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
+		{
+			CaseName: "Échec de récupération avec user_id invalide (non numérique)",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/invalid/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
+		{
+			CaseName: "Échec de récupération avec session expirée",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur admin avec session expirée
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(admin.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":               admin,
+					"targetUser":          targetUser,
+					"expiredSessionToken": expiredSessionToken,
+					"url":                 url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec session désactivée",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Désactiver la session
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE 
+					WHERE session_token = ?
+				`, admin.SessionToken)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec utilisateur supprimé",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Supprimer l'utilisateur admin (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE user 
+					SET deleted_at = NOW() 
+					WHERE user_id = ?
+				`, admin.User.UserID)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec liaison user_calendar supprimée",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				// Supprimer la liaison user_calendar (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE user_calendar 
+					SET deleted_at = NOW() 
+					WHERE user_id = ? AND calendar_id = ?
+				`, targetUser.User.UserID, targetUser.Calendar.CalendarID)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de récupération avec calendrier supprimé",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				// Supprimer le calendrier (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE calendar 
+					SET deleted_at = NOW() 
+					WHERE calendar_id = ?
+				`, targetUser.Calendar.CalendarID)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de récupération avec token invalide",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec format de token invalide",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				return map[string]interface{}{
+					"authHeader": "InvalidFormat token_12345",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec header Authorization vide",
+			SetupData: func() map[string]interface{} {
+				// DOIT CONTENIR L'ENSEMBLE DES INSTRUCTIONS QUI PREPARENT LE CAS A LA RECEPTION D'UN APPEL GET/DELETE
+				return map[string]interface{}{
+					"authHeader": "",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
 	}
 
 	// On boucle sur les cas de test contenu dans TestCases
@@ -193,13 +415,26 @@ func TestGetUserCalendarRoute(t *testing.T) {
 				adminUser := admin.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
-				req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+
+				// Vérifier s'il y a un token expiré à utiliser
+				if expiredToken, exists := setupData["expiredSessionToken"]; exists {
+					req.Header.Set("Authorization", "Bearer "+expiredToken.(string))
+				} else {
+					req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+				}
 			} else if user, exists := setupData["user"]; exists {
 				// Cas avec authentification utilisateur normal
 				normalUser := user.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
 				req.Header.Set("Authorization", "Bearer "+normalUser.SessionToken)
+			} else if authHeader, exists := setupData["authHeader"]; exists {
+				// Cas avec header d'authentification personnalisé
+				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+				if authHeader.(string) != "" {
+					req.Header.Set("Authorization", authHeader.(string))
+				}
 			} else {
 				// Cas sans authentification
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
@@ -364,7 +599,7 @@ func TestGetUserCalendarListRoute(t *testing.T) {
 				require.NoError(t, err)
 
 				// Construire l'URL avec l'ID de l'autre admin
-				url := fmt.Sprintf("/user-calendar/%d/%d", otherAdmin.User.UserID, otherAdmin.Calendar.CalendarID)
+				url := fmt.Sprintf("/user-calendar/%d", otherAdmin.User.UserID)
 
 				return map[string]interface{}{
 					"admin":      admin,
@@ -376,6 +611,155 @@ func TestGetUserCalendarListRoute(t *testing.T) {
 			ExpectedHttpCode: http.StatusForbidden,
 			ExpectedMessage:  "",
 			ExpectedError:    common.ErrInsufficientPermissions,
+		},
+		{
+			CaseName: "Échec de récupération avec session expirée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session expirée
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(admin.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d", targetUser.User.UserID)
+
+				return map[string]interface{}{
+					"admin":               admin,
+					"targetUser":          targetUser,
+					"expiredSessionToken": expiredSessionToken,
+					"url":                 url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec session désactivée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Désactiver la session
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE 
+					WHERE session_token = ?
+				`, admin.SessionToken)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d", targetUser.User.UserID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec utilisateur supprimé",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Supprimer l'utilisateur admin (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE user 
+					SET deleted_at = NOW() 
+					WHERE user_id = ?
+				`, admin.User.UserID)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec token invalide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+					"url":        "/user-calendar/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec format de token invalide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "InvalidFormat token_12345",
+					"url":        "/user-calendar/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de récupération avec header Authorization vide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "",
+					"url":        "/user-calendar/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de récupération avec user_id manquant dans l'URL",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/",
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    "",
+		},
+		{
+			CaseName: "Échec de récupération avec user_id invalide (non numérique)",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/invalid",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
 		},
 	}
 
@@ -396,13 +780,26 @@ func TestGetUserCalendarListRoute(t *testing.T) {
 				adminUser := admin.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
-				req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+
+				// Vérifier s'il y a un token expiré à utiliser
+				if expiredToken, exists := setupData["expiredSessionToken"]; exists {
+					req.Header.Set("Authorization", "Bearer "+expiredToken.(string))
+				} else {
+					req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+				}
 			} else if user, exists := setupData["user"]; exists {
 				// Cas avec authentification utilisateur normal
 				normalUser := user.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
 				req.Header.Set("Authorization", "Bearer "+normalUser.SessionToken)
+			} else if authHeader, exists := setupData["authHeader"]; exists {
+				// Cas avec header d'authentification personnalisé
+				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+				if authHeader.(string) != "" {
+					req.Header.Set("Authorization", authHeader.(string))
+				}
 			} else {
 				// Cas sans authentification
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
@@ -419,8 +816,7 @@ func TestGetUserCalendarListRoute(t *testing.T) {
 
 			// Parser la réponse JSON
 			var response common.JSONResponse
-			err = json.NewDecoder(resp.Body).Decode(&response)
-			require.NoError(t, err)
+			_ = json.NewDecoder(resp.Body).Decode(&response)
 
 			// Vérifier le message d'erreur si attendu
 			if testCase.ExpectedError != "" {
@@ -635,13 +1031,26 @@ func TestGetUserCalendarSpecificRoute(t *testing.T) {
 				adminUser := admin.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
-				req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+
+				// Vérifier s'il y a un token expiré à utiliser
+				if expiredToken, exists := setupData["expiredSessionToken"]; exists {
+					req.Header.Set("Authorization", "Bearer "+expiredToken.(string))
+				} else {
+					req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+				}
 			} else if user, exists := setupData["user"]; exists {
 				// Cas avec authentification utilisateur normal
 				normalUser := user.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
 				req.Header.Set("Authorization", "Bearer "+normalUser.SessionToken)
+			} else if authHeader, exists := setupData["authHeader"]; exists {
+				// Cas avec header d'authentification personnalisé
+				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+				if authHeader.(string) != "" {
+					req.Header.Set("Authorization", authHeader.(string))
+				}
 			} else {
 				// Cas sans authentification
 				req, err = http.NewRequest("GET", testServer.URL+setupData["url"].(string), nil)
@@ -850,6 +1259,213 @@ func TestPostUserCalendarRoute(t *testing.T) {
 			ExpectedMessage:  "",
 			ExpectedError:    common.ErrInsufficientPermissions,
 		},
+		{
+			CaseName: "Échec de création avec session expirée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session expirée
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(admin.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible sans calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un calendrier séparé
+				result, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+				calendarID, _ := result.LastInsertId()
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, calendarID)
+
+				return map[string]interface{}{
+					"admin":               admin,
+					"targetUser":          targetUser,
+					"expiredSessionToken": expiredSessionToken,
+					"calendarID":          calendarID,
+					"url":                 url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de création avec session désactivée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Désactiver la session
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE 
+					WHERE session_token = ?
+				`, admin.SessionToken)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible sans calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un calendrier séparé
+				result, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+				calendarID, _ := result.LastInsertId()
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, calendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"calendarID": calendarID,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de création avec utilisateur supprimé",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Supprimer l'utilisateur admin (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE user 
+					SET deleted_at = NOW() 
+					WHERE user_id = ?
+				`, admin.User.UserID)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de création avec calendrier supprimé",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible sans calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un calendrier puis le supprimer
+				result, err := common.DB.Exec(`
+					INSERT INTO calendar (title, description, created_at) 
+					VALUES (?, ?, NOW())
+				`, "Calendrier Test", "Description test")
+				require.NoError(t, err)
+				calendarID, _ := result.LastInsertId()
+
+				// Supprimer le calendrier (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE calendar 
+					SET deleted_at = NOW() 
+					WHERE calendar_id = ?
+				`, calendarID)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, calendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"calendarID": calendarID,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de création avec token invalide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de création avec format de token invalide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "InvalidFormat token_12345",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de création avec header Authorization vide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de création avec user_id manquant dans l'URL",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar//1",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
+		{
+			CaseName: "Échec de création avec user_id invalide (non numérique)",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/invalid/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
 	}
 
 	// On boucle sur les cas de test contenu dans TestCases
@@ -869,13 +1485,26 @@ func TestPostUserCalendarRoute(t *testing.T) {
 				adminUser := admin.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("POST", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
-				req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+
+				// Vérifier s'il y a un token expiré à utiliser
+				if expiredToken, exists := setupData["expiredSessionToken"]; exists {
+					req.Header.Set("Authorization", "Bearer "+expiredToken.(string))
+				} else {
+					req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+				}
 			} else if user, exists := setupData["user"]; exists {
 				// Cas avec authentification utilisateur normal
 				normalUser := user.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("POST", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
 				req.Header.Set("Authorization", "Bearer "+normalUser.SessionToken)
+			} else if authHeader, exists := setupData["authHeader"]; exists {
+				// Cas avec header d'authentification personnalisé
+				req, err = http.NewRequest("POST", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+				if authHeader.(string) != "" {
+					req.Header.Set("Authorization", authHeader.(string))
+				}
 			} else {
 				// Cas sans authentification
 				req, err = http.NewRequest("POST", testServer.URL+setupData["url"].(string), nil)
@@ -1082,6 +1711,217 @@ func TestPutUserCalendarRoute(t *testing.T) {
 			ExpectedMessage:  "",
 			ExpectedError:    common.ErrInsufficientPermissions,
 		},
+		{
+			CaseName: "Échec de mise à jour avec session expirée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session expirée
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(admin.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":               admin,
+					"targetUser":          targetUser,
+					"expiredSessionToken": expiredSessionToken,
+					"url":                 url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de mise à jour avec session désactivée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Désactiver la session
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE 
+					WHERE session_token = ?
+				`, admin.SessionToken)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de mise à jour avec utilisateur supprimé",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Supprimer l'utilisateur admin (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE user 
+					SET deleted_at = NOW() 
+					WHERE user_id = ?
+				`, admin.User.UserID)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de mise à jour avec calendrier supprimé",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				// Supprimer le calendrier (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE calendar 
+					SET deleted_at = NOW() 
+					WHERE calendar_id = ?
+				`, targetUser.Calendar.CalendarID)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de mise à jour avec liaison user_calendar supprimée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				// Supprimer la liaison user_calendar (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE user_calendar 
+					SET deleted_at = NOW() 
+					WHERE user_id = ? AND calendar_id = ?
+				`, targetUser.User.UserID, targetUser.Calendar.CalendarID)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de mise à jour avec token invalide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de mise à jour avec format de token invalide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "InvalidFormat token_12345",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de mise à jour avec header Authorization vide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de mise à jour avec user_id manquant dans l'URL",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar//1",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
+		{
+			CaseName: "Échec de mise à jour avec user_id invalide (non numérique)",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/invalid/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
 	}
 
 	// On boucle sur les cas de test contenu dans TestCases
@@ -1101,13 +1941,26 @@ func TestPutUserCalendarRoute(t *testing.T) {
 				adminUser := admin.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("PUT", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
-				req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+
+				// Vérifier s'il y a un token expiré à utiliser
+				if expiredToken, exists := setupData["expiredSessionToken"]; exists {
+					req.Header.Set("Authorization", "Bearer "+expiredToken.(string))
+				} else {
+					req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+				}
 			} else if user, exists := setupData["user"]; exists {
 				// Cas avec authentification utilisateur normal
 				normalUser := user.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("PUT", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
 				req.Header.Set("Authorization", "Bearer "+normalUser.SessionToken)
+			} else if authHeader, exists := setupData["authHeader"]; exists {
+				// Cas avec header d'authentification personnalisé
+				req, err = http.NewRequest("PUT", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+				if authHeader.(string) != "" {
+					req.Header.Set("Authorization", authHeader.(string))
+				}
 			} else {
 				// Cas sans authentification
 				req, err = http.NewRequest("PUT", testServer.URL+setupData["url"].(string), nil)
@@ -1308,6 +2161,217 @@ func TestDeleteUserCalendarRoute(t *testing.T) {
 			ExpectedMessage:  "",
 			ExpectedError:    common.ErrInsufficientPermissions,
 		},
+		{
+			CaseName: "Échec de suppression avec session expirée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session expirée
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+				expiredSessionToken, _, _, err := testutils.CreateUserSession(admin.User.UserID, -1*time.Hour)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":               admin,
+					"targetUser":          targetUser,
+					"expiredSessionToken": expiredSessionToken,
+					"url":                 url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec session désactivée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Désactiver la session
+				_, err = common.DB.Exec(`
+					UPDATE user_session 
+					SET is_active = FALSE 
+					WHERE session_token = ?
+				`, admin.SessionToken)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec utilisateur supprimé",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin avec session active
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Supprimer l'utilisateur admin (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE user 
+					SET deleted_at = NOW() 
+					WHERE user_id = ?
+				`, admin.User.UserID)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec calendrier supprimé",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				// Supprimer le calendrier (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE calendar 
+					SET deleted_at = NOW() 
+					WHERE calendar_id = ?
+				`, targetUser.Calendar.CalendarID)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de suppression avec liaison user_calendar déjà supprimée",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				// Créer un utilisateur cible avec calendrier
+				targetUser, err := testutils.GenerateAuthenticatedUser(false, true, true, false)
+				require.NoError(t, err)
+
+				// Supprimer la liaison user_calendar (soft delete)
+				_, err = common.DB.Exec(`
+					UPDATE user_calendar 
+					SET deleted_at = NOW() 
+					WHERE user_id = ? AND calendar_id = ?
+				`, targetUser.User.UserID, targetUser.Calendar.CalendarID)
+				require.NoError(t, err)
+
+				url := fmt.Sprintf("/user-calendar/%d/%d", targetUser.User.UserID, targetUser.Calendar.CalendarID)
+
+				return map[string]interface{}{
+					"admin":      admin,
+					"targetUser": targetUser,
+					"url":        url,
+				}
+			},
+			ExpectedHttpCode: http.StatusNotFound,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserCalendarNotFound,
+		},
+		{
+			CaseName: "Échec de suppression avec token invalide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "Bearer invalid_token_12345",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec format de token invalide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "InvalidFormat token_12345",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrSessionInvalid,
+		},
+		{
+			CaseName: "Échec de suppression avec header Authorization vide",
+			SetupData: func() map[string]interface{} {
+				return map[string]interface{}{
+					"authHeader": "",
+					"url":        "/user-calendar/1/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusUnauthorized,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrUserNotAuthenticated,
+		},
+		{
+			CaseName: "Échec de suppression avec user_id manquant dans l'URL",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar//1",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
+		{
+			CaseName: "Échec de suppression avec user_id invalide (non numérique)",
+			SetupData: func() map[string]interface{} {
+				// Créer un utilisateur admin pour accéder à la route
+				admin, err := testutils.GenerateAuthenticatedAdmin(true, true, false, false)
+				require.NoError(t, err)
+
+				return map[string]interface{}{
+					"admin": admin,
+					"url":   "/user-calendar/invalid/1",
+				}
+			},
+			ExpectedHttpCode: http.StatusBadRequest,
+			ExpectedMessage:  "",
+			ExpectedError:    common.ErrInvalidUserID,
+		},
 	}
 
 	// On boucle sur les cas de test contenu dans TestCases
@@ -1327,13 +2391,26 @@ func TestDeleteUserCalendarRoute(t *testing.T) {
 				adminUser := admin.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("DELETE", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
-				req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+
+				// Vérifier s'il y a un token expiré à utiliser
+				if expiredToken, exists := setupData["expiredSessionToken"]; exists {
+					req.Header.Set("Authorization", "Bearer "+expiredToken.(string))
+				} else {
+					req.Header.Set("Authorization", "Bearer "+adminUser.SessionToken)
+				}
 			} else if user, exists := setupData["user"]; exists {
 				// Cas avec authentification utilisateur normal
 				normalUser := user.(*testutils.AuthenticatedUser)
 				req, err = http.NewRequest("DELETE", testServer.URL+setupData["url"].(string), nil)
 				require.NoError(t, err)
 				req.Header.Set("Authorization", "Bearer "+normalUser.SessionToken)
+			} else if authHeader, exists := setupData["authHeader"]; exists {
+				// Cas avec header d'authentification personnalisé
+				req, err = http.NewRequest("DELETE", testServer.URL+setupData["url"].(string), nil)
+				require.NoError(t, err)
+				if authHeader.(string) != "" {
+					req.Header.Set("Authorization", authHeader.(string))
+				}
 			} else {
 				// Cas sans authentification
 				req, err = http.NewRequest("DELETE", testServer.URL+setupData["url"].(string), nil)
