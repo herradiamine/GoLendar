@@ -1007,3 +1007,77 @@ func TestLoggingMiddleware(t *testing.T) {
 		})
 	}
 }
+
+// TestCORSMiddleware teste le middleware CORSMiddleware
+func TestCORSMiddleware(t *testing.T) {
+	// Cas de test pour GET et OPTIONS
+	var TestCases = []struct {
+		CaseName         string
+		Method           string
+		ExpectedHeaders  map[string]string
+		ExpectedHttpCode int
+	}{
+		{
+			CaseName: "Requête GET normale",
+			Method:   "GET",
+			ExpectedHeaders: map[string]string{
+				"Access-Control-Allow-Origin":      "http://localhost:5173",
+				"Access-Control-Allow-Methods":     "GET,POST,PUT,DELETE,OPTIONS",
+				"Access-Control-Allow-Headers":     "Content-Type, Authorization",
+				"Access-Control-Allow-Credentials": "true",
+			},
+			ExpectedHttpCode: http.StatusOK,
+		},
+		{
+			CaseName: "Requête OPTIONS (preflight)",
+			Method:   "OPTIONS",
+			ExpectedHeaders: map[string]string{
+				"Access-Control-Allow-Origin":      "http://localhost:5173",
+				"Access-Control-Allow-Methods":     "GET,POST,PUT,DELETE,OPTIONS",
+				"Access-Control-Allow-Headers":     "Content-Type, Authorization",
+				"Access-Control-Allow-Credentials": "true",
+			},
+			ExpectedHttpCode: http.StatusNoContent,
+		},
+	}
+
+	for _, testCase := range TestCases {
+		t.Run(testCase.CaseName, func(t *testing.T) {
+			// Créer un routeur de test avec le middleware CORS
+			router := gin.New()
+			router.Use(middleware.CORSMiddleware())
+			router.GET("/test-cors", func(c *gin.Context) {
+				c.JSON(http.StatusOK, gin.H{"message": "cors ok"})
+			})
+
+			// Créer un serveur de test
+			server := httptest.NewServer(router)
+			defer server.Close()
+
+			// Construire la requête
+			req, err := http.NewRequest(testCase.Method, server.URL+"/test-cors", nil)
+			require.NoError(t, err)
+
+			resp, err := testClient.Do(req)
+			require.NoError(t, err)
+			defer resp.Body.Close()
+
+			// Vérifier le code de statut
+			require.Equal(t, testCase.ExpectedHttpCode, resp.StatusCode)
+
+			// Vérifier les headers CORS
+			for header, expectedValue := range testCase.ExpectedHeaders {
+				value := resp.Header.Get(header)
+				require.Equal(t, expectedValue, value, "Header %s incorrect", header)
+			}
+
+			// Si GET, vérifier le body
+			if testCase.Method == "GET" && testCase.ExpectedHttpCode == http.StatusOK {
+				var response map[string]interface{}
+				err = json.NewDecoder(resp.Body).Decode(&response)
+				require.NoError(t, err)
+				require.Equal(t, "cors ok", response["message"])
+			}
+		})
+	}
+}

@@ -14,6 +14,9 @@ import (
 )
 
 func RegisterRoutes(router *gin.Engine) {
+	// Appliquer le middleware CORS globalement pour permettre la communication avec le frontend
+	router.Use(middleware.CORSMiddleware())
+
 	// Health check endpoint (public)
 	router.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{

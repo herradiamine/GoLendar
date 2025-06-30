@@ -14,6 +14,31 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// CORSMiddleware configure les en-têtes CORS pour permettre la communication avec le frontend
+func CORSMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Autoriser l'origine du frontend
+		c.Header("Access-Control-Allow-Origin", "http://localhost:5173")
+
+		// Autoriser les méthodes HTTP
+		c.Header("Access-Control-Allow-Methods", "GET,POST,PUT,DELETE,OPTIONS")
+
+		// Autoriser les en-têtes
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Autoriser les credentials (cookies, tokens, etc.)
+		c.Header("Access-Control-Allow-Credentials", "true")
+
+		// Gérer les requêtes preflight OPTIONS
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
+	}
+}
+
 // UserExistsMiddleware vérifie l'existence d'un utilisateur à partir d'un paramètre dans l'URL
 // paramName: nom du paramètre à vérifier (ex: "id", "user_id")
 func UserExistsMiddleware(paramName string) gin.HandlerFunc {
