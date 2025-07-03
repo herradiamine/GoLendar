@@ -113,6 +113,13 @@ func RegisterRoutes(router *gin.Engine) {
 		)
 	}
 
+	// ===== ROUTE USER-CALENDAR : liste de mes calendriers (utilisateur connecté) =====
+	userCalendarMineGroup := router.Group("/user-calendar")
+	userCalendarMineGroup.Use(middleware.AuthMiddleware())
+	{
+		userCalendarMineGroup.GET("/me", func(c *gin.Context) { user_calendar.UserCalendar.ListMine(c) })
+	}
+
 	// ===== ROUTES DE GESTION DES CALENDRERS =====
 	calendarGroup := router.Group("/calendar")
 	calendarGroup.Use(middleware.AuthMiddleware())

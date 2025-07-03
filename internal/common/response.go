@@ -9,9 +9,9 @@ import (
 
 type JSONResponse struct {
 	Success bool   `json:"success"`
-	Message string `json:"message,omitempty"`
-	Data    any    `json:"data,omitempty"`
-	Error   string `json:"error,omitempty"`
+	Message string `json:"message"`
+	Data    any    `json:"data"`
+	Error   string `json:"error"`
 }
 
 // HandleDBError gère les erreurs courantes de la base de données (ErrNoRows ou autre)

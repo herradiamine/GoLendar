@@ -391,6 +391,65 @@ func (UserCalendarStruct) GetByUser(c *gin.Context) {
 	})
 }
 
+// ListMine récupère toutes les liaisons user calendar pour l'utilisateur connecté
+func (UserCalendarStruct) ListMine(c *gin.Context) {
+	slog.Info(common.LogUserCalendarList)
+	userData, ok := common.GetUserFromContext(c)
+	if !ok {
+		return
+	}
+	userID := userData.UserID
+
+	rows, err := common.DB.Query(`
+		SELECT uc.user_calendar_id, uc.user_id, uc.calendar_id, uc.created_at, uc.updated_at, uc.deleted_at,
+		       c.title, c.description
+		FROM user_calendar uc
+		INNER JOIN calendar c ON uc.calendar_id = c.calendar_id
+		WHERE uc.user_id = ? AND uc.deleted_at IS NULL AND c.deleted_at IS NULL
+		ORDER BY uc.created_at DESC
+	`, userID)
+	if err != nil {
+		slog.Error(common.LogUserCalendarList + " - erreur lors de la récupération des liaisons : " + err.Error())
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   common.ErrTransactionStart,
+		})
+		return
+	}
+	defer rows.Close()
+
+	var userCalendars []common.UserCalendarWithDetails
+	for rows.Next() {
+		var userCalendar common.UserCalendarWithDetails
+		err := rows.Scan(
+			&userCalendar.UserCalendarID,
+			&userCalendar.UserID,
+			&userCalendar.CalendarID,
+			&userCalendar.CreatedAt,
+			&userCalendar.UpdatedAt,
+			&userCalendar.DeletedAt,
+			&userCalendar.Title,
+			&userCalendar.Description,
+		)
+		if err != nil {
+			slog.Error(common.LogUserCalendarList + " - erreur lors de la lecture des données : " + err.Error())
+			c.JSON(http.StatusInternalServerError, common.JSONResponse{
+				Success: false,
+				Error:   common.ErrTransactionStart,
+			})
+			return
+		}
+		userCalendars = append(userCalendars, userCalendar)
+	}
+
+	slog.Info(common.LogUserCalendarList + " - succès (mine)")
+	c.JSON(http.StatusOK, common.JSONResponse{
+		Success: true,
+		Message: common.MsgSuccessListUserCalendars,
+		Data:    userCalendars,
+	})
+}
+
 // checkUserAccess vérifie que l'utilisateur authentifié correspond au user_id de l'URL
 func checkUserAccess(c *gin.Context) (int, bool) {
 	userData, ok := common.GetUserFromContext(c)
