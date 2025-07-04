@@ -1021,7 +1021,7 @@ func TestCORSMiddleware(t *testing.T) {
 			CaseName: "Requête GET normale",
 			Method:   "GET",
 			ExpectedHeaders: map[string]string{
-				"Access-Control-Allow-Origin":      "http://localhost:5173",
+				"Access-Control-Allow-Origin":      "*",
 				"Access-Control-Allow-Methods":     "GET,POST,PUT,DELETE,OPTIONS",
 				"Access-Control-Allow-Headers":     "Content-Type, Authorization",
 				"Access-Control-Allow-Credentials": "true",
@@ -1032,7 +1032,7 @@ func TestCORSMiddleware(t *testing.T) {
 			CaseName: "Requête OPTIONS (preflight)",
 			Method:   "OPTIONS",
 			ExpectedHeaders: map[string]string{
-				"Access-Control-Allow-Origin":      "http://localhost:5173",
+				"Access-Control-Allow-Origin":      "*",
 				"Access-Control-Allow-Methods":     "GET,POST,PUT,DELETE,OPTIONS",
 				"Access-Control-Allow-Headers":     "Content-Type, Authorization",
 				"Access-Control-Allow-Credentials": "true",
