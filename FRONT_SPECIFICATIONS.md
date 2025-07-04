@@ -68,29 +68,34 @@ Ce document décrit les spécifications fonctionnelles et techniques pour le dé
 {
   "success": true,
   "data": {
-    "user": { "user_id": 1, "lastname": "Dupont", ... },
-    "session_token": "...",
-    "refresh_token": "...",
-    "expires_at": "2025-01-01T12:00:00Z",
-    "roles": [ { "role_id": 1, "name": "user" } ]
+    "user": {
+      "user_id": 1,
+      "email": "user@example.com",
+      "first_name": "John",
+      "last_name": "Doe",
+      "created_at": "2024-01-01T00:00:00Z"
+    },
+    "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "expires_at": "2024-01-01T01:00:00Z",
+    "roles": ["user"]
   }
 }
 
-// Réponse liste des sessions
+// Réponse liste des sessions (avec localisation géographique)
 {
   "success": true,
   "data": [
     {
       "user_session_id": 1,
       "user_id": 1,
-      "session_token": "***",
-      "refresh_token": null,
-      "expires_at": "2025-01-01T12:00:00Z",
-      "device_info": "Mozilla/5.0...",
-      "ip_address": "192.168.1.1",
-      "location": "Paris, France",
+      "session_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+      "expires_at": "2024-01-01T01:00:00Z",
+      "device_info": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "ip_address": "192.168.1.100",
+      "location": "Paris, Île-de-France, France",
       "is_active": true,
-      "created_at": "2025-01-01T10:00:00Z"
+      "created_at": "2024-01-01T00:00:00Z"
     }
   ]
 }

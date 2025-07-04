@@ -115,7 +115,16 @@ func (SessionStruct) Login(c *gin.Context) {
 	// Récupérer les informations de l'appareil
 	deviceInfo := c.GetHeader("User-Agent")
 	ipAddress := c.ClientIP()
-	location := c.GetHeader("X-Forwarded-For") // ou utiliser un service de géolocalisation
+
+	// Récupérer la localisation géographique à partir de l'IP
+	location := common.GetLocationFromIP(ipAddress)
+
+	// Debug: afficher les informations récupérées
+	slog.Info("Informations de session",
+		"device_info", deviceInfo,
+		"ip_address", ipAddress,
+		"location", location,
+	)
 
 	// Créer la session en base
 	_, err = common.DB.Exec(`
