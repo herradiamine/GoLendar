@@ -787,9 +787,9 @@ func CreateUserSession(userID int, duration time.Duration) (string, string, time
 
 	// Créer la session en base
 	_, err = common.DB.Exec(`
-		INSERT INTO user_session (user_id, session_token, refresh_token, expires_at, device_info, ip_address, is_active, created_at) 
-		VALUES (?, ?, ?, ?, ?, ?, TRUE, NOW())
-	`, userID, sessionToken, refreshToken, expiresAt, "Test Device", "127.0.0.1")
+		INSERT INTO user_session (user_id, session_token, refresh_token, expires_at, device_info, ip_address, location, is_active, created_at) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, NOW())
+	`, userID, sessionToken, refreshToken, expiresAt, "Test Device", "127.0.0.1", "Test Location")
 	if err != nil {
 		return "", "", time.Time{}, fmt.Errorf("erreur lors de la création de la session: %v", err)
 	}

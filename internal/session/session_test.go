@@ -887,6 +887,7 @@ func TestGetUserSessionsRoute(t *testing.T) {
 						require.Contains(t, session, "expires_at", "Date d'expiration manquante")
 						require.Contains(t, session, "device_info", "Informations appareil manquantes")
 						require.Contains(t, session, "ip_address", "Adresse IP manquante")
+						require.Contains(t, session, "location", "Localisation manquante")
 						require.Contains(t, session, "is_active", "Statut actif manquant")
 						require.Contains(t, session, "created_at", "Date de création manquante")
 

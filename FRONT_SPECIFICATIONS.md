@@ -45,7 +45,7 @@ Ce document décrit les spécifications fonctionnelles et techniques pour le dé
 #### Pages/Composants
 - **Connexion** : formulaire email/mot de passe
 - **Inscription** : formulaire complet
-- **Gestion des sessions** : liste, suppression
+- **Gestion des sessions** : liste, suppression (avec localisation)
 - **Profil connecté** : infos utilisateur, rôles
 
 #### Flux API
@@ -53,7 +53,7 @@ Ce document décrit les spécifications fonctionnelles et techniques pour le dé
 - `POST /auth/refresh` → renouvelle le token
 - `POST /auth/logout` → déconnexion
 - `GET /auth/me` → profil utilisateur connecté
-- `GET /auth/sessions` → liste des sessions actives
+- `GET /auth/sessions` → liste des sessions actives (avec localisation)
 - `DELETE /auth/sessions/:session_id` → suppression d'une session
 
 #### Exemples de payloads
@@ -74,6 +74,25 @@ Ce document décrit les spécifications fonctionnelles et techniques pour le dé
     "expires_at": "2025-01-01T12:00:00Z",
     "roles": [ { "role_id": 1, "name": "user" } ]
   }
+}
+
+// Réponse liste des sessions
+{
+  "success": true,
+  "data": [
+    {
+      "user_session_id": 1,
+      "user_id": 1,
+      "session_token": "***",
+      "refresh_token": null,
+      "expires_at": "2025-01-01T12:00:00Z",
+      "device_info": "Mozilla/5.0...",
+      "ip_address": "192.168.1.1",
+      "location": "Paris, France",
+      "is_active": true,
+      "created_at": "2025-01-01T10:00:00Z"
+    }
+  ]
 }
 ```
 

@@ -115,12 +115,13 @@ func (SessionStruct) Login(c *gin.Context) {
 	// Récupérer les informations de l'appareil
 	deviceInfo := c.GetHeader("User-Agent")
 	ipAddress := c.ClientIP()
+	location := c.GetHeader("X-Forwarded-For") // ou utiliser un service de géolocalisation
 
 	// Créer la session en base
 	_, err = common.DB.Exec(`
-		INSERT INTO user_session (user_id, session_token, refresh_token, expires_at, device_info, ip_address, is_active, created_at) 
-		VALUES (?, ?, ?, ?, ?, ?, TRUE, NOW())
-	`, user.UserID, sessionToken, refreshToken, sessionExpiresAt, deviceInfo, ipAddress)
+		INSERT INTO user_session (user_id, session_token, refresh_token, expires_at, device_info, ip_address, location, is_active, created_at) 
+		VALUES (?, ?, ?, ?, ?, ?, ?, TRUE, NOW())
+	`, user.UserID, sessionToken, refreshToken, sessionExpiresAt, deviceInfo, ipAddress, location)
 	if err != nil {
 		slog.Error("Erreur lors de la création de la session: " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
@@ -213,7 +214,7 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 	// Vérifier le refresh token
 	var session common.UserSession
 	err := common.DB.QueryRow(`
-		SELECT user_session_id, user_id, session_token, refresh_token, expires_at, device_info, ip_address, is_active, created_at, updated_at, deleted_at
+		SELECT user_session_id, user_id, session_token, refresh_token, expires_at, device_info, ip_address, location, is_active, created_at, updated_at, deleted_at
 		FROM user_session 
 		WHERE refresh_token = ? AND is_active = TRUE AND deleted_at IS NULL
 	`, req.RefreshToken).Scan(
@@ -224,6 +225,7 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 		&session.ExpiresAt,
 		&session.DeviceInfo,
 		&session.IPAddress,
+		&session.Location,
 		&session.IsActive,
 		&session.CreatedAt,
 		&session.UpdatedAt,
@@ -302,7 +304,7 @@ func (SessionStruct) GetUserSessions(c *gin.Context) {
 	}
 
 	rows, err := common.DB.Query(`
-		SELECT user_session_id, user_id, session_token, refresh_token, expires_at, device_info, ip_address, is_active, created_at, updated_at, deleted_at
+		SELECT user_session_id, user_id, session_token, refresh_token, expires_at, device_info, ip_address, location, is_active, created_at, updated_at, deleted_at
 		FROM user_session 
 		WHERE user_id = ? AND deleted_at IS NULL
 		ORDER BY created_at DESC
@@ -320,7 +322,7 @@ func (SessionStruct) GetUserSessions(c *gin.Context) {
 	var sessions []common.UserSession
 	for rows.Next() {
 		var session common.UserSession
-		err := rows.Scan(&session.UserSessionID, &session.UserID, &session.SessionToken, &session.RefreshToken, &session.ExpiresAt, &session.DeviceInfo, &session.IPAddress, &session.IsActive, &session.CreatedAt, &session.UpdatedAt, &session.DeletedAt)
+		err := rows.Scan(&session.UserSessionID, &session.UserID, &session.SessionToken, &session.RefreshToken, &session.ExpiresAt, &session.DeviceInfo, &session.IPAddress, &session.Location, &session.IsActive, &session.CreatedAt, &session.UpdatedAt, &session.DeletedAt)
 		if err != nil {
 			slog.Error(fmt.Sprintf(common.LogSessionReadingError, err.Error()))
 			continue

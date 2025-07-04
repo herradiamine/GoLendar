@@ -108,6 +108,7 @@ type UserSession struct {
 	ExpiresAt     time.Time  `json:"expires_at" db:"expires_at"`
 	DeviceInfo    *string    `json:"device_info,omitempty" db:"device_info"`
 	IPAddress     *string    `json:"ip_address,omitempty" db:"ip_address"`
+	Location      *string    `json:"location,omitempty" db:"location"`
 	IsActive      bool       `json:"is_active" db:"is_active"`
 	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty" db:"updated_at"`
@@ -212,6 +213,7 @@ type CreateSessionRequest struct {
 	UserID     int     `json:"user_id" binding:"required"`
 	DeviceInfo *string `json:"device_info,omitempty"`
 	IPAddress  *string `json:"ip_address,omitempty"`
+	Location   *string `json:"location,omitempty"`
 }
 
 // StringPtr retourne un pointeur vers la chaîne passée en argument.

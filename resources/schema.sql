@@ -108,6 +108,7 @@ CREATE TABLE IF NOT EXISTS `user_session` (
     expires_at      DATETIME NOT NULL,
     device_info     VARCHAR(255) DEFAULT NULL,
     ip_address      VARCHAR(45) DEFAULT NULL,
+    location        VARCHAR(255) DEFAULT NULL,
     is_active       BOOL NOT NULL DEFAULT TRUE,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
