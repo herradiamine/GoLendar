@@ -285,6 +285,17 @@ func TestAddUserRoute(t *testing.T) {
 					userID, exists := dataMap["user_id"]
 					require.True(t, exists, "La réponse devrait contenir un user_id")
 					require.NotNil(t, userID, "Le user_id ne devrait pas être null")
+
+					// Vérifier que le rôle standard 'user' est bien attribué
+					var roleName string
+					err := common.DB.QueryRow(`
+						SELECT r.name FROM roles r
+						INNER JOIN user_roles ur ON r.role_id = ur.role_id
+						WHERE ur.user_id = ? AND r.deleted_at IS NULL AND ur.deleted_at IS NULL
+						ORDER BY r.role_id LIMIT 1
+					`, int(userID.(float64))).Scan(&roleName)
+					require.NoError(t, err, "Erreur lors de la récupération du rôle attribué")
+					require.Equal(t, "user", roleName, "Le rôle attribué doit être 'user'")
 				}
 			} else {
 				require.False(t, response.Success, "La réponse devrait être un échec")

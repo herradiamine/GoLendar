@@ -242,6 +242,13 @@ func SetupTestEnvironment() error {
 		return fmt.Errorf("erreur lors de l'initialisation de la base de données de test: %v", err)
 	}
 
+	// S'assurer que le rôle standard 'user' existe
+	_, _ = common.DB.Exec(`
+		INSERT INTO roles (name, description, created_at)
+		VALUES (?, ?, NOW())
+		ON DUPLICATE KEY UPDATE updated_at = NOW()
+	`, "user", "Utilisateur standard avec accès à ses propres calendriers et événements")
+
 	// Ici on pourrait ajouter d'autres initialisations (logger, etc.)
 	return nil
 }
@@ -323,7 +330,6 @@ func PurgeAllTestUsers() {
 	common.DB.Exec("TRUNCATE TABLE user_session")
 	common.DB.Exec("TRUNCATE TABLE user_password")
 	common.DB.Exec("TRUNCATE TABLE user")
-	common.DB.Exec("TRUNCATE TABLE roles")
 	common.DB.Exec("SET FOREIGN_KEY_CHECKS=1;")
 }
 

@@ -112,6 +112,31 @@ func (UserStruct) Add(c *gin.Context) {
 		return
 	}
 
+	// Attribution automatique du rôle standard 'user'
+	var userRoleID int
+	err = tx.QueryRow("SELECT role_id FROM roles WHERE name = ? AND deleted_at IS NULL", "user").Scan(&userRoleID)
+	if err != nil {
+		slog.Error(common.LogUserAdd + " - rôle standard 'user' introuvable : " + err.Error())
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Rôle standard 'user' introuvable",
+		})
+		return
+	}
+
+	_, err = tx.Exec(`
+		INSERT INTO user_roles (user_id, role_id, created_at)
+		VALUES (?, ?, NOW())
+	`, userID, userRoleID)
+	if err != nil {
+		slog.Error(common.LogUserAdd + " - erreur lors de l'attribution du rôle standard : " + err.Error())
+		c.JSON(http.StatusInternalServerError, common.JSONResponse{
+			Success: false,
+			Error:   "Erreur lors de l'attribution du rôle standard",
+		})
+		return
+	}
+
 	if err := tx.Commit(); err != nil {
 		slog.Error(common.LogUserAdd + " - erreur lors du commit de la transaction : " + err.Error())
 		c.JSON(http.StatusInternalServerError, common.JSONResponse{
