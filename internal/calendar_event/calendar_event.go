@@ -24,8 +24,8 @@ var CalendarEvent = CalendarEventStruct{}
 // @Param calendar_id path int true "ID du calendrier"
 // @Param event_id path int true "ID de l'événement"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /calendar-event/{calendar_id}/{event_id} [get]
 func (CalendarEventStruct) Get(c *gin.Context) {
 	slog.Info(common.LogEventGet)
@@ -58,8 +58,8 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 // @Param calendar_id path int true "ID du calendrier"
 // @Param event body common.CalendarEvent true "Données de l'événement"
 // @Success 201 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /calendar-event/{calendar_id} [post]
 func (CalendarEventStruct) Add(c *gin.Context) {
 	slog.Info(common.LogEventAdd)
@@ -172,9 +172,9 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 // @Param event_id path int true "ID de l'événement"
 // @Param event body common.CalendarEvent true "Données de l'événement"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /calendar-event/{calendar_id}/{event_id} [put]
 func (CalendarEventStruct) Update(c *gin.Context) {
 	slog.Info(common.LogEventUpdate)
@@ -264,8 +264,8 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 // @Param calendar_id path int true "ID du calendrier"
 // @Param event_id path int true "ID de l'événement"
 // @Success 204 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /calendar-event/{calendar_id}/{event_id} [delete]
 func (CalendarEventStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogEventDelete)
@@ -343,7 +343,7 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 // @Param year path int true "Année"
 // @Param month path int true "Mois"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /calendar-event/{calendar_id}/month/{year}/{month} [get]
 func (CalendarEventStruct) ListByMonth(c *gin.Context) {
 	yearStr := c.Param("year")
@@ -372,7 +372,7 @@ func (CalendarEventStruct) ListByMonth(c *gin.Context) {
 // @Param year path int true "Année"
 // @Param week path int true "Numéro de la semaine"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /calendar-event/{calendar_id}/week/{year}/{week} [get]
 func (CalendarEventStruct) ListByWeek(c *gin.Context) {
 	yearStr := c.Param("year")
@@ -408,7 +408,7 @@ func (CalendarEventStruct) ListByWeek(c *gin.Context) {
 // @Param month path int true "Mois"
 // @Param day path int true "Jour"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /calendar-event/{calendar_id}/day/{year}/{month}/{day} [get]
 func (CalendarEventStruct) ListByDay(c *gin.Context) {
 	yearStr := c.Param("year")

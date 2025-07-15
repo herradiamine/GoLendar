@@ -24,8 +24,8 @@ var User = UserStruct{}
 // @Produce json
 // @Param user_id path int false "ID de l'utilisateur (optionnel pour /me)"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /user/{user_id} [get]
 // @Router /user/me [get]
 func (UserStruct) Get(c *gin.Context) {
@@ -55,8 +55,8 @@ func (UserStruct) Get(c *gin.Context) {
 // @Produce json
 // @Param user body common.CreateUserRequest true "Données utilisateur"
 // @Success 201 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 409 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 409 {object} common.JSONErrorResponse
 // @Router /user [post]
 func (UserStruct) Add(c *gin.Context) {
 	slog.Info(common.LogUserAdd)
@@ -183,9 +183,9 @@ func (UserStruct) Add(c *gin.Context) {
 // @Param user_id path int false "ID de l'utilisateur (optionnel pour /me)"
 // @Param user body common.UpdateUserRequest true "Données utilisateur à mettre à jour"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /user/{user_id} [put]
 // @Router /user/me [put]
 func (UserStruct) Update(c *gin.Context) {
@@ -333,8 +333,8 @@ func (UserStruct) Update(c *gin.Context) {
 // @Produce json
 // @Param user_id path int false "ID de l'utilisateur (optionnel pour /me)"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /user/{user_id} [delete]
 // @Router /user/me [delete]
 func (UserStruct) Delete(c *gin.Context) {
@@ -404,8 +404,8 @@ func (UserStruct) Delete(c *gin.Context) {
 // @Produce json
 // @Param user_id path int true "ID de l'utilisateur"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /user/{user_id}/with-roles [get]
 func (UserStruct) GetUserWithRoles(c *gin.Context) {
 	slog.Info("Récupération d'un utilisateur avec ses rôles")
@@ -466,7 +466,7 @@ func (UserStruct) GetUserWithRoles(c *gin.Context) {
 // @Tags Auth
 // @Produce json
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /auth/me [get]
 func (UserStruct) GetAuthMe(c *gin.Context) {
 	slog.Info(common.LogUserGetWithRoles)

@@ -27,8 +27,8 @@ var UserCalendar = UserCalendarStruct{}
 // @Param user_id path int true "ID de l'utilisateur"
 // @Param calendar_id path int true "ID du calendrier"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /user-calendar/{user_id}/{calendar_id} [get]
 func (UserCalendarStruct) Get(c *gin.Context) {
 	slog.Info(common.LogUserCalendarGet)
@@ -84,8 +84,8 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 // @Param calendar_id path int true "ID du calendrier"
 // @Param liaison body common.UserCalendar true "Données de liaison"
 // @Success 201 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /user-calendar/{user_id}/{calendar_id} [post]
 func (UserCalendarStruct) Add(c *gin.Context) {
 	slog.Info(common.LogUserCalendarAdd)
@@ -177,9 +177,9 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 // @Param calendar_id path int true "ID du calendrier"
 // @Param liaison body common.UserCalendar true "Données de liaison"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /user-calendar/{user_id}/{calendar_id} [put]
 func (UserCalendarStruct) Update(c *gin.Context) {
 	slog.Info(common.LogUserCalendarUpdate)
@@ -253,8 +253,8 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 // @Param user_id path int true "ID de l'utilisateur"
 // @Param calendar_id path int true "ID du calendrier"
 // @Success 204 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /user-calendar/{user_id}/{calendar_id} [delete]
 func (UserCalendarStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogUserCalendarDelete)
@@ -326,7 +326,7 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 // @Produce json
 // @Param user_id path int true "ID de l'utilisateur"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /user-calendar/{user_id} [get]
 func (UserCalendarStruct) List(c *gin.Context) {
 	slog.Info(common.LogUserCalendarList)
@@ -450,7 +450,7 @@ func (UserCalendarStruct) GetByUser(c *gin.Context) {
 // @Tags User-Calendar
 // @Produce json
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /user-calendar/me [get]
 func (UserCalendarStruct) ListMine(c *gin.Context) {
 	slog.Info(common.LogUserCalendarList)

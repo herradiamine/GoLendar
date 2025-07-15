@@ -28,8 +28,8 @@ var Session = SessionStruct{}
 // @Produce json
 // @Param login body common.LoginRequest true "Données de connexion"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /auth/login [post]
 func (SessionStruct) Login(c *gin.Context) {
 	slog.Info(common.LogLoginAttempt)
@@ -173,7 +173,7 @@ func (SessionStruct) Login(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /auth/logout [post]
 func (SessionStruct) Logout(c *gin.Context) {
 	slog.Info(common.LogLogoutAttempt)
@@ -230,8 +230,8 @@ func (SessionStruct) Logout(c *gin.Context) {
 // @Produce json
 // @Param refreshToken body common.RefreshTokenRequest true "Refresh token"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /auth/refresh [post]
 func (SessionStruct) RefreshToken(c *gin.Context) {
 	slog.Info(common.LogRefreshTokenAttempt)
@@ -332,7 +332,7 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 // @Tags Auth
 // @Produce json
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /auth/sessions [get]
 func (SessionStruct) GetUserSessions(c *gin.Context) {
 	slog.Info(common.LogGetUserSessions)
@@ -391,9 +391,9 @@ func (SessionStruct) GetUserSessions(c *gin.Context) {
 // @Produce json
 // @Param session_id path int true "ID de la session"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /auth/sessions/{session_id} [delete]
 func (SessionStruct) DeleteSession(c *gin.Context) {
 	slog.Info(common.LogDeleteSession)

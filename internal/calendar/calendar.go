@@ -21,8 +21,8 @@ var Calendar = CalendarStruct{}
 // @Produce json
 // @Param calendar_id path int true "ID du calendrier"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /calendar/{calendar_id} [get]
 func (CalendarStruct) Get(c *gin.Context) {
 	slog.Info(common.LogCalendarGet)
@@ -60,8 +60,8 @@ func (CalendarStruct) Get(c *gin.Context) {
 // @Produce json
 // @Param calendrier body common.Calendar true "Données du calendrier"
 // @Success 201 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /calendar [post]
 func (CalendarStruct) Add(c *gin.Context) {
 	slog.Info(common.LogCalendarAdd)
@@ -156,9 +156,9 @@ func (CalendarStruct) Add(c *gin.Context) {
 // @Param calendar_id path int true "ID du calendrier"
 // @Param calendrier body common.Calendar true "Données du calendrier"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /calendar/{calendar_id} [put]
 func (CalendarStruct) Update(c *gin.Context) {
 	slog.Info(common.LogCalendarUpdate)
@@ -234,8 +234,8 @@ func (CalendarStruct) Update(c *gin.Context) {
 // @Produce json
 // @Param calendar_id path int true "ID du calendrier"
 // @Success 204 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /calendar/{calendar_id} [delete]
 func (CalendarStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogCalendarDelete)

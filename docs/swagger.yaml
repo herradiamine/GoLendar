@@ -56,6 +56,17 @@ definitions:
     - lastname
     - password
     type: object
+  common.JSONErrorResponse:
+    properties:
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        example: false
+        type: boolean
+    type: object
   common.JSONResponse:
     properties:
       data: {}
@@ -160,11 +171,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Connexion utilisateur
       tags:
       - Auth
@@ -183,7 +194,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Déconnexion utilisateur
       tags:
       - Auth
@@ -200,7 +211,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Récupérer l'utilisateur connecté avec ses rôles
       tags:
       - Auth
@@ -226,11 +237,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Rafraîchissement de token
       tags:
       - Auth
@@ -247,7 +258,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Liste des sessions utilisateur
       tags:
       - Auth
@@ -270,15 +281,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Suppression d'une session utilisateur
       tags:
       - Auth
@@ -304,11 +315,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Créer un calendrier
       tags:
       - Calendrier
@@ -339,11 +350,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Créer un événement
       tags:
       - Événement
@@ -371,11 +382,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Supprimer un événement
       tags:
       - Événement
@@ -402,11 +413,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Récupérer un événement
       tags:
       - Événement
@@ -441,15 +452,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Mettre à jour un événement
       tags:
       - Événement
@@ -487,7 +498,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Lister les événements par jour
       tags:
       - Événement
@@ -520,7 +531,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Lister les événements par mois
       tags:
       - Événement
@@ -553,7 +564,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Lister les événements par semaine
       tags:
       - Événement
@@ -576,11 +587,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Supprimer un calendrier
       tags:
       - Calendrier
@@ -602,11 +613,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Récupérer un calendrier
       tags:
       - Calendrier
@@ -636,15 +647,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Mettre à jour un calendrier
       tags:
       - Calendrier
@@ -658,10 +669,14 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Lister les rôles
       tags:
       - Rôles
@@ -686,11 +701,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Créer un rôle
       tags:
       - Rôles
@@ -710,14 +725,18 @@ paths:
           description: No Content
           schema:
             $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Supprimer un rôle
       tags:
       - Rôles
@@ -736,14 +755,18 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Récupérer un rôle
       tags:
       - Rôles
@@ -773,15 +796,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Mettre à jour un rôle
       tags:
       - Rôles
@@ -807,11 +830,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Assigner un rôle
       tags:
       - Rôles
@@ -837,11 +860,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Révoquer un rôle
       tags:
       - Rôles
@@ -861,14 +884,18 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Lister les rôles d'un utilisateur
       tags:
       - Rôles
@@ -894,11 +921,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "409":
           description: Conflict
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Créer un utilisateur
       tags:
       - Utilisateur
@@ -921,7 +948,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Lister les liaisons user-calendar d'un utilisateur
       tags:
       - User-Calendar
@@ -949,11 +976,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Supprimer une liaison user-calendar
       tags:
       - User-Calendar
@@ -981,11 +1008,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Récupérer une liaison user-calendar
       tags:
       - User-Calendar
@@ -1020,11 +1047,11 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Créer une liaison user-calendar
       tags:
       - User-Calendar
@@ -1059,15 +1086,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Mettre à jour une liaison user-calendar
       tags:
       - User-Calendar
@@ -1085,7 +1112,7 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Lister mes liaisons user-calendar
       tags:
       - User-Calendar
@@ -1108,11 +1135,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Supprimer un utilisateur
       tags:
       - Utilisateur
@@ -1134,11 +1161,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Récupérer un utilisateur
       tags:
       - Utilisateur
@@ -1168,15 +1195,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Mettre à jour un utilisateur
       tags:
       - Utilisateur
@@ -1199,11 +1226,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Récupérer un utilisateur avec ses rôles
       tags:
       - Utilisateur
@@ -1221,11 +1248,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Supprimer un utilisateur
       tags:
       - Utilisateur
@@ -1242,11 +1269,11 @@ paths:
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Récupérer un utilisateur
       tags:
       - Utilisateur
@@ -1272,15 +1299,15 @@ paths:
         "400":
           description: Bad Request
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "401":
           description: Unauthorized
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
         "404":
           description: Not Found
           schema:
-            $ref: '#/definitions/common.JSONResponse'
+            $ref: '#/definitions/common.JSONErrorResponse'
       summary: Mettre à jour un utilisateur
       tags:
       - Utilisateur

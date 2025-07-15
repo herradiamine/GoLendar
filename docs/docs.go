@@ -49,13 +49,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -84,7 +84,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -110,7 +110,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -150,13 +150,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -182,7 +182,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -217,19 +217,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -269,13 +269,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -322,13 +322,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -384,7 +384,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -433,7 +433,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -482,7 +482,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -524,13 +524,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -582,19 +582,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -634,13 +634,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -675,13 +675,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -726,19 +726,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -771,13 +771,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -800,10 +800,16 @@ const docTemplate = `{
                             "$ref": "#/definitions/common.JSONResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/common.JSONErrorResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -841,13 +847,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -887,13 +893,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -933,13 +939,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -971,16 +977,22 @@ const docTemplate = `{
                             "$ref": "#/definitions/common.JSONResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/common.JSONErrorResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1012,16 +1024,22 @@ const docTemplate = `{
                             "$ref": "#/definitions/common.JSONResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/common.JSONErrorResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1066,19 +1084,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1108,16 +1126,22 @@ const docTemplate = `{
                             "$ref": "#/definitions/common.JSONResponse"
                         }
                     },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/common.JSONErrorResponse"
+                        }
+                    },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1157,13 +1181,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "409": {
                         "description": "Conflict",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1189,7 +1213,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1224,7 +1248,7 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1266,13 +1290,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1324,19 +1348,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1388,13 +1412,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1434,13 +1458,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1466,13 +1490,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1510,19 +1534,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1546,13 +1570,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1586,13 +1610,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1636,19 +1660,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1680,13 +1704,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1721,13 +1745,13 @@ const docTemplate = `{
                     "401": {
                         "description": "Unauthorized",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/common.JSONResponse"
+                            "$ref": "#/definitions/common.JSONErrorResponse"
                         }
                     }
                 }
@@ -1817,6 +1841,22 @@ const docTemplate = `{
                 "password": {
                     "type": "string",
                     "minLength": 6
+                }
+            }
+        },
+        "common.JSONErrorResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "success": {
+                    "type": "boolean",
+                    "example": false
                 }
             }
         },

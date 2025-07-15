@@ -23,8 +23,9 @@ var Role = RoleStruct{}
 // @Produce json
 // @Param id path int true "ID du rôle"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /roles/{id} [get]
 func (RoleStruct) GetRole(c *gin.Context) {
 	slog.Info(common.LogRoleGet)
@@ -87,7 +88,8 @@ func (RoleStruct) GetRole(c *gin.Context) {
 // @Tags Rôles
 // @Produce json
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /roles [get]
 func (RoleStruct) ListRoles(c *gin.Context) {
 	slog.Info(common.LogRoleList)
@@ -134,8 +136,8 @@ func (RoleStruct) ListRoles(c *gin.Context) {
 // @Produce json
 // @Param role body common.Role true "Données du rôle"
 // @Success 201 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /roles [post]
 func (RoleStruct) CreateRole(c *gin.Context) {
 	slog.Info(common.LogRoleCreate)
@@ -194,9 +196,9 @@ func (RoleStruct) CreateRole(c *gin.Context) {
 // @Param id path int true "ID du rôle"
 // @Param role body common.Role true "Données du rôle"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /roles/{id} [put]
 func (RoleStruct) UpdateRole(c *gin.Context) {
 	slog.Info(common.LogRoleUpdate)
@@ -284,8 +286,9 @@ func (RoleStruct) UpdateRole(c *gin.Context) {
 // @Produce json
 // @Param id path int true "ID du rôle"
 // @Success 204 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /roles/{id} [delete]
 func (RoleStruct) DeleteRole(c *gin.Context) {
 	slog.Info(common.LogRoleDelete)
@@ -365,8 +368,8 @@ func (RoleStruct) DeleteRole(c *gin.Context) {
 // @Produce json
 // @Param assign body common.AssignRoleRequest true "Données d'assignation"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /roles/assign [post]
 func (RoleStruct) AssignRole(c *gin.Context) {
 	slog.Info(common.LogRoleAssign)
@@ -446,8 +449,8 @@ func (RoleStruct) AssignRole(c *gin.Context) {
 // @Produce json
 // @Param revoke body common.RevokeRoleRequest true "Données de révocation"
 // @Success 200 {object} common.JSONResponse
-// @Failure 400 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
 // @Router /roles/revoke [post]
 func (RoleStruct) RevokeRole(c *gin.Context) {
 	slog.Info(common.LogRoleRevoke)
@@ -499,8 +502,9 @@ func (RoleStruct) RevokeRole(c *gin.Context) {
 // @Produce json
 // @Param user_id path int true "ID de l'utilisateur"
 // @Success 200 {object} common.JSONResponse
-// @Failure 401 {object} common.JSONResponse
-// @Failure 404 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONErrorResponse
+// @Failure 401 {object} common.JSONErrorResponse
+// @Failure 404 {object} common.JSONErrorResponse
 // @Router /roles/user/{user_id} [get]
 func (RoleStruct) GetUserRoles(c *gin.Context) {
 	slog.Info(common.LogRoleGetUserRoles)
