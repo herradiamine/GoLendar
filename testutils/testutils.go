@@ -241,6 +241,10 @@ func SetupTestEnvironment() error {
 	if err := InitTestDB(); err != nil {
 		return fmt.Errorf("erreur lors de l'initialisation de la base de données de test: %v", err)
 	}
+	common.DB.Exec("INSERT INTO `roles` (name, description, created_at) VALUES ('admin', 'Administrateur avec tous les droits sur l''application', NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW();")
+	common.DB.Exec("INSERT INTO `roles` (name, description, created_at) VALUES ('user', 'Utilisateur standard avec accès à ses propres calendriers et événements', NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW();")
+	common.DB.Exec("INSERT INTO `roles` (name, description, created_at) VALUES ('moderator', 'Modérateur avec permissions étendues de gestion', NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW();")
+	common.DB.Exec("INSERT INTO `roles` (name, description, created_at) VALUES ('editor', 'Éditeur avec permissions de création et modification de contenu', NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW();")
 
 	// Ici on pourrait ajouter d'autres initialisations (logger, etc.)
 	return nil
@@ -325,6 +329,11 @@ func PurgeAllTestUsers() {
 	common.DB.Exec("TRUNCATE TABLE user")
 	common.DB.Exec("TRUNCATE TABLE roles")
 	common.DB.Exec("SET FOREIGN_KEY_CHECKS=1;")
+
+	common.DB.Exec("INSERT INTO `roles` (name, description, created_at) VALUES ('admin', 'Administrateur avec tous les droits sur l''application', NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW();")
+	common.DB.Exec("INSERT INTO `roles` (name, description, created_at) VALUES ('user', 'Utilisateur standard avec accès à ses propres calendriers et événements', NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW();")
+	common.DB.Exec("INSERT INTO `roles` (name, description, created_at) VALUES ('moderator', 'Modérateur avec permissions étendues de gestion', NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW();")
+	common.DB.Exec("INSERT INTO `roles` (name, description, created_at) VALUES ('editor', 'Éditeur avec permissions de création et modification de contenu', NOW()) ON DUPLICATE KEY UPDATE updated_at = NOW();")
 }
 
 // AuthenticatedUser représente un utilisateur authentifié avec ses informations de session

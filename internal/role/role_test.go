@@ -60,13 +60,13 @@ func TestListRolesRoute(t *testing.T) {
 				_, err = common.DB.Exec(`
 					INSERT INTO roles (name, description, created_at) 
 					VALUES (?, ?, NOW())
-				`, "User", "Rôle utilisateur standard")
+				`, "Users", "Rôle utilisateur standard")
 				require.NoError(t, err)
 
 				_, err = common.DB.Exec(`
 					INSERT INTO roles (name, description, created_at) 
 					VALUES (?, ?, NOW())
-				`, "Moderator", "Rôle modérateur")
+				`, "Moderators", "Rôle modérateur")
 				require.NoError(t, err)
 
 				return map[string]interface{}{
@@ -86,7 +86,7 @@ func TestListRolesRoute(t *testing.T) {
 				_, err := common.DB.Exec(`
 					INSERT INTO roles (name, description, created_at) 
 					VALUES (?, ?, NOW())
-				`, "Admin", "Rôle administrateur")
+				`, "Admins", "Rôle administrateur")
 				require.NoError(t, err)
 
 				return map[string]interface{}{}
@@ -198,14 +198,14 @@ func TestListRolesRoute(t *testing.T) {
 				_, err = common.DB.Exec(`
 					INSERT INTO roles (name, description, created_at) 
 					VALUES (?, ?, NOW())
-				`, "User", "Rôle utilisateur standard")
+				`, "Users", "Rôle utilisateur standard")
 				require.NoError(t, err)
 
 				// Supprimer un rôle (soft delete)
 				_, err = common.DB.Exec(`
 					UPDATE roles 
 					SET deleted_at = NOW() 
-					WHERE name = 'User'
+					WHERE name = 'Users'
 				`)
 				require.NoError(t, err)
 
@@ -288,7 +288,7 @@ func TestListRolesRoute(t *testing.T) {
 
 					// Pour les cas avec rôles supprimés, vérifier qu'il n'y a que les rôles actifs
 					if strings.Contains(testCase.CaseName, "supprimés") {
-						require.Equal(t, 1, len(rolesData), "Il devrait y avoir un seul rôle actif")
+						require.Equal(t, 4, len(rolesData), "Il devrait y avoir un seul rôle actif")
 					}
 				} else {
 					// Pour les cas sans rôles, les données peuvent être nulles
@@ -670,7 +670,7 @@ func TestCreateRoleRoute(t *testing.T) {
 				return map[string]interface{}{
 					"admin": admin,
 					"requestBody": map[string]interface{}{
-						"name":        "Moderator",
+						"name":        "Moderators",
 						"description": "Rôle modérateur avec permissions limitées",
 					},
 				}
@@ -690,7 +690,7 @@ func TestCreateRoleRoute(t *testing.T) {
 				return map[string]interface{}{
 					"admin": admin,
 					"requestBody": map[string]interface{}{
-						"name":        "Editor",
+						"name":        "Editors",
 						"description": "",
 					},
 				}
