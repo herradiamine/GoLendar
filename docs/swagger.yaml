@@ -1,0 +1,1287 @@
+definitions:
+  common.AssignRoleRequest:
+    properties:
+      role_id:
+        type: integer
+      user_id:
+        type: integer
+    required:
+    - role_id
+    - user_id
+    type: object
+  common.Calendar:
+    properties:
+      calendar_id:
+        type: integer
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      title:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  common.CalendarEvent:
+    properties:
+      calendar_event_id:
+        type: integer
+      calendar_id:
+        type: integer
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      event_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  common.CreateUserRequest:
+    properties:
+      email:
+        type: string
+      firstname:
+        type: string
+      lastname:
+        type: string
+      password:
+        minLength: 6
+        type: string
+    required:
+    - email
+    - firstname
+    - lastname
+    - password
+    type: object
+  common.JSONResponse:
+    properties:
+      data: {}
+      error:
+        type: string
+      message:
+        type: string
+      success:
+        type: boolean
+    type: object
+  common.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  common.RefreshTokenRequest:
+    properties:
+      refresh_token:
+        type: string
+    required:
+    - refresh_token
+    type: object
+  common.RevokeRoleRequest:
+    properties:
+      role_id:
+        type: integer
+      user_id:
+        type: integer
+    required:
+    - role_id
+    - user_id
+    type: object
+  common.Role:
+    properties:
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      description:
+        type: string
+      name:
+        type: string
+      role_id:
+        type: integer
+      updated_at:
+        type: string
+    type: object
+  common.UpdateUserRequest:
+    properties:
+      email:
+        type: string
+      firstname:
+        type: string
+      lastname:
+        type: string
+      password:
+        type: string
+    type: object
+  common.UserCalendar:
+    properties:
+      calendar_id:
+        type: integer
+      created_at:
+        type: string
+      deleted_at:
+        type: string
+      updated_at:
+        type: string
+      user_calendar_id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+info:
+  contact: {}
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authentifie un utilisateur et crée une session. Retourne un token
+        de session, un refresh token, l'utilisateur et ses rôles.
+      parameters:
+      - description: Données de connexion
+        in: body
+        name: login
+        required: true
+        schema:
+          $ref: '#/definitions/common.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Connexion utilisateur
+      tags:
+      - Auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: Déconnecte l'utilisateur en supprimant sa session courante.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Déconnexion utilisateur
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      description: Récupère les informations de l'utilisateur connecté et ses rôles
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Récupérer l'utilisateur connecté avec ses rôles
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Rafraîchit un token de session à partir d'un refresh token.
+      parameters:
+      - description: Refresh token
+        in: body
+        name: refreshToken
+        required: true
+        schema:
+          $ref: '#/definitions/common.RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Rafraîchissement de token
+      tags:
+      - Auth
+  /auth/sessions:
+    get:
+      description: Récupère toutes les sessions actives de l'utilisateur connecté.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Liste des sessions utilisateur
+      tags:
+      - Auth
+  /auth/sessions/{session_id}:
+    delete:
+      description: Supprime une session spécifique de l'utilisateur connecté.
+      parameters:
+      - description: ID de la session
+        in: path
+        name: session_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Suppression d'une session utilisateur
+      tags:
+      - Auth
+  /calendar:
+    post:
+      consumes:
+      - application/json
+      description: Crée un nouveau calendrier
+      parameters:
+      - description: Données du calendrier
+        in: body
+        name: calendrier
+        required: true
+        schema:
+          $ref: '#/definitions/common.Calendar'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Créer un calendrier
+      tags:
+      - Calendrier
+  /calendar-event/{calendar_id}:
+    post:
+      consumes:
+      - application/json
+      description: Crée un nouvel événement dans un calendrier
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: Données de l'événement
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/common.CalendarEvent'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Créer un événement
+      tags:
+      - Événement
+  /calendar-event/{calendar_id}/{event_id}:
+    delete:
+      description: Supprime un événement de calendrier par son ID
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: ID de l'événement
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Supprimer un événement
+      tags:
+      - Événement
+    get:
+      description: Récupère un événement de calendrier par son ID et celui du calendrier
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: ID de l'événement
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Récupérer un événement
+      tags:
+      - Événement
+    put:
+      consumes:
+      - application/json
+      description: Met à jour un événement de calendrier existant
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: ID de l'événement
+        in: path
+        name: event_id
+        required: true
+        type: integer
+      - description: Données de l'événement
+        in: body
+        name: event
+        required: true
+        schema:
+          $ref: '#/definitions/common.CalendarEvent'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Mettre à jour un événement
+      tags:
+      - Événement
+  /calendar-event/{calendar_id}/day/{year}/{month}/{day}:
+    get:
+      description: Liste les événements d'un calendrier pour un jour donné
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: Année
+        in: path
+        name: year
+        required: true
+        type: integer
+      - description: Mois
+        in: path
+        name: month
+        required: true
+        type: integer
+      - description: Jour
+        in: path
+        name: day
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Lister les événements par jour
+      tags:
+      - Événement
+  /calendar-event/{calendar_id}/month/{year}/{month}:
+    get:
+      description: Liste les événements d'un calendrier pour un mois donné
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: Année
+        in: path
+        name: year
+        required: true
+        type: integer
+      - description: Mois
+        in: path
+        name: month
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Lister les événements par mois
+      tags:
+      - Événement
+  /calendar-event/{calendar_id}/week/{year}/{week}:
+    get:
+      description: Liste les événements d'un calendrier pour une semaine donnée
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: Année
+        in: path
+        name: year
+        required: true
+        type: integer
+      - description: Numéro de la semaine
+        in: path
+        name: week
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Lister les événements par semaine
+      tags:
+      - Événement
+  /calendar/{calendar_id}:
+    delete:
+      description: Supprime un calendrier par son ID
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Supprimer un calendrier
+      tags:
+      - Calendrier
+    get:
+      description: Récupère les informations d'un calendrier par son ID
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Récupérer un calendrier
+      tags:
+      - Calendrier
+    put:
+      consumes:
+      - application/json
+      description: Met à jour les informations d'un calendrier existant
+      parameters:
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: Données du calendrier
+        in: body
+        name: calendrier
+        required: true
+        schema:
+          $ref: '#/definitions/common.Calendar'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Mettre à jour un calendrier
+      tags:
+      - Calendrier
+  /roles:
+    get:
+      description: Récupère la liste de tous les rôles disponibles
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Lister les rôles
+      tags:
+      - Rôles
+    post:
+      consumes:
+      - application/json
+      description: Crée un nouveau rôle
+      parameters:
+      - description: Données du rôle
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/common.Role'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Créer un rôle
+      tags:
+      - Rôles
+  /roles/{id}:
+    delete:
+      description: Supprime un rôle par son ID
+      parameters:
+      - description: ID du rôle
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Supprimer un rôle
+      tags:
+      - Rôles
+    get:
+      description: Récupère les informations d'un rôle par son ID
+      parameters:
+      - description: ID du rôle
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Récupérer un rôle
+      tags:
+      - Rôles
+    put:
+      consumes:
+      - application/json
+      description: Met à jour les informations d'un rôle existant
+      parameters:
+      - description: ID du rôle
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Données du rôle
+        in: body
+        name: role
+        required: true
+        schema:
+          $ref: '#/definitions/common.Role'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Mettre à jour un rôle
+      tags:
+      - Rôles
+  /roles/assign:
+    post:
+      consumes:
+      - application/json
+      description: Assigne un rôle à un utilisateur
+      parameters:
+      - description: Données d'assignation
+        in: body
+        name: assign
+        required: true
+        schema:
+          $ref: '#/definitions/common.AssignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Assigner un rôle
+      tags:
+      - Rôles
+  /roles/revoke:
+    post:
+      consumes:
+      - application/json
+      description: Retire un rôle à un utilisateur
+      parameters:
+      - description: Données de révocation
+        in: body
+        name: revoke
+        required: true
+        schema:
+          $ref: '#/definitions/common.RevokeRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Révoquer un rôle
+      tags:
+      - Rôles
+  /roles/user/{user_id}:
+    get:
+      description: Récupère la liste des rôles attribués à un utilisateur
+      parameters:
+      - description: ID de l'utilisateur
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Lister les rôles d'un utilisateur
+      tags:
+      - Rôles
+  /user:
+    post:
+      consumes:
+      - application/json
+      description: Crée un nouvel utilisateur (inscription)
+      parameters:
+      - description: Données utilisateur
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/common.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "409":
+          description: Conflict
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Créer un utilisateur
+      tags:
+      - Utilisateur
+  /user-calendar/{user_id}:
+    get:
+      description: Récupère toutes les liaisons entre un utilisateur et ses calendriers
+      parameters:
+      - description: ID de l'utilisateur
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Lister les liaisons user-calendar d'un utilisateur
+      tags:
+      - User-Calendar
+  /user-calendar/{user_id}/{calendar_id}:
+    delete:
+      description: Supprime la liaison entre un utilisateur et un calendrier
+      parameters:
+      - description: ID de l'utilisateur
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Supprimer une liaison user-calendar
+      tags:
+      - User-Calendar
+    get:
+      description: Récupère la liaison entre un utilisateur et un calendrier par leurs
+        IDs
+      parameters:
+      - description: ID de l'utilisateur
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Récupérer une liaison user-calendar
+      tags:
+      - User-Calendar
+    post:
+      consumes:
+      - application/json
+      description: Crée une liaison entre un utilisateur et un calendrier
+      parameters:
+      - description: ID de l'utilisateur
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: Données de liaison
+        in: body
+        name: liaison
+        required: true
+        schema:
+          $ref: '#/definitions/common.UserCalendar'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Créer une liaison user-calendar
+      tags:
+      - User-Calendar
+    put:
+      consumes:
+      - application/json
+      description: Met à jour la liaison entre un utilisateur et un calendrier
+      parameters:
+      - description: ID de l'utilisateur
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: ID du calendrier
+        in: path
+        name: calendar_id
+        required: true
+        type: integer
+      - description: Données de liaison
+        in: body
+        name: liaison
+        required: true
+        schema:
+          $ref: '#/definitions/common.UserCalendar'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Mettre à jour une liaison user-calendar
+      tags:
+      - User-Calendar
+  /user-calendar/me:
+    get:
+      description: Récupère toutes les liaisons entre l'utilisateur connecté et ses
+        calendriers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Lister mes liaisons user-calendar
+      tags:
+      - User-Calendar
+  /user/{user_id}:
+    delete:
+      description: Supprime un utilisateur (soft delete) par ID (admin) ou l'utilisateur
+        connecté (/me)
+      parameters:
+      - description: ID de l'utilisateur (optionnel pour /me)
+        in: path
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Supprimer un utilisateur
+      tags:
+      - Utilisateur
+    get:
+      description: Récupère les informations d'un utilisateur par son ID (admin) ou
+        l'utilisateur connecté (/me)
+      parameters:
+      - description: ID de l'utilisateur (optionnel pour /me)
+        in: path
+        name: user_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Récupérer un utilisateur
+      tags:
+      - Utilisateur
+    put:
+      consumes:
+      - application/json
+      description: Met à jour les informations de l'utilisateur connecté ou d'un utilisateur
+        par ID (admin)
+      parameters:
+      - description: ID de l'utilisateur (optionnel pour /me)
+        in: path
+        name: user_id
+        type: integer
+      - description: Données utilisateur à mettre à jour
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/common.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Mettre à jour un utilisateur
+      tags:
+      - Utilisateur
+  /user/{user_id}/with-roles:
+    get:
+      description: Récupère un utilisateur et ses rôles par son ID (admin)
+      parameters:
+      - description: ID de l'utilisateur
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Récupérer un utilisateur avec ses rôles
+      tags:
+      - Utilisateur
+  /user/me:
+    delete:
+      description: Supprime un utilisateur (soft delete) par ID (admin) ou l'utilisateur
+        connecté (/me)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Supprimer un utilisateur
+      tags:
+      - Utilisateur
+    get:
+      description: Récupère les informations d'un utilisateur par son ID (admin) ou
+        l'utilisateur connecté (/me)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Récupérer un utilisateur
+      tags:
+      - Utilisateur
+    put:
+      consumes:
+      - application/json
+      description: Met à jour les informations de l'utilisateur connecté ou d'un utilisateur
+        par ID (admin)
+      parameters:
+      - description: Données utilisateur à mettre à jour
+        in: body
+        name: user
+        required: true
+        schema:
+          $ref: '#/definitions/common.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/common.JSONResponse'
+      summary: Mettre à jour un utilisateur
+      tags:
+      - Utilisateur
+swagger: "2.0"

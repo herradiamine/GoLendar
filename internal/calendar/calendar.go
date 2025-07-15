@@ -15,6 +15,15 @@ type CalendarStruct struct{}
 var Calendar = CalendarStruct{}
 
 // Get récupère un calendrier par user_id et calendar_id
+// @Summary Récupérer un calendrier
+// @Description Récupère les informations d'un calendrier par son ID
+// @Tags Calendrier
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /calendar/{calendar_id} [get]
 func (CalendarStruct) Get(c *gin.Context) {
 	slog.Info(common.LogCalendarGet)
 	if _, ok := common.GetUserFromContext(c); !ok {
@@ -43,7 +52,17 @@ func (CalendarStruct) Get(c *gin.Context) {
 	})
 }
 
-// Add crée un nouveau calendrier pour un utilisateur
+// Add crée un nouveau calendrier
+// @Summary Créer un calendrier
+// @Description Crée un nouveau calendrier
+// @Tags Calendrier
+// @Accept json
+// @Produce json
+// @Param calendrier body common.Calendar true "Données du calendrier"
+// @Success 201 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /calendar [post]
 func (CalendarStruct) Add(c *gin.Context) {
 	slog.Info(common.LogCalendarAdd)
 	userData, ok := common.GetUserFromContext(c)
@@ -129,6 +148,18 @@ func (CalendarStruct) Add(c *gin.Context) {
 }
 
 // Update met à jour un calendrier par user_id et calendar_id
+// @Summary Mettre à jour un calendrier
+// @Description Met à jour les informations d'un calendrier existant
+// @Tags Calendrier
+// @Accept json
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Param calendrier body common.Calendar true "Données du calendrier"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /calendar/{calendar_id} [put]
 func (CalendarStruct) Update(c *gin.Context) {
 	slog.Info(common.LogCalendarUpdate)
 	if _, ok := common.GetUserFromContext(c); !ok {
@@ -197,6 +228,15 @@ func (CalendarStruct) Update(c *gin.Context) {
 }
 
 // Delete supprime un calendrier par user_id et calendar_id
+// @Summary Supprimer un calendrier
+// @Description Supprime un calendrier par son ID
+// @Tags Calendrier
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Success 204 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /calendar/{calendar_id} [delete]
 func (CalendarStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogCalendarDelete)
 	if _, ok := common.GetUserFromContext(c); !ok {

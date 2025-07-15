@@ -11,6 +11,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 func RegisterRoutes(router *gin.Engine) {
@@ -24,6 +26,7 @@ func RegisterRoutes(router *gin.Engine) {
 			"service": "GoLendar API",
 		})
 	})
+	router.GET("/docs/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// ===== ROUTES D'AUTHENTIFICATION (publiques) =====
 	authGroup := router.Group("/auth")

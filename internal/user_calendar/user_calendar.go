@@ -19,7 +19,17 @@ type UserCalendarStruct struct{}
 
 var UserCalendar = UserCalendarStruct{}
 
-// Get récupère une liaison user calendar par user_id et calendar_id
+// Get récupère une liaison user-calendar
+// @Summary Récupérer une liaison user-calendar
+// @Description Récupère la liaison entre un utilisateur et un calendrier par leurs IDs
+// @Tags User-Calendar
+// @Produce json
+// @Param user_id path int true "ID de l'utilisateur"
+// @Param calendar_id path int true "ID du calendrier"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /user-calendar/{user_id}/{calendar_id} [get]
 func (UserCalendarStruct) Get(c *gin.Context) {
 	slog.Info(common.LogUserCalendarGet)
 	userID, ok := checkUserAccess(c)
@@ -64,7 +74,19 @@ func (UserCalendarStruct) Get(c *gin.Context) {
 	})
 }
 
-// Add crée une nouvelle liaison user calendar
+// Add crée une liaison user-calendar
+// @Summary Créer une liaison user-calendar
+// @Description Crée une liaison entre un utilisateur et un calendrier
+// @Tags User-Calendar
+// @Accept json
+// @Produce json
+// @Param user_id path int true "ID de l'utilisateur"
+// @Param calendar_id path int true "ID du calendrier"
+// @Param liaison body common.UserCalendar true "Données de liaison"
+// @Success 201 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /user-calendar/{user_id}/{calendar_id} [post]
 func (UserCalendarStruct) Add(c *gin.Context) {
 	slog.Info(common.LogUserCalendarAdd)
 	userID, ok := checkUserAccess(c)
@@ -145,7 +167,20 @@ func (UserCalendarStruct) Add(c *gin.Context) {
 	})
 }
 
-// Update met à jour une liaison user calendar par user_id et calendar_id
+// Update met à jour une liaison user-calendar
+// @Summary Mettre à jour une liaison user-calendar
+// @Description Met à jour la liaison entre un utilisateur et un calendrier
+// @Tags User-Calendar
+// @Accept json
+// @Produce json
+// @Param user_id path int true "ID de l'utilisateur"
+// @Param calendar_id path int true "ID du calendrier"
+// @Param liaison body common.UserCalendar true "Données de liaison"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /user-calendar/{user_id}/{calendar_id} [put]
 func (UserCalendarStruct) Update(c *gin.Context) {
 	slog.Info(common.LogUserCalendarUpdate)
 	userID, ok := checkUserAccess(c)
@@ -210,7 +245,17 @@ func (UserCalendarStruct) Update(c *gin.Context) {
 	})
 }
 
-// Delete supprime une liaison user-calendar par user_id et calendar_id
+// Delete supprime une liaison user-calendar
+// @Summary Supprimer une liaison user-calendar
+// @Description Supprime la liaison entre un utilisateur et un calendrier
+// @Tags User-Calendar
+// @Produce json
+// @Param user_id path int true "ID de l'utilisateur"
+// @Param calendar_id path int true "ID du calendrier"
+// @Success 204 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /user-calendar/{user_id}/{calendar_id} [delete]
 func (UserCalendarStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogUserCalendarDelete)
 	userID, ok := checkUserAccess(c)
@@ -275,6 +320,14 @@ func (UserCalendarStruct) Delete(c *gin.Context) {
 }
 
 // List récupère toutes les liaisons user calendar pour un utilisateur
+// @Summary Lister les liaisons user-calendar d'un utilisateur
+// @Description Récupère toutes les liaisons entre un utilisateur et ses calendriers
+// @Tags User-Calendar
+// @Produce json
+// @Param user_id path int true "ID de l'utilisateur"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /user-calendar/{user_id} [get]
 func (UserCalendarStruct) List(c *gin.Context) {
 	slog.Info(common.LogUserCalendarList)
 	userID, ok := checkUserAccess(c)
@@ -392,6 +445,13 @@ func (UserCalendarStruct) GetByUser(c *gin.Context) {
 }
 
 // ListMine récupère toutes les liaisons user calendar pour l'utilisateur connecté
+// @Summary Lister mes liaisons user-calendar
+// @Description Récupère toutes les liaisons entre l'utilisateur connecté et ses calendriers
+// @Tags User-Calendar
+// @Produce json
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /user-calendar/me [get]
 func (UserCalendarStruct) ListMine(c *gin.Context) {
 	slog.Info(common.LogUserCalendarList)
 	userData, ok := common.GetUserFromContext(c)

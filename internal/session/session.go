@@ -21,6 +21,16 @@ type SessionStruct struct{}
 var Session = SessionStruct{}
 
 // Login authentifie un utilisateur et crée une session
+// @Summary Connexion utilisateur
+// @Description Authentifie un utilisateur et crée une session. Retourne un token de session, un refresh token, l'utilisateur et ses rôles.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param login body common.LoginRequest true "Données de connexion"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /auth/login [post]
 func (SessionStruct) Login(c *gin.Context) {
 	slog.Info(common.LogLoginAttempt)
 	var req struct {
@@ -157,6 +167,14 @@ func (SessionStruct) Login(c *gin.Context) {
 }
 
 // Logout déconnecte un utilisateur en supprimant sa session
+// @Summary Déconnexion utilisateur
+// @Description Déconnecte l'utilisateur en supprimant sa session courante.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /auth/logout [post]
 func (SessionStruct) Logout(c *gin.Context) {
 	slog.Info(common.LogLogoutAttempt)
 
@@ -205,6 +223,16 @@ func (SessionStruct) Logout(c *gin.Context) {
 }
 
 // RefreshToken rafraîchit un token de session
+// @Summary Rafraîchissement de token
+// @Description Rafraîchit un token de session à partir d'un refresh token.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param refreshToken body common.RefreshTokenRequest true "Refresh token"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /auth/refresh [post]
 func (SessionStruct) RefreshToken(c *gin.Context) {
 	slog.Info(common.LogRefreshTokenAttempt)
 
@@ -299,6 +327,13 @@ func (SessionStruct) RefreshToken(c *gin.Context) {
 }
 
 // GetUserSessions récupère toutes les sessions d'un utilisateur
+// @Summary Liste des sessions utilisateur
+// @Description Récupère toutes les sessions actives de l'utilisateur connecté.
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /auth/sessions [get]
 func (SessionStruct) GetUserSessions(c *gin.Context) {
 	slog.Info(common.LogGetUserSessions)
 
@@ -350,6 +385,16 @@ func (SessionStruct) GetUserSessions(c *gin.Context) {
 }
 
 // DeleteSession supprime une session spécifique
+// @Summary Suppression d'une session utilisateur
+// @Description Supprime une session spécifique de l'utilisateur connecté.
+// @Tags Auth
+// @Produce json
+// @Param session_id path int true "ID de la session"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /auth/sessions/{session_id} [delete]
 func (SessionStruct) DeleteSession(c *gin.Context) {
 	slog.Info(common.LogDeleteSession)
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	_ "go-averroes/docs"
 	"go-averroes/internal/common"
 	"go-averroes/internal/middleware"
 	"go-averroes/internal/routes"

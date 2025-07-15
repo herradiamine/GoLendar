@@ -18,6 +18,16 @@ type UserStruct struct{}
 var User = UserStruct{}
 
 // Get récupère un utilisateur par son ID
+// @Summary Récupérer un utilisateur
+// @Description Récupère les informations d'un utilisateur par son ID (admin) ou l'utilisateur connecté (/me)
+// @Tags Utilisateur
+// @Produce json
+// @Param user_id path int false "ID de l'utilisateur (optionnel pour /me)"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /user/{user_id} [get]
+// @Router /user/me [get]
 func (UserStruct) Get(c *gin.Context) {
 	slog.Info(common.LogUserGet)
 	userData, ok := common.GetUserFromContext(c)
@@ -38,6 +48,16 @@ func (UserStruct) Get(c *gin.Context) {
 }
 
 // Add crée un nouvel utilisateur
+// @Summary Créer un utilisateur
+// @Description Crée un nouvel utilisateur (inscription)
+// @Tags Utilisateur
+// @Accept json
+// @Produce json
+// @Param user body common.CreateUserRequest true "Données utilisateur"
+// @Success 201 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 409 {object} common.JSONResponse
+// @Router /user [post]
 func (UserStruct) Add(c *gin.Context) {
 	slog.Info(common.LogUserAdd)
 	var req common.CreateUserRequest
@@ -155,6 +175,19 @@ func (UserStruct) Add(c *gin.Context) {
 }
 
 // Update met à jour un utilisateur
+// @Summary Mettre à jour un utilisateur
+// @Description Met à jour les informations de l'utilisateur connecté ou d'un utilisateur par ID (admin)
+// @Tags Utilisateur
+// @Accept json
+// @Produce json
+// @Param user_id path int false "ID de l'utilisateur (optionnel pour /me)"
+// @Param user body common.UpdateUserRequest true "Données utilisateur à mettre à jour"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /user/{user_id} [put]
+// @Router /user/me [put]
 func (UserStruct) Update(c *gin.Context) {
 	slog.Info(common.LogUserUpdate)
 	userData, ok := common.GetUserFromContext(c)
@@ -294,6 +327,16 @@ func (UserStruct) Update(c *gin.Context) {
 }
 
 // Delete supprime un utilisateur (soft delete)
+// @Summary Supprimer un utilisateur
+// @Description Supprime un utilisateur (soft delete) par ID (admin) ou l'utilisateur connecté (/me)
+// @Tags Utilisateur
+// @Produce json
+// @Param user_id path int false "ID de l'utilisateur (optionnel pour /me)"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /user/{user_id} [delete]
+// @Router /user/me [delete]
 func (UserStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogUserDelete)
 	userData, ok := common.GetUserFromContext(c)
@@ -355,6 +398,15 @@ func (UserStruct) Delete(c *gin.Context) {
 }
 
 // GetUserWithRoles récupère un utilisateur avec ses rôles
+// @Summary Récupérer un utilisateur avec ses rôles
+// @Description Récupère un utilisateur et ses rôles par son ID (admin)
+// @Tags Utilisateur
+// @Produce json
+// @Param user_id path int true "ID de l'utilisateur"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /user/{user_id}/with-roles [get]
 func (UserStruct) GetUserWithRoles(c *gin.Context) {
 	slog.Info("Récupération d'un utilisateur avec ses rôles")
 	userData, ok := common.GetUserFromContext(c)
@@ -409,6 +461,13 @@ func (UserStruct) GetUserWithRoles(c *gin.Context) {
 }
 
 // GetAuthMe récupère les informations de l'utilisateur authentifié avec ses rôles
+// @Summary Récupérer l'utilisateur connecté avec ses rôles
+// @Description Récupère les informations de l'utilisateur connecté et ses rôles
+// @Tags Auth
+// @Produce json
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /auth/me [get]
 func (UserStruct) GetAuthMe(c *gin.Context) {
 	slog.Info(common.LogUserGetWithRoles)
 

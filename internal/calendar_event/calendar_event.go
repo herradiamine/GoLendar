@@ -16,7 +16,17 @@ type CalendarEventStruct struct{}
 
 var CalendarEvent = CalendarEventStruct{}
 
-// Get récupère un événement par son ID
+// Get récupère un événement de calendrier
+// @Summary Récupérer un événement
+// @Description Récupère un événement de calendrier par son ID et celui du calendrier
+// @Tags Événement
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Param event_id path int true "ID de l'événement"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /calendar-event/{calendar_id}/{event_id} [get]
 func (CalendarEventStruct) Get(c *gin.Context) {
 	slog.Info(common.LogEventGet)
 	if _, ok := common.GetUserFromContext(c); !ok {
@@ -39,7 +49,18 @@ func (CalendarEventStruct) Get(c *gin.Context) {
 	})
 }
 
-// Add crée un nouvel événement
+// Add crée un événement de calendrier
+// @Summary Créer un événement
+// @Description Crée un nouvel événement dans un calendrier
+// @Tags Événement
+// @Accept json
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Param event body common.CalendarEvent true "Données de l'événement"
+// @Success 201 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /calendar-event/{calendar_id} [post]
 func (CalendarEventStruct) Add(c *gin.Context) {
 	slog.Info(common.LogEventAdd)
 	if _, ok := common.GetUserFromContext(c); !ok {
@@ -141,7 +162,20 @@ func (CalendarEventStruct) Add(c *gin.Context) {
 	})
 }
 
-// Update met à jour un événement
+// Update met à jour un événement de calendrier
+// @Summary Mettre à jour un événement
+// @Description Met à jour un événement de calendrier existant
+// @Tags Événement
+// @Accept json
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Param event_id path int true "ID de l'événement"
+// @Param event body common.CalendarEvent true "Données de l'événement"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /calendar-event/{calendar_id}/{event_id} [put]
 func (CalendarEventStruct) Update(c *gin.Context) {
 	slog.Info(common.LogEventUpdate)
 	if _, ok := common.GetUserFromContext(c); !ok {
@@ -222,7 +256,17 @@ func (CalendarEventStruct) Update(c *gin.Context) {
 	})
 }
 
-// Delete supprime un événement (soft delete)
+// Delete supprime un événement de calendrier
+// @Summary Supprimer un événement
+// @Description Supprime un événement de calendrier par son ID
+// @Tags Événement
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Param event_id path int true "ID de l'événement"
+// @Success 204 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /calendar-event/{calendar_id}/{event_id} [delete]
 func (CalendarEventStruct) Delete(c *gin.Context) {
 	slog.Info(common.LogEventDelete)
 	if _, ok := common.GetUserFromContext(c); !ok {
@@ -290,7 +334,17 @@ func (CalendarEventStruct) Delete(c *gin.Context) {
 	})
 }
 
-// ListByMonth récupère les événements d'un calendrier pour un mois donné
+// ListByMonth liste les événements d'un calendrier pour un mois donné
+// @Summary Lister les événements par mois
+// @Description Liste les événements d'un calendrier pour un mois donné
+// @Tags Événement
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Param year path int true "Année"
+// @Param month path int true "Mois"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /calendar-event/{calendar_id}/month/{year}/{month} [get]
 func (CalendarEventStruct) ListByMonth(c *gin.Context) {
 	yearStr := c.Param("year")
 	monthStr := c.Param("month")
@@ -309,7 +363,17 @@ func (CalendarEventStruct) ListByMonth(c *gin.Context) {
 	listEventsWithRange(c, startDate, endDate)
 }
 
-// ListByWeek récupère les événements d'un calendrier pour une semaine ISO donnée
+// ListByWeek liste les événements d'un calendrier pour une semaine donnée
+// @Summary Lister les événements par semaine
+// @Description Liste les événements d'un calendrier pour une semaine donnée
+// @Tags Événement
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Param year path int true "Année"
+// @Param week path int true "Numéro de la semaine"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /calendar-event/{calendar_id}/week/{year}/{week} [get]
 func (CalendarEventStruct) ListByWeek(c *gin.Context) {
 	yearStr := c.Param("year")
 	weekStr := c.Param("week")
@@ -334,7 +398,18 @@ func (CalendarEventStruct) ListByWeek(c *gin.Context) {
 	listEventsWithRange(c, startDate, endDate)
 }
 
-// ListByDay récupère les événements d'un calendrier pour un jour donné
+// ListByDay liste les événements d'un calendrier pour un jour donné
+// @Summary Lister les événements par jour
+// @Description Liste les événements d'un calendrier pour un jour donné
+// @Tags Événement
+// @Produce json
+// @Param calendar_id path int true "ID du calendrier"
+// @Param year path int true "Année"
+// @Param month path int true "Mois"
+// @Param day path int true "Jour"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /calendar-event/{calendar_id}/day/{year}/{month}/{day} [get]
 func (CalendarEventStruct) ListByDay(c *gin.Context) {
 	yearStr := c.Param("year")
 	monthStr := c.Param("month")

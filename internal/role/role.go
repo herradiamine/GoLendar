@@ -17,6 +17,15 @@ type RoleStruct struct{}
 var Role = RoleStruct{}
 
 // GetRole récupère un rôle par son ID
+// @Summary Récupérer un rôle
+// @Description Récupère les informations d'un rôle par son ID
+// @Tags Rôles
+// @Produce json
+// @Param id path int true "ID du rôle"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /roles/{id} [get]
 func (RoleStruct) GetRole(c *gin.Context) {
 	slog.Info(common.LogRoleGet)
 
@@ -72,7 +81,14 @@ func (RoleStruct) GetRole(c *gin.Context) {
 	})
 }
 
-// ListRoles récupère tous les rôles
+// ListRoles liste tous les rôles
+// @Summary Lister les rôles
+// @Description Récupère la liste de tous les rôles disponibles
+// @Tags Rôles
+// @Produce json
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /roles [get]
 func (RoleStruct) ListRoles(c *gin.Context) {
 	slog.Info(common.LogRoleList)
 
@@ -111,6 +127,16 @@ func (RoleStruct) ListRoles(c *gin.Context) {
 }
 
 // CreateRole crée un nouveau rôle
+// @Summary Créer un rôle
+// @Description Crée un nouveau rôle
+// @Tags Rôles
+// @Accept json
+// @Produce json
+// @Param role body common.Role true "Données du rôle"
+// @Success 201 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /roles [post]
 func (RoleStruct) CreateRole(c *gin.Context) {
 	slog.Info(common.LogRoleCreate)
 
@@ -160,6 +186,18 @@ func (RoleStruct) CreateRole(c *gin.Context) {
 }
 
 // UpdateRole met à jour un rôle existant
+// @Summary Mettre à jour un rôle
+// @Description Met à jour les informations d'un rôle existant
+// @Tags Rôles
+// @Accept json
+// @Produce json
+// @Param id path int true "ID du rôle"
+// @Param role body common.Role true "Données du rôle"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /roles/{id} [put]
 func (RoleStruct) UpdateRole(c *gin.Context) {
 	slog.Info(common.LogRoleUpdate)
 
@@ -240,6 +278,15 @@ func (RoleStruct) UpdateRole(c *gin.Context) {
 }
 
 // DeleteRole supprime un rôle
+// @Summary Supprimer un rôle
+// @Description Supprime un rôle par son ID
+// @Tags Rôles
+// @Produce json
+// @Param id path int true "ID du rôle"
+// @Success 204 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /roles/{id} [delete]
 func (RoleStruct) DeleteRole(c *gin.Context) {
 	slog.Info(common.LogRoleDelete)
 
@@ -310,7 +357,17 @@ func (RoleStruct) DeleteRole(c *gin.Context) {
 	})
 }
 
-// AssignRole attribue un rôle à un utilisateur
+// AssignRole assigne un rôle à un utilisateur
+// @Summary Assigner un rôle
+// @Description Assigne un rôle à un utilisateur
+// @Tags Rôles
+// @Accept json
+// @Produce json
+// @Param assign body common.AssignRoleRequest true "Données d'assignation"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /roles/assign [post]
 func (RoleStruct) AssignRole(c *gin.Context) {
 	slog.Info(common.LogRoleAssign)
 
@@ -381,7 +438,17 @@ func (RoleStruct) AssignRole(c *gin.Context) {
 	})
 }
 
-// RevokeRole révoque un rôle d'un utilisateur
+// RevokeRole retire un rôle à un utilisateur
+// @Summary Révoquer un rôle
+// @Description Retire un rôle à un utilisateur
+// @Tags Rôles
+// @Accept json
+// @Produce json
+// @Param revoke body common.RevokeRoleRequest true "Données de révocation"
+// @Success 200 {object} common.JSONResponse
+// @Failure 400 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Router /roles/revoke [post]
 func (RoleStruct) RevokeRole(c *gin.Context) {
 	slog.Info(common.LogRoleRevoke)
 
@@ -425,7 +492,16 @@ func (RoleStruct) RevokeRole(c *gin.Context) {
 	})
 }
 
-// GetUserRoles récupère les rôles d'un utilisateur
+// GetUserRoles liste les rôles d'un utilisateur
+// @Summary Lister les rôles d'un utilisateur
+// @Description Récupère la liste des rôles attribués à un utilisateur
+// @Tags Rôles
+// @Produce json
+// @Param user_id path int true "ID de l'utilisateur"
+// @Success 200 {object} common.JSONResponse
+// @Failure 401 {object} common.JSONResponse
+// @Failure 404 {object} common.JSONResponse
+// @Router /roles/user/{user_id} [get]
 func (RoleStruct) GetUserRoles(c *gin.Context) {
 	slog.Info(common.LogRoleGetUserRoles)
 
