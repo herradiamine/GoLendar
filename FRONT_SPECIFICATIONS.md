@@ -120,7 +120,7 @@ Ce document décrit les spécifications fonctionnelles et techniques pour le dé
 {
   "lastname": "Dupont",
   "firstname": "Jean",
-  "email": "jean@example.co",
+  "email": "jean@example.com",
   "password": "password123"
 }
 
